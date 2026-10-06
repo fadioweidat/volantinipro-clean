@@ -1,3 +1,4 @@
+import PublicNavLink from '../common/PublicNavLink.jsx';
 import React from "react";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
@@ -33,6 +34,7 @@ function SocialIcon({ type }) {
   );
 }
 
+const publicHrefs = {how:'/#come-funziona', prezzi:'/#prezzi', step1:'/configuratore', 'smart-pairing':'/#smart-pairing', 'milano-landing':'/distribuzione-volantini-milano', consultant:'/consulente', 'lavora-con-noi':'/lavora-con-noi', privacy:'/privacy', terms:'/termini', cookie:'/cookie-policy'};
 const columns = [
   {
     title: "Prodotto",
@@ -120,9 +122,9 @@ export default function Footer({ onNav, onHowItWorks }) {
                       {label}
                     </span>
                   ) : (
-                    <button key={label} type="button" onClick={() => go(target)} style={footerLinkStyle}>
+                    <PublicNavLink key={label} href={publicHrefs[target] || "/#contatti"} onClick={() => go(target)} style={footerLinkStyle}>
                       {label}
-                    </button>
+                    </PublicNavLink>
                   )
                 )}
               </div>

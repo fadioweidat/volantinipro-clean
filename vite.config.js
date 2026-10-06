@@ -1,3 +1,4 @@
+import { seoPreviewPlugin } from './dev/seoPreviewPlugin.js'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { driverTestSessionPlugin } from './dev/driverTestSessionPlugin.js'
@@ -9,7 +10,7 @@ export default defineConfig(({ mode }) => {
   // client tramite import.meta.env.
   const env = loadEnv(mode, process.cwd(), '')
   return {
-    plugins: [react(), driverTestSessionPlugin(env)],
+    plugins: [react(), driverTestSessionPlugin(env), seoPreviewPlugin()],
     server: {
       host: '0.0.0.0',
       // Tunnel HTTPS temporaneo (ngrok) per testare la Geolocation API su

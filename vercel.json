@@ -18,8 +18,52 @@
       "destination": "/app-driver/index.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/servizi/door-to-door",
+      "destination": "/servizi/door-to-door/index.html"
+    },
+    {
+      "source": "/servizi/hand-to-hand",
+      "destination": "/servizi/hand-to-hand/index.html"
+    },
+    {
+      "source": "/servizi/business",
+      "destination": "/servizi/business/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-milano",
+      "destination": "/distribuzione-volantini-milano/index.html"
+    },
+    {
+      "source": "/preventivo",
+      "destination": "/preventivo/index.html"
+    },
+    {
+      "source": "/preventivo-rapido",
+      "destination": "/preventivo-rapido/index.html"
+    },
+    {
+      "source": "/consulente",
+      "destination": "/consulente/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/termini",
+      "destination": "/termini/index.html"
+    },
+    {
+      "source": "/cookie-policy",
+      "destination": "/cookie-policy/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/app-shell.html"
     }
   ]
 }

@@ -151,7 +151,7 @@ function DriverNativeHome({ onNavigate }) {
   );
 }
 
-function Root() {
+function Root({ preparedRouter: PreparedRouter }) {
   // path era window.location.pathname letto una sola volta (nessun
   // re-render possibile su cambio route): serviva per Driver Programma<->
   // Mappa, che ora naviga con history.pushState + 'popstate' invece di un
@@ -275,11 +275,40 @@ function Root() {
   const customerMatch = path.match(/^\/customer\/campaigns\/([^/]+)\/tracking$/);
   if (customerMatch) return <Suspense fallback={<RouteLoadingFallback />}><CampaignTracking campaignId={customerMatch[1]} /></Suspense>;
 
+  if (PreparedRouter) return <PreparedRouter />;
   return <Suspense fallback={<RouteLoadingFallback />}><AppRouter /></Suspense>;
 }
 
+function mountApplication(PreparedRouter) {
 createRoot(document.getElementById("root")).render(
   <RouteErrorBoundary>
-    <Root />
+    <Root preparedRouter={PreparedRouter} />
   </RouteErrorBoundary>
 );
+}
+
+const snapshot = document.getElementById('root')?.dataset.seoSnapshot;
+if (snapshot && !isNativeDriverApp()) {
+  // Do not call createRoot while either public lazy boundary would show its
+  // loader. Keep the original, crawlable DOM until both modules are ready.
+  Promise.all([import('./app/AppRouter.jsx'), import('./app/PublicRoutes.jsx')])
+    .then(async ([router, pages]) => {
+      await pages.preloadMarketingPage(snapshot);
+      mountApplication(router.AppRouter);
+    })
+    .catch(() => {
+      // A failed chunk must not erase useful HTML or silently leave inert UI.
+      const notice = document.createElement('div');
+      notice.setAttribute('role', 'alert');
+      notice.textContent = 'Non è stato possibile attivare la pagina. ';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.textContent = 'Ricarica';
+      retry.onclick = () => window.location.reload();
+      notice.append(retry);
+      document.getElementById('root').before(notice);
+      console.error('[public bootstrap] Page initialization failed');
+    });
+} else {
+  mountApplication();
+}

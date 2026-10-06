@@ -7,7 +7,7 @@
     "test:quote-assistant": "node --import tsx --test tests/quote_contextual_assistant.test.mjs tests/ai_core_dispatcher.test.mjs tests/ai_territorial_step2_integration.test.mjs tests/customer_contact_options.test.mjs",
     "test:control-center": "node --import tsx --test tests/platform_status_center.test.mjs tests/platform_monitoring_persistence.test.mjs tests/gps_zombie_prevention.test.mjs",
     "test:admin-home": "node --import tsx --test tests/admin_operational_home.test.mjs tests/admin_commercial_home.test.mjs",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender-seo.mjs",
     "test:driver-diagnostics": "node --import tsx --test tests/driver_diagnostics.test.mjs tests/driver_diagnostics_off_behavior.test.mjs tests/driver_diagnostics_hook_off_behavior.test.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "import:istat": "node data/istat/import_data.mjs --scope=lombardia",
@@ -30,7 +30,8 @@
     "cap:android": "node scripts/configure-capacitor-android.mjs && npx cap sync android && npx cap open android",
     "cap:ios:init": "npm run build && npx cap add ios && node scripts/configure-capacitor-ios.mjs && npx cap sync ios",
     "cap:ios": "node scripts/configure-capacitor-ios.mjs && npx cap sync ios && npx cap open ios",
-    "cap:android:init": "npm run build && npx cap add android && node scripts/configure-capacitor-android.mjs && npx cap sync android"
+    "cap:android:init": "npm run build && npx cap add android && node scripts/configure-capacitor-android.mjs && npx cap sync android",
+    "test:seo-html": "node --test tests/seo_initial_html.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

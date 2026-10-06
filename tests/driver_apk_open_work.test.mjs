@@ -13,7 +13,7 @@ const assistantHost = read("../src/components/ai/driver/DriverAssistantHost.jsx"
 const workflow = read("../.github/workflows/build-android-driver.yml");
 
 function rootBody() {
-  const start = mainJsx.indexOf("function Root()");
+  const start = mainJsx.indexOf("function Root(");
   const end = mainJsx.indexOf("createRoot(", start);
   assert.ok(start > 0 && end > start, "Root() non trovato in main.jsx");
   return mainJsx.slice(start, end);
@@ -35,7 +35,7 @@ test("Root: la home nativa Driver ritorna solo DOPO tutti gli hook (no React #31
 
 test("Home APK: unico pulsante 'Apri il lavoro', nessun copia/incolla", () => {
   const start = mainJsx.indexOf("function DriverNativeHome");
-  const end = mainJsx.indexOf("function Root()");
+  const end = mainJsx.indexOf("function Root(");
   const home = mainJsx.slice(start, end);
   assert.equal((home.match(/<button\b/g) || []).length, 1);
   assert.match(home, />\s*Apri il lavoro\s*</);

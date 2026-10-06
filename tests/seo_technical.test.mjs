@@ -89,25 +89,11 @@ test("manifest.webmanifest: valido, referenzia solo icone realmente presenti in 
 });
 
 // ── SeoMeta.jsx ─────────────────────────────────────────────────────────
-test("SeoMeta.jsx: canonical assoluto, robots noindex sulle pagine private, title/description per ogni pagina pubblica rilevante", () => {
-  const src = read("src/layouts/public/SeoMeta.jsx");
-  assert.match(src, /setLink\("canonical", canonicalUrl\)/);
-  assert.match(src, /window\.location\.origin/);
-  assert.match(src, /noindex, nofollow/);
-  assert.match(src, /index, follow/);
-  for (const pageId of ["home", "quick", "consultant", "preventivo", "login", "dashboard", "privacy", "terms", "cookie"]) {
-    assert.match(src, new RegExp(`${pageId}:\\s*\\[`), `manca metaByPage per "${pageId}"`);
-  }
-});
-
-test("SeoMeta.jsx: isPrivatePage copre admin/customer/campaign/dashboard/supplier/login (mai indicizzati)", () => {
-  const src = read("src/layouts/public/SeoMeta.jsx");
-  assert.match(src, /page\.startsWith\("admin"\)/);
-  assert.match(src, /page\.startsWith\("customer"\)/);
-  assert.match(src, /page\.startsWith\("campaign"\)/);
-  assert.match(src, /page === "dashboard"/);
-  assert.match(src, /page === "supplier-dashboard"/);
-  assert.match(src, /page === "login"/);
+test('SEO metadata policy keeps canonical host stable and private paths noindex', async () => {
+ const { getRouteMetadata, SEO_ROUTES } = await import('../src/lib/seo/routePolicy.js');
+ for (const [path] of SEO_ROUTES) { const metadata = getRouteMetadata(path); assert.equal(metadata.canonical, 'https://www.volantinipro.it' + path); assert.equal(metadata.robots, 'index, follow'); assert.ok(metadata.title); assert.ok(metadata.description); }
+ for (const path of ['/admin','/dashboard','/customer/campaigns/a/tracking','/supplier','/login','/auth/callback','/driver/assignment/a','/campagna/a','/le-mie-analisi','/configuratore','/analisi-campagna','/unknown']) { const metadata=getRouteMetadata(path); assert.equal(metadata.indexable,false,path); assert.equal(metadata.robots,'noindex, nofollow',path); assert.equal(metadata.canonical,null,path); }
+ const source=read('src/layouts/public/SeoMeta.jsx'); assert.match(source,/getRouteMetadata\(window.location.pathname\)/); assert.match(source,/const siteUrl = SITE_URL/);
 });
 
 test("SeoMeta.jsx: nessun dato di contatto hardcoded, riusa contactConfig.js", () => {

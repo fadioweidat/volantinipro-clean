@@ -1,3 +1,4 @@
+import PublicNavLink from '../common/PublicNavLink.jsx';
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import Button from "../ui/Button.jsx";
@@ -245,6 +246,8 @@ export default function ServicesSection({ onConfigure, onConsultant, onServiceLi
                   {service.cta} →
                 </Button>
                 <Button
+                  as={PublicNavLink}
+                  href={{ "service-door-to-door": "/servizi/door-to-door", "service-hand-to-hand": "/servizi/hand-to-hand", "service-business": "/servizi/business" }[service.pageKey]}
                   variant="ghost"
                   onClick={() => onServiceLink?.(service.pageKey)}
                   style={{

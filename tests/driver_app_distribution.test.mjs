@@ -64,10 +64,13 @@ test("/app-driver NON e' intercettato dall'App Link Android ne' dal router Drive
   assert.equal(vercel.redirects.length, 1);
   assert.equal(vercel.redirects[0].has[0].value, "volantinipro.it");
   // /app-driver serve la pagina statica prima del catch-all SPA (che resta ultimo).
-  assert.deepEqual(vercel.rewrites, [
-    { source: "/app-driver", destination: "/app-driver/index.html" },
-    { source: "/(.*)", destination: "/index.html" },
-  ]);
+  assert.deepEqual(vercel.rewrites[0], { source: "/app-driver", destination: "/app-driver/index.html" });
+  assert.deepEqual(vercel.rewrites.at(-1), { source: "/(.*)", destination: "/app-shell.html" });
+  const marketing = ['/', '/servizi/door-to-door', '/servizi/hand-to-hand', '/servizi/business',
+    '/distribuzione-volantini-milano', '/preventivo', '/preventivo-rapido', '/consulente', '/privacy', '/termini', '/cookie-policy'];
+  assert.deepEqual(vercel.rewrites.slice(1, -1), marketing.map(source => ({
+    source, destination: source === '/' ? '/index.html' : `${source}/index.html`,
+  })));
 });
 
 // ─── 2/4. Messaggio installazione ────────────────────────────────────────────

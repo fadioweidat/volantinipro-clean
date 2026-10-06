@@ -1,3 +1,4 @@
+import PublicNavLink from '../../components/common/PublicNavLink.jsx';
 import React from "react";
 import { C, F } from "../../lib/constants.js";
 import { NavButton } from "../../components/NavButton.jsx";
@@ -41,8 +42,8 @@ function ServicePageTemplate({ content, onNav }) {
           {content.intro}
         </p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 40 }}>
-          <Button variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
-          <Button variant="secondary" onClick={() => onNav("consultant")}>Parla con un consulente</Button>
+          <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
+          <Button as={PublicNavLink} href="/consulente" variant="secondary" onClick={() => onNav("consultant")}>Parla con un consulente</Button>
         </div>
 
         {/* Sezioni H2 con contenuto reale */}

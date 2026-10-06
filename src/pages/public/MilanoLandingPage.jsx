@@ -1,4 +1,5 @@
 import React from "react";
+import PublicNavLink from '../../components/common/PublicNavLink.jsx';
 import { C, F } from "../../lib/constants.js";
 import { NavButton } from "../../components/NavButton.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -46,8 +47,8 @@ export function MilanoLandingPage({ onNav }) {
           {content.intro}
         </p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 40 }}>
-          <Button variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
-          <Button variant="secondary" onClick={() => onNav("consultant")}>Parla con noi</Button>
+          <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
+          <Button as={PublicNavLink} href="/consulente" variant="secondary" onClick={() => onNav("consultant")}>Parla con noi</Button>
         </div>
 
         {/* Sezioni H2 con contenuto reale */}
@@ -69,7 +70,7 @@ export function MilanoLandingPage({ onNav }) {
                   <div key={s.pageKey} style={{ padding: 16, borderRadius: 12, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 6 }}>{s.title}</div>
                     <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)", lineHeight: 1.6, marginBottom: 10 }}>{s.text}</div>
-                    <Button variant="ghost" onClick={() => onNav(s.pageKey)} style={{ color: C.orange, fontSize: 13, padding: 0 }}>
+                    <Button as={PublicNavLink} href={`/servizi/${s.pageKey.replace('service-', '')}`} variant="ghost" onClick={() => onNav(s.pageKey)} style={{ color: C.orange, fontSize: 13, padding: 0 }}>
                       Scopri {s.title} →
                     </Button>
                   </div>
@@ -89,7 +90,7 @@ export function MilanoLandingPage({ onNav }) {
             )}
 
             {section.priceCta && (
-              <Button variant="primary" onClick={() => onNav("preventivo")} style={{ marginTop: 10 }}>
+              <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")} style={{ marginTop: 10 }}>
                 {section.priceCta}
               </Button>
             )}
@@ -116,13 +117,13 @@ export function MilanoLandingPage({ onNav }) {
           <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.75)", marginBottom: 14 }}>
             Configura la tua campagna a Milano e ricevi un preventivo online.
           </p>
-          <Button variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
+          <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
         </div>
 
         {/* Internal linking */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 26 }}>
           {SERVICE_LINKS.map((s) => (
-            <Button key={s.key} variant="ghost" onClick={() => onNav(s.key)} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
+            <Button as={PublicNavLink} href={`/servizi/${s.key.replace('service-', '')}`} key={s.key} variant="ghost" onClick={() => onNav(s.key)} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
               {s.label} →
             </Button>
           ))}

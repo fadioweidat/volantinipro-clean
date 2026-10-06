@@ -39,7 +39,7 @@ test("AppRouter.jsx: Navbar/SeoMeta si montano automaticamente per la pagina Mil
 // ── PublicRoutes.jsx: la pagina è wired e lazy-loaded ──────────────────────
 test("PublicRoutes.jsx: MilanoLandingPage è renderizzata lazy e riceve onNav", () => {
   const src = read("src/app/PublicRoutes.jsx");
-  assert.match(src, /const MilanoLandingPage = lazy\(/);
+  assert.match(src, /const MilanoLandingPage = preloadablePage\(/);
   assert.match(src, /if \(page === "milano-landing"\) return <MilanoLandingPage onNav=\{goTo\} \/>;/);
 });
 
@@ -56,7 +56,7 @@ test("robots.txt: /distribuzione-volantini-milano non è bloccato (nessun Disall
 
 // ── SeoMeta.jsx: metadata esatti dal ticket, robots index/follow, JSON-LD ──
 test("SeoMeta.jsx: title/description esatti dal ticket per 'milano-landing'", () => {
-  const src = read("src/layouts/public/SeoMeta.jsx");
+  const src = read("src/lib/seo/routePolicy.js");
   assert.match(src, /"milano-landing":\s*\[/);
   assert.match(src, /Distribuzione Volantini Milano con GPS e Report \| VolantiniPro/);
   assert.match(src, /Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business\. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online\./);
@@ -144,7 +144,8 @@ test("MilanoLandingPage.jsx: linka preventivo, consulente, i 3 servizi, come fun
 
 test("Footer.jsx: la homepage linka la pagina Milano (un solo link, non spammy)", () => {
   const src = read("src/components/home/Footer.jsx");
-  const matches = [...src.matchAll(/milano-landing/g)];
+  // Count the actual entry, not the href lookup introduced for crawlable links.
+  const matches = [...src.matchAll(/\["Distribuzione volantini a Milano", "milano-landing"\]/g)];
   assert.equal(matches.length, 1, "il link verso la pagina Milano deve comparire una sola volta in Footer.jsx");
   assert.match(src, /\["Distribuzione volantini a Milano", "milano-landing"\]/);
 });

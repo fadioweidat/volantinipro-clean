@@ -1,3 +1,4 @@
+import { SITE_URL, getRouteMetadata } from '../../lib/seo/routePolicy.js';
 import React, { useEffect } from "react";
 import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "../../lib/contactConfig.js";
 import { faqs } from "../../components/home/FAQSection.jsx";
@@ -8,50 +9,10 @@ import { milanoLandingContent } from "../../lib/seo/milanoLandingContent.js";
 // TICKET — SEO TECNICO + GOOGLE + AI SEARCH: title/description/canonical/OG/
 // Twitter/robots per pagina + JSON-LD (Organization/WebSite sempre,
 // FAQPage/Service solo in home, BreadcrumbList sulle pagine interne).
-// Resta un meccanismo CSR (useEffect dopo il mount): aiuta i crawler che
-// eseguono JS (Googlebot in primis), non sostituisce un vero SSR/prerender
-// per i motori che non eseguono JS — vedi audit del ticket.
+// La stessa policy alimenta l'HTML generato al build e questi aggiornamenti
+// dopo la navigazione SPA. Il canonical iniziale resta quello definitivo.
 
-const metaByPage = {
-  home: [
-    "Distribuzione Volantini con GPS e Report | VolantiniPro",
-    "Distribuzione volantini Door to Door, Hand to Hand e Business con analisi territoriale, tracking GPS, prove fotografiche e preventivo online.",
-  ],
-  quick: [
-    "Preventivo rapido distribuzione volantini | VolantiniPro",
-    "Richiedi una stima rapida per la tua campagna di distribuzione volantini: servizio, zona e quantità in pochi passaggi.",
-  ],
-  consultant: [
-    "Parla con un consulente VolantiniPro",
-    "Richiedi supporto diretto per configurare la tua campagna di distribuzione volantini con un consulente VolantiniPro.",
-  ],
-  preventivo: [
-    "Configura il tuo preventivo | VolantiniPro",
-    "Configura zona, servizio e quantità e ottieni un preventivo online per la tua campagna di distribuzione volantini.",
-  ],
-  login: ["Login cliente | VolantiniPro", "Accedi alla dashboard VolantiniPro con magic link sicuro via email."],
-  dashboard: ["Dashboard cliente | VolantiniPro", "Monitora campagne, tracking GPS, Smart Pairing e report finali."],
-  campaign: ["Dashboard campagna | VolantiniPro", "Stato campagna, percorso GPS, statistiche di distribuzione, proof foto e report PDF."],
-  privacy: ["Privacy Policy | VolantiniPro", "Informativa privacy per clienti e utenti VolantiniPro."],
-  terms: ["Termini e condizioni | VolantiniPro", "Condizioni d'uso del servizio VolantiniPro."],
-  cookie: ["Cookie Policy | VolantiniPro", "Informazioni sui cookie tecnici, analytics e preferenze del sito VolantiniPro."],
-  "service-door-to-door": [
-    "Distribuzione Volantini Door to Door | VolantiniPro",
-    "Distribuzione volantini nelle cassette postali di condomini e zone residenziali, con analisi territoriale, tracking GPS e report finale.",
-  ],
-  "service-hand-to-hand": [
-    "Distribuzione Volantini Hand to Hand | VolantiniPro",
-    "Distribuzione volantini a mano in punti ad alto passaggio pedonale, con POI strategici, tracking GPS e report finale.",
-  ],
-  "service-business": [
-    "Distribuzione Volantini Business | VolantiniPro",
-    "Distribuzione volantini mirata ad aziende, negozi e uffici, con coordinamento multi-sede, tracking GPS e report finale.",
-  ],
-  "milano-landing": [
-    "Distribuzione Volantini Milano con GPS e Report | VolantiniPro",
-    "Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online.",
-  ],
-};
+
 
 const SERVICE_PAGE_IDS = Object.keys(SERVICE_PAGE_CONTENT);
 
@@ -59,21 +20,6 @@ const SERVICE_PAGE_IDS = Object.keys(SERVICE_PAGE_CONTENT);
 // per il FAQPage/Service JSON-LD (vedi sotto) — le 3 pagine servizio +
 // la pagina locale pilota Milano (TICKET SEO LOCAL PAGE PILOTA MILANO).
 const CONTENT_PAGES = { ...SERVICE_PAGE_CONTENT, "milano-landing": milanoLandingContent };
-
-// Pagine private/gestionali: mai indicizzate, anche se raggiunte per link
-// diretto (robots.txt Disallow blocca il crawling, questo blocca l'indicizzazione
-// nel caso una pagina venga comunque referenziata da altrove) — difesa in
-// profondità, coerente con FASE 2/FASE 15 del ticket.
-function isPrivatePage(page) {
-  return (
-    page === "login" ||
-    page === "dashboard" ||
-    page === "supplier-dashboard" ||
-    page.startsWith("admin") ||
-    page.startsWith("customer") ||
-    page.startsWith("campaign")
-  );
-}
 
 // Pagine interne "di contenuto" (non home, non private): ricevono un
 // BreadcrumbList Home > Pagina, coerente con FASE 5 del ticket.
@@ -135,26 +81,28 @@ function organizationJsonLd(siteUrl) {
 
 export function SeoMeta({ page }) {
   useEffect(() => {
-    const [title, description] = metaByPage[page] || metaByPage.home;
-    const siteUrl = window.location.origin;
-    const canonicalUrl = `${siteUrl}${window.location.pathname}`;
+    const metadata = getRouteMetadata(window.location.pathname);
+    const { title, description } = metadata;
+    const siteUrl = SITE_URL;
+    const canonicalUrl = metadata.canonical;
 
     document.title = title;
     setMeta('meta[name="description"]', "content", description);
-    setLink("canonical", canonicalUrl);
+    if (canonicalUrl) setLink("canonical", canonicalUrl);
+    else document.head.querySelector('link[rel="canonical"]')?.remove();
 
     setMeta('meta[property="og:site_name"]', "content", "VolantiniPro");
     setMeta('meta[property="og:title"]', "content", title);
     setMeta('meta[property="og:description"]', "content", description);
     setMeta('meta[property="og:type"]', "content", "website");
-    setMeta('meta[property="og:url"]', "content", canonicalUrl);
+    setMeta('meta[property="og:url"]', "content", canonicalUrl || `${siteUrl}${window.location.pathname}`);
     setMeta('meta[property="og:locale"]', "content", "it_IT");
 
     setMeta('meta[name="twitter:card"]', "content", "summary");
     setMeta('meta[name="twitter:title"]', "content", title);
     setMeta('meta[name="twitter:description"]', "content", description);
 
-    setMeta('meta[name="robots"]', "content", isPrivatePage(page) ? "noindex, nofollow" : "index, follow");
+    setMeta('meta[name="robots"]', "content", metadata.robots);
 
     // JSON-LD — Organization + WebSite sempre presenti (identità del sito,
     // dati reali confermati: nessun indirizzo fisico inventato, nessun

@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx";
+import { preloadablePage } from "../bootstrap/preloadablePage.jsx";
 import InlineHelpCta from "../components/common/InlineHelpCta.jsx";
 import QuoteAssistantPanel from "../components/ai/quote/QuoteAssistantPanel.jsx";
 import { buildQuoteAssistantBaseContext, quickQuestionsForPage } from "../ai/context/buildQuoteAssistantContext.js";
@@ -12,22 +13,31 @@ import { buildQuoteAssistantBaseContext, quickQuestionsForPage } from "../ai/con
 // dell'intero configuratore (Step1..Step4 + QuickQuote/Consultant/Service)
 // anche se un Admin non lo vede mai. Resi lazy: nessuna riga di logica di
 // Step1-4 e' stata toccata, solo il momento del download.
-const HomePage = lazy(() => import("../pages/public/HomePage.jsx").then(m => ({ default: m.HomePage })));
-const LegalPage = lazy(() => import("../pages/public/LegalPage.jsx").then(m => ({ default: m.LegalPage })));
+const HomePage = preloadablePage(() => import("../pages/public/HomePage.jsx").then(m => ({ default: m.HomePage })));
+const LegalPage = preloadablePage(() => import("../pages/public/LegalPage.jsx").then(m => ({ default: m.LegalPage })));
 const Step1 = lazy(() => import("../pages/public/configurator/Step1.jsx").then(m => ({ default: m.Step1 })));
 const Step2 = lazy(() => import("../pages/public/configurator/Step2.jsx").then(m => ({ default: m.Step2 })));
 const Step3 = lazy(() => import("../pages/public/configurator/Step3.jsx").then(m => ({ default: m.Step3 })));
 const Step4 = lazy(() => import("../pages/public/configurator/Step4.jsx").then(m => ({ default: m.Step4 })));
-const QuickQuotePage = lazy(() => import("../pages/public/QuickQuotePage.jsx"));
-const ConsultantPage = lazy(() => import("../pages/public/ConsultantPage.jsx"));
+const QuickQuotePage = preloadablePage(() => import("../pages/public/QuickQuotePage.jsx"));
+const ConsultantPage = preloadablePage(() => import("../pages/public/ConsultantPage.jsx"));
 const FeasibilityLibrary = lazy(() => import("../pages/customer/feasibility/FeasibilityLibrary.jsx"));
 const FeasibilityPage = lazy(() => import("../pages/public/FeasibilityPage.jsx"));
-const ServiceCenter = lazy(() => import("../pages/public/ServiceCenter.jsx"));
-const ServiceDoorToDoorPage = lazy(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceDoorToDoorPage })));
-const ServiceHandToHandPage = lazy(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceHandToHandPage })));
-const ServiceBusinessPage = lazy(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceBusinessPage })));
-const MilanoLandingPage = lazy(() => import("../pages/public/MilanoLandingPage.jsx").then(m => ({ default: m.MilanoLandingPage })));
+const ServiceCenter = preloadablePage(() => import("../pages/public/ServiceCenter.jsx"));
+const ServiceDoorToDoorPage = preloadablePage(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceDoorToDoorPage })));
+const ServiceHandToHandPage = preloadablePage(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceHandToHandPage })));
+const ServiceBusinessPage = preloadablePage(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceBusinessPage })));
+const MilanoLandingPage = preloadablePage(() => import("../pages/public/MilanoLandingPage.jsx").then(m => ({ default: m.MilanoLandingPage })));
 const SupplierLandingPage = lazy(() => import("../pages/public/SupplierLandingPage.jsx").then(m => ({ default: m.SupplierLandingPage })));
+
+export function preloadMarketingPage(page) {
+  const pages = { home: HomePage, privacy: LegalPage, terms: LegalPage, cookie: LegalPage,
+    quick: QuickQuotePage, consultant: ConsultantPage, preventivo: ServiceCenter,
+    'service-door-to-door': ServiceDoorToDoorPage, 'service-hand-to-hand': ServiceHandToHandPage,
+    'service-business': ServiceBusinessPage, 'milano-landing': MilanoLandingPage };
+  if (!Object.hasOwn(pages, page)) throw new Error('Unknown prerendered page');
+  return pages[page].preload();
+}
 
 // L'Assistente e il Report AI di Step2 richiedono un utente Supabase
 // autenticato reale: le Edge Function (ai-assistant-territory,

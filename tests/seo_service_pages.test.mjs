@@ -45,9 +45,9 @@ test("AppRouter.jsx: Navbar/SeoMeta si montano automaticamente per le pagine ser
 // ── PublicRoutes.jsx: le 3 pagine sono wired e lazy-loaded ─────────────────
 test("PublicRoutes.jsx: le 3 pagine servizio sono renderizzate lazy e ricevono onNav", () => {
   const src = read("src/app/PublicRoutes.jsx");
-  assert.match(src, /const ServiceDoorToDoorPage = lazy\(/);
-  assert.match(src, /const ServiceHandToHandPage = lazy\(/);
-  assert.match(src, /const ServiceBusinessPage = lazy\(/);
+  assert.match(src, /const ServiceDoorToDoorPage = preloadablePage\(/);
+  assert.match(src, /const ServiceHandToHandPage = preloadablePage\(/);
+  assert.match(src, /const ServiceBusinessPage = preloadablePage\(/);
   assert.match(src, /if \(page === "service-door-to-door"\) return <ServiceDoorToDoorPage onNav=\{goTo\} \/>;/);
   assert.match(src, /if \(page === "service-hand-to-hand"\) return <ServiceHandToHandPage onNav=\{goTo\} \/>;/);
   assert.match(src, /if \(page === "service-business"\) return <ServiceBusinessPage onNav=\{goTo\} \/>;/);
@@ -68,7 +68,7 @@ test("robots.txt: /servizi non è bloccato (nessun Disallow che lo copra)", () =
 
 // ── SeoMeta.jsx: metadata unico per pagina, JSON-LD, nessun noindex accidentale ─
 test("SeoMeta.jsx: title/description unici per le 3 pagine servizio, diversi tra loro e dalla home", () => {
-  const src = read("src/layouts/public/SeoMeta.jsx");
+  const src = read("src/lib/seo/routePolicy.js");
   assert.match(src, /"service-door-to-door":\s*\[/);
   assert.match(src, /"service-hand-to-hand":\s*\[/);
   assert.match(src, /"service-business":\s*\[/);
