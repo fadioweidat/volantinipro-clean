@@ -9,6 +9,7 @@ import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
+import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 
 const debugStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
@@ -596,7 +597,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
       }}>
         <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>⬡</span>
         <span style={{ fontSize: 8.5, fontWeight: 700, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          Zone ({zones.length})
+          Punti vendita ({zones.length})
         </span>
       </div>
 
@@ -605,8 +606,9 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
         {zones.map((z, idx) => {
           const isActive = z.id === activeZoneId;
           const city     = z.city;
-          const rad      = parseFloat(z.radius ?? z.radius_km ?? 3);
-          const label    = city?.label || city?.name || `Zona ${idx + 1}`;
+          // FASE 2: nome PV se impostato, modalita' reale (mai "3 km" per un PV Comune/NIL).
+          const rad      = getPointOfSaleModeLabel(z);
+          const label    = sanitizeStoreName(z.store_name) || city?.label || city?.name || `Punto vendita ${idx + 1}`;
 
           if (isActive) {
             return (
@@ -620,7 +622,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 9, color: 'rgba(196,133,42,0.85)', fontWeight: 600 }}>
-                    ◎ {rad} km
+                    ◎ {rad}
                   </span>
                   {z.service_type && (
                     <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.30)', fontWeight: 500 }}>
@@ -655,7 +657,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
                 {esc(label)}
               </span>
               <span style={{ fontSize: 9, color: 'rgba(127,155,176,0.45)', paddingRight: 10, flexShrink: 0, fontWeight: 600 }}>
-                {rad} km
+                {rad}
               </span>
             </div>
           );

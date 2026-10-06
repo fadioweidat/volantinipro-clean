@@ -5,7 +5,7 @@ import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { Step2BottomActions } from "./Step2BottomActions.jsx";
 import { Step2SynthesisMessage } from "./Step2SynthesisMessage.jsx";
 
-export function Step2SummaryPanel({ activeCampaignZone, areaMode, businessMaterialPlan, businessOperationalPlan, canContinueCalendar, col, continueLabel, step2ConfigReady, coverageDecisionReady, finalFlyersRounded, h2hMainOutputs, handleNext, hasUnconfirmedAddressPoint, isBusinessStep2, isMobile, isMovementStep2, isResidentialStep2, missingFlyers, operationalSelectionReady, pois, radius, radiusKm, residentialMainOutputsNormalized, selZones, selectedOperationalPois, setIsAdminView, showTerritoryData, step2CoverageFullLabel, step2CoveragePctLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, step2ZonesReady, transportState, zonesInRadius }) {
+export function Step2SummaryPanel({ activeCampaignZone, activePointOfSaleName = null, areaMode, businessMaterialPlan, businessOperationalPlan, canContinueCalendar, col, continueLabel, step2ConfigReady, coverageDecisionReady, finalFlyersRounded, h2hMainOutputs, handleNext, hasUnconfirmedAddressPoint, isBusinessStep2, isMobile, isMovementStep2, isResidentialStep2, missingFlyers, operationalSelectionReady, pois, radius, radiusKm, residentialMainOutputsNormalized, selZones, selectedOperationalPois, setIsAdminView, showTerritoryData, step2CoverageFullLabel, step2CoveragePctLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, step2ZonesReady, transportState, zonesInRadius }) {
   return (
     <>
       {/* RIGHT COLUMN - ACTIVE ZONE SUMMARY */}
@@ -37,7 +37,7 @@ export function Step2SummaryPanel({ activeCampaignZone, areaMode, businessMateri
                 color: col,
                 letterSpacing: ".08em",
                 textTransform: "uppercase"
-              }}>Zona attiva</div>
+              }}>{activePointOfSaleName ? "Punto vendita attivo" : "Zona attiva"}</div>
 
               </div>
               <div style={{
@@ -46,7 +46,7 @@ export function Step2SummaryPanel({ activeCampaignZone, areaMode, businessMateri
               color: C.white,
               lineHeight: 1,
               marginBottom: 4
-            }}>{activeCampaignZone.zone_label || "Zona"}</div>
+            }}>{activePointOfSaleName || activeCampaignZone.zone_label || "Zona"}</div>
               <div style={{
               fontFamily: F.sans,
               fontSize: 11,

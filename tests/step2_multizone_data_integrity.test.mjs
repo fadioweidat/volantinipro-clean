@@ -197,7 +197,9 @@ test("D. multi-comune inside ONE zone stays one zone (not split into campaignZon
   const multiComune = { ...comuneZone("zone_mc", MONZA, 60000, [row("Monza", 47779), row("Lissone", 12221)]), selectedComuni: [MONZA, { name: "Lissone" }], selectedMunicipalities: [MONZA, { name: "Lissone" }] };
   const s = summarizeCampaignZones([multiComune]);
   assert.equal(s.isMultiZone, false);
-  assert.equal(s.zones[0].label, "Zona 1 · 2 comuni completi");
+  // FASE 2: etichetta punto vendita (nome di default + comuni del PV).
+  assert.equal(s.zones[0].label, "Punto vendita 1 · Monza (MB), Lissone");
+  assert.equal(s.zones[0].modeLabel, "Comuni");
 });
 
 // ---------------------------------------------------------------- E
@@ -298,5 +300,5 @@ test("G. comune zone vs radius touching the same comune / shared NIL -> possible
   assert.deepEqual(o2[0].sharedUnits, ["14"]);
   // warning visibile in Step2 e Step4
   assert.match(step2, /data-testid="step2-multizone-overlap-warning"/);
-  assert.match(step4, /<Step4MultiZoneSummary summary=\{multiZoneSummary\} \/>/);
+  assert.match(step4, /<Step4MultiZoneSummary summary=\{multiZoneSummary\} posPricing=\{multiZonePosPricing\}/);
 });

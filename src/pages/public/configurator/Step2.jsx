@@ -69,7 +69,7 @@ import { Step2ComunePanel } from "./step2/Step2ComunePanel.jsx";
 import { Step2TerritoryControlsPanel } from "./step2/Step2TerritoryControlsPanel.jsx";
 import { ServiceExplanationCard } from "./step2/ServiceExplanationCard.jsx";
 import { SelectedZonesSummary } from "./step2/SelectedZonesSummary.jsx";
-import { buildZoneKpiSnapshot, getCampaignZoneLabel as getCampaignZoneQuoteLabel, resolveNewZoneStartingQuantity, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
+import { buildZoneKpiSnapshot, getCampaignZoneLabel as getCampaignZoneQuoteLabel, getPointOfSaleName, resolveDeletePointOfSale, resolveNewZoneStartingQuantity, sanitizeStoreName, STORE_NAME_MAX_LENGTH, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
 import { projectStep2LegacyAliases } from "../../../lib/step2/buildStep2TruthModel.js";
 export function Step2({
   data,
@@ -233,7 +233,11 @@ export function Step2({
   // "Usa Milano comune completo" lo abilita. Azzerato ogni volta che cambia il
   // punto cercato (vedi selectAddressPointInMilano), così il prossimo indirizzo
   // richiede una nuova conferma esplicita.
-  const [addressFullCoverageConfirmed, setAddressFullCoverageConfirmed] = useState(false);
+  // FASE 2: al rimontaggio di Step2 (es. indietro da Step3) la modalita' del
+  // PV attivo si legge dalla sua zona: prima ripartiva sempre da false e una
+  // zona NIL tornava "comune completo" (88 NIL) sovrascrivendo la quantita'.
+  const mountActiveZone = (data.campaignZones || []).find(z => z.id === data.activeZoneId) || null;
+  const [addressFullCoverageConfirmed, setAddressFullCoverageConfirmed] = useState(() => Boolean(mountActiveZone?.addressFullCoverageConfirmed));
   const [radiusSelectionConfirmed, setRadiusSelectionConfirmed] = useState(Boolean(data.radiusSelectionConfirmed || data.searchMode === "address" && ((data.zones || []).length > 0 || (data.zonesAllocation || []).length > 0)));
   const [activeMapLayers, setActiveMapLayers] = useState(() => defaultLayerState(svcType));
   const [dismissedAdvisoryRadius, setDismissedAdvisoryRadius] = useState(null);
@@ -630,7 +634,7 @@ export function Step2({
   // le NIL scelte manualmente diventano l'area principale (areaMode "custom_zone").
   // Quando spenta, Comune Milano = comune completo (aggregato di TUTTE le NIL),
   // mai la prima NIL (es. DUOMO) come fallback silenzioso.
-  const [nilManualMode, setNilManualMode] = useState(false);
+  const [nilManualMode, setNilManualMode] = useState(() => Boolean(mountActiveZone?.nilManualMode));
   // Indirizzo/punto selezionato (Corso Como, Via Brera-come-indirizzo, ecc.)
   // mentre si è sul tab Comune: NON deve calcolare automaticamente il comune
   // completo (88 NIL/744.299 famiglie) finché l'utente non conferma
@@ -4791,20 +4795,37 @@ export function Step2({
   });
   const zoneHumanTitle = city?.label || city?.name || activeCampaignZone?.cityName || search || "Zona selezionata";
   const resolveCampaignZoneCity = useCallback(zone => zone?.city || resolveStep2City(zone?.cityName || zone?.zone_label) || null, []);
+  // FASE 2 — etichetta PV (nome opzionale + posizione reale), stessa fonte
+  // del riepilogo Step4 e del payload (campaignZonesModel).
   const getCampaignZoneLabel = useCallback((zone, index) => {
     const isZUnconfirmed = zone?.searchMode === "municipality" && !zone?.addressFullCoverageConfirmed && !zone?.nilManualMode && !zone?.addressSearchError && zone?.selectedSearchPoint?.type === "address";
     if (isZUnconfirmed) {
-      return `Zona ${index + 1} · Modalità da scegliere`;
+      return `${getPointOfSaleName(zone, index)} · Modalità da scegliere`;
     }
-    const zoneMunicipalities = Array.isArray(zone?.selectedMunicipalities) && zone.selectedMunicipalities.length ? zone.selectedMunicipalities : Array.isArray(zone?.selectedComuni) ? zone.selectedComuni : [];
-    const municipalityNames = zoneMunicipalities.map(item => typeof item === "string" ? item : item?.label || item?.name || item?.comune_name || item?.municipality_name || "").filter(Boolean);
-    if (zone?.searchMode === "municipality" && municipalityNames.length > 1) {
-      return `Zona ${index + 1} · ${municipalityNames.length} comuni completi`;
-    }
-    const cityLabel = zone?.cityName || zone?.city?.name || zone?.city?.label || "";
-    if (cityLabel) return `Zona ${index + 1} · ${cityLabel}`;
-    return zone?.zone_label || `Zona ${index + 1}`;
+    return getCampaignZoneQuoteLabel(zone, index);
   }, []);
+  // Rinomina: tocca SOLO store_name del PV (updateZoneField riscriverebbe
+  // anche qty/flyerQuantity top-level della zona attiva).
+  const renamePointOfSale = useCallback((zoneId, value, commit = false) => {
+    const raw = String(value ?? "").slice(0, STORE_NAME_MAX_LENGTH);
+    const next = commit ? sanitizeStoreName(raw) : raw;
+    setData(prev => {
+      const zones = Array.isArray(prev.campaignZones) ? prev.campaignZones : [];
+      if (!zones.some(z => z.id === zoneId && (z.store_name || "") !== next)) return prev;
+      return { ...prev, campaignZones: zones.map(z => z.id === zoneId ? { ...z, store_name: next } : z) };
+    });
+  }, [setData]);
+  const deletePointOfSale = useCallback(zoneId => {
+    const zones = data.campaignZones || [];
+    const idx = zones.findIndex(z => z.id === zoneId);
+    if (idx === -1 || zones.length <= 1) return;
+    const label = getCampaignZoneQuoteLabel(zones[idx], idx);
+    if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(`Eliminare "${label}" dalla campagna? Territorio e quantità di questo punto vendita verranno rimossi.`)) return;
+    setData(prev => {
+      const result = resolveDeletePointOfSale(prev.campaignZones, prev.activeZoneId, zoneId);
+      return result ? { ...prev, ...result } : prev;
+    });
+  }, [data.campaignZones, setData]);
   const selectCampaignZone = useCallback(zoneId => {
     const zone = campaignZones.find(z => z.id === zoneId);
     if (!zone) return;
@@ -5557,6 +5578,8 @@ export function Step2({
           geocodeSuggestions={geocodeSuggestions}
           getCampaignZoneLabel={getCampaignZoneLabel}
           handleAddZone={handleAddZone}
+          renamePointOfSale={renamePointOfSale}
+          deletePointOfSale={deletePointOfSale}
           handleCapSelect={handleCapSelect}
           hasSearchPoint={hasSearchPoint}
           hasUnconfirmedAddressPoint={hasUnconfirmedAddressPoint}
@@ -5630,11 +5653,11 @@ export function Step2({
         fontSize: 12,
         lineHeight: 1.45
       }}>
-          <strong>Zone sovrapposte.</strong> {campaignZonesOverview.overlaps.map(o => {
+          <strong>Territori sovrapposti.</strong> {campaignZonesOverview.overlaps.map(o => {
           const a = campaignZonesOverview.zones.find(z => z.id === o.zoneAId);
           const b = campaignZonesOverview.zones.find(z => z.id === o.zoneBId);
-          return `${a?.label || "Zona"} e ${b?.label || "Zona"}${o.certainty === "certain" ? " si sovrappongono" : " condividono parte del territorio"}`;
-        }).join("; ")}. Famiglie e capacità delle zone vengono sommate senza deduplica: nell'area comune il conteggio può essere doppio.
+          return `${a?.name || "Punto vendita"} e ${b?.name || "Punto vendita"}${o.certainty === "certain" ? " si sovrappongono" : " condividono parte del territorio"}`;
+        }).join("; ")}. Famiglie e capacità dei punti vendita vengono sommate senza deduplica: nell'area comune il conteggio può essere doppio.
         </div>}
 
       {/* ========================================================= */}
@@ -5925,6 +5948,7 @@ export function Step2({
           actions={{ step2ZonesReady, coverageDecisionReady: coverageDecisionReady || step2ConfigReady, canContinueCalendar, handleNext, col, continueLabel, operationalSelectionReady, isMovementStep2, isBusinessStep2 }}
         /> : <Step2SummaryPanel
           activeCampaignZone={activeCampaignZone}
+          activePointOfSaleName={campaignZones.length > 1 && activeCampaignZone ? getPointOfSaleName(activeCampaignZone, Math.max(0, campaignZones.findIndex(z => z.id === activeCampaignZone.id))) : null}
           areaMode={areaMode}
           businessMaterialPlan={businessMaterialPlan}
           businessOperationalPlan={businessOperationalPlan}

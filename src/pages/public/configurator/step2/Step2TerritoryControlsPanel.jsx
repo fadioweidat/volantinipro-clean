@@ -7,8 +7,9 @@ import { applyConfiguratorServiceChange } from "../../../../lib/configuratorServ
 import { getServiceAccent } from "../../../../lib/services/service-config.js";
 import { detectSearchIntent, ADDRESS_INTENT_RE, isGeocoderResultInMilanoComune, looksLikeAddressResult, logAddressVsMunicipalityDebug, normalizeMunicipalityName, isNilLikePlaceType } from "../../../../lib/step2/addressIntent.js";
 import { S2_RADII } from "../../../../lib/step2/s2Constants.js";
+import { STORE_NAME_MAX_LENGTH } from "../../../../lib/step2/campaignZonesModel.js";
 
-export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAreaTab, activeZoneId, addressFullCoverageConfirmed, addressIntentInMilano, addressSearchError, apiLoading, appendMunicipalityToActiveZone, campaignZones, capSearchLoading, capSuggestions, city, col, data, dropOpen, duplicateComuneNotice, geocodeSuggestions, getCampaignZoneLabel, handleAddZone, handleCapSelect, hasSearchPoint, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isMobile, isMovementStep2, isNilAnalysis, isRadiusMode, municipalityBoundary, nilManualMode, onBack, pendingAddMunicipality, pill, radiusAdvisoryData, radiusKm, recommendedRadiusForSlider, removeMunicipalityFromActiveZone, resetActiveZone, resolveMilanoCity, search, searchedLocation, searchMode, selectAddressPointInMilano, selectCampaignZone, selectMilanoAsNil, selectMunicipalityAsRadiusCenter, selectOperationalPoint, selectPrimaryMunicipality, selectedCaps, selectedComuni, selectedSearchPoint, setAddressFullCoverageConfirmed, setAddressSearchError, setCapDataMap, setCity, setCoverageDecision, setCoverageStrategy, setData, setDismissedAdvisoryRadius, setDropOpen, setHiddenBoundaries, setPartialCoverageConfirmed, setPendingAddMunicipality, setSearch, setSelected, setSelectedCaps, setSelectedComuni, setSelectedSearchPoint, sharedCoveragePctText, startManualPinSelection, svcType, switchToCapMode, switchToComuneMode, switchToRadiusMode, updateActiveRadius, zonesInRadius }) {
+export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAreaTab, activeZoneId, addressFullCoverageConfirmed, addressIntentInMilano, addressSearchError, apiLoading, appendMunicipalityToActiveZone, campaignZones, capSearchLoading, capSuggestions, city, col, data, dropOpen, duplicateComuneNotice, geocodeSuggestions, getCampaignZoneLabel, handleAddZone, renamePointOfSale, deletePointOfSale, handleCapSelect, hasSearchPoint, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isMobile, isMovementStep2, isNilAnalysis, isRadiusMode, municipalityBoundary, nilManualMode, onBack, pendingAddMunicipality, pill, radiusAdvisoryData, radiusKm, recommendedRadiusForSlider, removeMunicipalityFromActiveZone, resetActiveZone, resolveMilanoCity, search, searchedLocation, searchMode, selectAddressPointInMilano, selectCampaignZone, selectMilanoAsNil, selectMunicipalityAsRadiusCenter, selectOperationalPoint, selectPrimaryMunicipality, selectedCaps, selectedComuni, selectedSearchPoint, setAddressFullCoverageConfirmed, setAddressSearchError, setCapDataMap, setCity, setCoverageDecision, setCoverageStrategy, setData, setDismissedAdvisoryRadius, setDropOpen, setHiddenBoundaries, setPartialCoverageConfirmed, setPendingAddMunicipality, setSearch, setSelected, setSelectedCaps, setSelectedComuni, setSelectedSearchPoint, sharedCoveragePctText, startManualPinSelection, svcType, switchToCapMode, switchToComuneMode, switchToRadiusMode, updateActiveRadius, zonesInRadius }) {
   return (
     <>
       {/* Section */}
@@ -1009,35 +1010,87 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
               margin: "-4px 0 12px",
               paddingBottom: 2
             }}>
-              {campaignZones.map((z, idx) => {
-                const isActive = z.id === data.activeZoneId;
-                const zoneSvcColor = "#22C55E";
-                const zUnconfirmed = z.searchMode === "municipality" && !z.addressFullCoverageConfirmed && !z.nilManualMode && !z.addressSearchError && z.selectedSearchPoint?.type === "address";
-                const configured = zUnconfirmed ? false : z.searchMode === "cap" ? (z.selectedCaps || []).length > 0 : z.selectedComuni && z.selectedComuni.length > 0 || !!z.city;
-                return <button key={z.id} onClick={() => selectCampaignZone(z.id)} style={{
-                  minHeight: 32,
-                  padding: "0 10px",
-                  borderRadius: 8,
-                  border: `1px solid ${isActive ? zoneSvcColor : "rgba(255,255,255,.09)"}`,
-                  background: isActive ? `${zoneSvcColor}18` : "rgba(255,255,255,.035)",
-                  color: isActive ? C.white : "rgba(255,255,255,.58)",
-                  fontFamily: F.sans,
-                  fontSize: 11,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  display: "inline-flex",
+              {/* FASE 2 — selettore PUNTI VENDITA: ogni campaignZone e' un PV.
+                  Compare solo con 2+ PV, cosi' il cliente con un solo
+                  territorio vede lo Step 2 di sempre. */}
+              {campaignZones.length > 1 && <div role="group" aria-label="Punti vendita della campagna" data-testid="pos-switcher" style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                width: "100%",
+                minWidth: 0
+              }}>
+                {campaignZones.map((z, idx) => {
+                  const isActive = z.id === data.activeZoneId;
+                  const ready = z.readyForQuote === true;
+                  const accent = ready ? "#22C55E" : "#FBBF24";
+                  return <button key={z.id} type="button" data-testid="pos-chip" aria-pressed={isActive} title={getCampaignZoneLabel(z, idx)} onClick={() => selectCampaignZone(z.id)} style={{
+                    minHeight: 36,
+                    maxWidth: "100%",
+                    minWidth: 0,
+                    padding: "0 10px",
+                    borderRadius: 8,
+                    border: `${isActive ? 2 : 1}px solid ${isActive ? col : "rgba(255,255,255,.12)"}`,
+                    background: isActive ? `${col}1f` : "rgba(255,255,255,.035)",
+                    color: isActive ? C.white : "rgba(255,255,255,.66)",
+                    fontFamily: F.sans,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}>
+                      <span aria-hidden="true" style={{ color: accent, fontSize: 12, flexShrink: 0 }}>{ready ? "✓" : "!"}</span>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{getCampaignZoneLabel(z, idx)}</span>
+                      <span style={{ fontSize: 9, color: accent, flexShrink: 0 }}>{ready ? "Pronto" : "Da completare"}</span>
+                    </button>;
+                })}
+              </div>}
+              {campaignZones.length > 1 && (() => {
+                const activeIdx = campaignZones.findIndex(z => z.id === data.activeZoneId);
+                const activeZone = activeIdx >= 0 ? campaignZones[activeIdx] : null;
+                if (!activeZone) return null;
+                return <div data-testid="pos-active-editor" style={{
+                  display: "flex",
+                  flexWrap: "wrap",
                   alignItems: "center",
                   gap: 6,
-                  whiteSpace: "nowrap",
-                  flexShrink: 0
+                  width: "100%",
+                  minWidth: 0
                 }}>
-                    <span>{simplifiedMilano && isActive ? `Zona ${idx + 1} · Milano` : getCampaignZoneLabel(z, idx)}</span>
-                    {!(simplifiedMilano && isActive) && <span style={{
-                    fontSize: 9,
-                    color: zUnconfirmed ? "#FBBF24" : configured ? C.green : C.yellow
-                  }}>{zUnconfirmed ? "Anteprima" : configured ? "OK" : "Da configurare"}</span>}
-                  </button>;
-              })}
+                    <label htmlFor="pos-store-name" style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.62)" }}>
+                      Nome punto vendita {activeIdx + 1} (opzionale)
+                    </label>
+                    <input id="pos-store-name" data-testid="pos-store-name" type="text" maxLength={STORE_NAME_MAX_LENGTH} placeholder={`Punto vendita ${activeIdx + 1}`} value={activeZone.store_name || ""} onChange={e => renamePointOfSale(activeZone.id, e.target.value)} onBlur={e => renamePointOfSale(activeZone.id, e.target.value, true)} style={{
+                      flex: "1 1 160px",
+                      minWidth: 0,
+                      minHeight: 36,
+                      padding: "0 10px",
+                      borderRadius: 8,
+                      border: "1px solid rgba(255,255,255,.14)",
+                      background: "rgba(255,255,255,.04)",
+                      color: C.white,
+                      fontFamily: F.sans,
+                      fontSize: 12
+                    }} />
+                    <button type="button" data-testid="pos-delete" onClick={() => deletePointOfSale(activeZone.id)} style={{
+                      minHeight: 36,
+                      padding: "0 10px",
+                      borderRadius: 8,
+                      border: "1px solid rgba(248,113,113,.35)",
+                      background: "rgba(248,113,113,.06)",
+                      color: "#FCA5A5",
+                      fontFamily: F.sans,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap"
+                    }}>
+                      Elimina punto vendita
+                    </button>
+                  </div>;
+              })()}
               <button type="button" onClick={() => setDropOpen(true)} style={{
                 minHeight: 32,
                 padding: "0 10px",
@@ -1108,14 +1161,13 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
               }}>
                 Reset zona
               </button>
-              <button onClick={() => {
-                if (searchMode === "municipality") {
-                  setPendingAddMunicipality(true);
-                  setDropOpen(true);
-                  setSearch("");
-                } else {
-                  handleAddZone();
-                }
+              {/* Piu' comuni DENTRO lo stesso punto vendita (solo tab Comune):
+                  comportamento invariato. Un nuovo PV si crea sempre con
+                  "+ Aggiungi punto vendita", da qualsiasi modalita'. */}
+              {searchMode === "municipality" && !nilManualMode && <button type="button" onClick={() => {
+                setPendingAddMunicipality(true);
+                setDropOpen(true);
+                setSearch("");
               }} style={{
                 minHeight: 32,
                 padding: "0 10px",
@@ -1130,7 +1182,23 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                 whiteSpace: "nowrap",
                 flexShrink: 0
               }}>
-                + Aggiungi un'altra zona / comune
+                + Aggiungi comune
+              </button>}
+              <button type="button" data-testid="pos-add" onClick={handleAddZone} style={{
+                minHeight: 36,
+                padding: "0 12px",
+                borderRadius: 8,
+                border: `1px solid ${col}`,
+                background: `${col}1a`,
+                color: col,
+                fontFamily: F.sans,
+                fontSize: 11,
+                fontWeight: 900,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                flexShrink: 0
+              }}>
+                + Aggiungi punto vendita
               </button>
             </div>
     </>

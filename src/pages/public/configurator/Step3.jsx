@@ -16,6 +16,7 @@ import { NavButton } from "../../../components/NavButton.jsx";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
 import { buildSmartPairingBypassState, calendarDateKey, fetchSmartPairingAvailability, getSelectedSmartPairingDates, isSelectableCalendarDate } from "../../../lib/smartPairingAvailability.js";
 import { Step3SmartPairingMainPanel } from "./step3/Step3SmartPairingMainPanel.jsx";
+import { getCampaignZoneLabel as getPointOfSaleLabel } from "../../../lib/step2/campaignZonesModel.js";
 import { Step3SmartPairingSummaryPanel } from "./step3/Step3SmartPairingSummaryPanel.jsx";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
@@ -251,8 +252,14 @@ export function Step3({
     if (!zone || typeof zone !== "object") return "";
     return zone.zone_label || zone.cityName || zone.label || zone.name || zone.id || "";
   };
-  const allZonesList = activeZone ? [activeZone.zone_label || activeZone.cityName || `Zona ${activeCalZoneId}`] : (data.selectedComuni && data.selectedComuni.length ? data.selectedComuni : data.zones && data.zones.length ? data.zones : [data.cityName || "Zona da Step 2"]).map(toZoneDisplayName).filter(Boolean);
-  const compactZoneLabel = allZonesList.length > 1 ? `${allZonesList[0]} (+${allZonesList.length - 1} zone)` : allZonesList[0] || "Zona selezionata";
+  // FASE 2: con piu' punti vendita le etichette mostrate sono quelle dei PV
+  // (nome opzionale + posizione); l'identita' resta l'id della zona.
+  const posZones = Array.isArray(data.campaignZones) ? data.campaignZones : [];
+  const posLabelFor = zone => getPointOfSaleLabel(zone, Math.max(0, posZones.findIndex(z => z.id === zone?.id)));
+  const allZonesList = activeZone ? [posLabelFor(activeZone)] : (data.selectedComuni && data.selectedComuni.length ? data.selectedComuni : data.zones && data.zones.length ? data.zones : [data.cityName || "Zona da Step 2"]).map(toZoneDisplayName).filter(Boolean);
+  // Solo visualizzazione: allZonesList resta la fonte del modulo Smart Pairing (invariato).
+  const displayZonesList = !activeZone && posZones.length > 1 ? posZones.map(posLabelFor) : allZonesList;
+  const compactZoneLabel = displayZonesList.length > 1 ? `${displayZonesList[0]} (+${displayZonesList.length - 1} ${posZones.length > 1 && !activeZone ? "punti vendita" : "zone"})` : displayZonesList[0] || "Zona selezionata";
   const fmtIsoDate = v => {
     if (!v) return "";
     const p = v.split("-");
@@ -614,7 +621,7 @@ export function Step3({
         const firstUnplanned = (data.campaignZones || []).find(z => getSelectedSmartPairingDates(z.smartPairingSelectedDates, realSmartPairingSlots).length === 0);
         if (firstUnplanned) {
           setActiveCalZoneId(firstUnplanned.id);
-          const msg = `Pianifica le date anche per la zona: ${firstUnplanned.zone_label || firstUnplanned.cityName || "successiva"}`;
+          const msg = `Pianifica le date anche per: ${posLabelFor(firstUnplanned)}`;
           console.warn("[STEP3_NAV_BLOCKED_VALIDATION]", {
             reason: "unplanned_zone",
             ...navSnapshot()
@@ -1186,7 +1193,7 @@ export function Step3({
           formSent={formSent}
           svcLabel={svcLabel}
           compactZoneLabel={compactZoneLabel}
-          allZonesList={allZonesList}
+          allZonesList={displayZonesList}
           showZoneDetails={showZoneDetails}
           setShowZoneDetails={setShowZoneDetails}
           activeQty={activeQty}
