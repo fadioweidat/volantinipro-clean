@@ -1945,6 +1945,9 @@ export function Step2({
       setCapSuggestions([]);
       return;
     }
+    // A request already in flight must not populate another PV after a switch
+    // or deletion. Clearing the debounce timer alone cannot cancel its response.
+    let cancelled = false;
     const t = setTimeout(async () => {
       if (searchMode === "cap") {
         const trimmed = (search || "").trim();
@@ -1976,6 +1979,7 @@ export function Step2({
             ).slice(0, 12);
           }
         }
+        if (cancelled) return;
         setCapSearchLoading(false);
         setCapSuggestions(results.map(c => ({
           id: c.postal_code,
@@ -1995,6 +1999,7 @@ export function Step2({
           const mapboxTypes = searchIntent.intent === "address" || pointSearchIntent ? "address,poi,place,locality,neighborhood" : "place,locality,neighborhood";
           const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(search)}.json?access_token=${mapboxToken}&country=IT&types=${mapboxTypes}&language=it&limit=8`);
           const d = await r.json();
+          if (cancelled) return;
           if (d.features?.length) {
             // placeType conservato per la validazione tab Comune (vedi
             // NIL_LIKE_PLACE_TYPES): "neighborhood" per Brera/Duomo/ecc. NON
@@ -2045,6 +2050,7 @@ export function Step2({
               try {
                 const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=4`);
                 const nd = await nr.json();
+                if (cancelled) return;
                 const nomAddresses = nd.filter(f => isAddressLikePlaceType(f.addresstype || f.type || f.class)).map(f => {
                   return normalizeNominatimGeocodeResult(f, {
                     addressLike: true
@@ -2056,6 +2062,7 @@ export function Step2({
                 }
               } catch {}
             }
+            if (cancelled) return;
             setGeocodeSuggestions(rankLocationResults(mapboxSuggestions, search));
             return;
           }
@@ -2065,6 +2072,7 @@ export function Step2({
         const isAddressQuery = searchIntent.intent === "address" || pointSearchIntent;
         const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=10`);
         const d = await r.json();
+        if (cancelled) return;
         const suggestions = d.map(f => {
           const pt = f.addresstype || f.type || f.class || null;
           if (isAddressQuery && isAddressLikePlaceType(pt)) {
@@ -2076,11 +2084,11 @@ export function Step2({
         }).filter(Boolean);
         setGeocodeSuggestions(rankLocationResults(suggestions, search));
       } catch {
-        setGeocodeSuggestions([]);
+        if (!cancelled) setGeocodeSuggestions([]);
       }
     }, 350);
-    return () => clearTimeout(t);
-  }, [search, searchMode, isMovementStep2]);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [search, searchMode, isMovementStep2, data.activeZoneId]);
 
   // Fetch municipality boundary from OSM Nominatim when city is selected in "municipality" mode
   const targetComuniList = useMemo(() => {

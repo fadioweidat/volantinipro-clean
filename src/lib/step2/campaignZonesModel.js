@@ -227,6 +227,7 @@ export function buildActivePointOfSaleState(zone, { resolvedCity = null, fallbac
     searchMode: zone?.searchMode || "municipality",
     nilManualMode: Boolean(zone?.nilManualMode),
     addressFullCoverageConfirmed: Boolean(zone?.addressFullCoverageConfirmed),
+    radiusSelectionConfirmed: Boolean(zone?.radiusSelectionConfirmed || zone?.searchMode === "address" && ((zone?.selected || []).length > 0 || (zone?.zonesAllocation || []).length > 0)),
     startDate: zone?.startDate || "",
     endDate: zone?.endDate || "",
   };
@@ -241,13 +242,16 @@ export function activatePointOfSale(prev, zoneId, { resolveCity } = {}) {
   const zones = Array.isArray(prev?.campaignZones) ? prev.campaignZones : [];
   const zone = zones.find(z => z?.id === zoneId);
   if (!zone) return prev;
+  // Filtering the list during deletion does not transfer the old active PV's
+  // campaign-level address to the survivor, even when only one PV remains.
+  const sameAddressOwner = !prev.activeZoneId || prev.activeZoneId === zoneId;
   return {
     ...prev,
     ...buildActivePointOfSaleState(zone, {
       resolvedCity: zone.city ? null : (resolveCity ? resolveCity(zone) : null),
       fallbackQuantity: resolveNewZoneStartingQuantity(prev),
     }),
-    coverage: { ...(prev.coverage || {}), address: resolvePointOfSaleCoverageAddress(zone, zones, prev.coverage) },
+    coverage: { ...(prev.coverage || {}), address: resolvePointOfSaleCoverageAddress(zone, zones, sameAddressOwner ? prev.coverage : null) },
   };
 }
 
@@ -264,6 +268,9 @@ export function deleteAndActivatePointOfSale(prev, zoneId, options = {}) {
  * coverage per zona), mai con piu' PV.
  */
 export function resolvePointOfSaleCoverageAddress(activeZone, campaignZones, topLevelCoverage) {
+  // Explicit null is owned state (a modern PV without an address), not a
+  // missing legacy field. This also makes hydration reject a stale top-level address.
+  if (Object.hasOwn(activeZone?.coverage || {}, "address")) return activeZone.coverage.address || null;
   if (activeZone?.coverage?.address) return activeZone.coverage.address;
   const zoneCount = Array.isArray(campaignZones) ? campaignZones.length : 0;
   if (zoneCount <= 1) return topLevelCoverage?.address || null;
