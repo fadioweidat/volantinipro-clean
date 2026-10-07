@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import { PublicRoutes } from "./PublicRoutes.jsx";
+import { commitPublicNavigation } from "../bootstrap/publicNavigation.js";
 import { Bootstrap } from "../layouts/public/Bootstrap.jsx";
 import { SeoMeta } from "../layouts/public/SeoMeta.jsx";
 import { Navbar } from "../layouts/public/Navbar.jsx";
@@ -229,11 +230,11 @@ export function AppRouter() {
     const handlePop = event => {
       const restored = readConfiguratorHistoryState(event.state);
       if (restored) setData(current => ({ ...current, ...restored }));
-      setPage(routeToPage(window.location.pathname));
+      commitPublicNavigation(page, routeToPage(window.location.pathname), setPage);
     };
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     if (!isConfiguratorPagePath(window.location.pathname)) return;
@@ -340,7 +341,7 @@ export function AppRouter() {
         window.history.pushState(null, "", paths[p] || "/not-found");
       }
     }
-    setPage(routeToPage(window.location.pathname));
+    commitPublicNavigation(page, routeToPage(window.location.pathname), setPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 

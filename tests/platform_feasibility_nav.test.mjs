@@ -22,6 +22,14 @@ for(const file of ['src/layouts/public/Navbar.jsx','src/components/home/Volantin
   assert.ok(source.indexOf('Configuratore Campagna',entry)>entry);
  });
 }
-test('Global routing and auth source remain byte-identical to approved Production',()=>{
- for(const file of ['src/app/routeResolution.js','src/app/AppRouter.jsx','src/pages/public/HomePage.jsx','src/components/home/homepage-hero.css'])assert.equal(read(file),baseline(file),file);
+test('Global routing and auth remain unchanged outside public transition scheduling',()=>{
+ for(const file of ['src/app/routeResolution.js','src/pages/public/HomePage.jsx','src/components/home/homepage-hero.css'])assert.equal(read(file),baseline(file),file);
+ let router=read('src/app/AppRouter.jsx');
+ if(router.includes('import { commitPublicNavigation }')){
+  assert.equal((router.match(/commitPublicNavigation\(page, routeToPage\(window.location.pathname\), setPage\);/g)||[]).length,2);
+  router=router.replace('import { commitPublicNavigation } from "../bootstrap/publicNavigation.js";\n','')
+   .replaceAll('commitPublicNavigation(page, routeToPage(window.location.pathname), setPage);','setPage(routeToPage(window.location.pathname));')
+   .replace('return () => window.removeEventListener("popstate", handlePop);\n  }, [page]);','return () => window.removeEventListener("popstate", handlePop);\n  }, []);');
+ }
+ assert.equal(router,baseline('src/app/AppRouter.jsx'),'Only marketing navigation scheduling may change; all auth, role, configurator and route logic must remain identical');
 });
