@@ -101,6 +101,29 @@ function createEmptyConfiguratorData() {
   };
 }
 
+// Campi della URL di prefill posseduti dai punti vendita (campaignZones[]).
+// La URL del configuratore conserva la quantita'/comune dell'ultimo
+// "Continua" (es. di un PV poi eliminato): su un draft gia' configurato non
+// deve sovrascrivere i mirror canonici del PV attivo.
+const POINT_OF_SALE_OWNED_PREFILL_KEYS = ["qty", "flyerQuantity", "flyerQuantityFromStep1", "cityName", "searchedLocation"];
+
+/** true se il draft ha almeno un PV con un territorio scelto (draft canonico esistente). */
+export function hasConfiguredPointOfSaleDraft(draft) {
+  const zones = Array.isArray(draft?.campaignZones) ? draft.campaignZones : [];
+  return zones.some(zone => zone && (zone.city || zone.selectedSearchPoint || (zone.selectedCaps || []).length > 0 || (zone.selected || []).length > 0));
+}
+
+/**
+ * Prefill URL applicabile al draft: completo per una sessione nuova/vuota,
+ * senza i campi posseduti dai PV quando esiste gia' un draft configurato
+ * (campaignZones[] vince). Gli altri campi (servizio, formato, urgenza, date,
+ * sorgente) restano applicati come prima.
+ */
+export function resolveDraftPrefillPatch(draft, patch) {
+  if (!patch || !hasConfiguredPointOfSaleDraft(draft)) return patch || {};
+  return Object.fromEntries(Object.entries(patch).filter(([key]) => !POINT_OF_SALE_OWNED_PREFILL_KEYS.includes(key)));
+}
+
 export function AppRouter() {
   const readPrefill = () => {
     if (typeof window === "undefined") return { has: false, patch: {} };
@@ -167,7 +190,7 @@ export function AppRouter() {
       ...createEmptyConfiguratorData(),
       ...persistedDraft,
       ...draft,
-      ...prefill.patch
+      ...resolveDraftPrefillPatch({ ...persistedDraft, ...draft }, prefill.patch)
     };
   });
 

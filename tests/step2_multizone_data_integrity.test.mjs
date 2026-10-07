@@ -94,12 +94,17 @@ test("A. single zone: summary is NOT multi-zone, Step4 stays on the production c
   }
   assert.equal(summarizeCampaignZones([]).isMultiZone, false);
   assert.equal(summarizeCampaignZones(undefined).isMultiZone, false);
-  // Ogni override Step4 e' dietro isMultiZoneQuote: con una zona i valori
-  // restano le espressioni di produzione.
+  // Ogni override multi-zona di Step4 e' dietro isMultiZoneQuote. Con una
+  // zona sola resta il contratto single-zone di produzione (stesse formule),
+  // ma gli input arrivano dal PV canonico campaignZones[0] quando e'
+  // configurato (hotfix PV superstite); senza campaignZones il fallback e'
+  // l'espressione legacy su `data`.
   assert.match(step4, /const isMultiZoneQuote = !isQuick && svcType === "d2d" && multiZoneSummary\.isMultiZone;/);
-  assert.match(step4, /const flyerQty = isMultiZoneQuote \? multiZoneSummary\.totalQuantity : \(data\.coverageDecision === "increase" \|\| data\.coverageDecision === "useRecommended"\) && data\.fullCoverageFlyers != null && rawFlyerQty != null \? Math\.max\(rawFlyerQty, Number\(data\.fullCoverageFlyers\)\) : rawFlyerQty;/);
-  assert.match(step4, /isMultiZoneQuote \? buildMultiZoneDistributionZones\(multiZoneSummary\) : resolveConfiguratorDistributionZones\(data, flyerQty\)\.zones/);
-  assert.match(step4, /const zoneAllocs = isMultiZoneQuote \? flattenMultiZoneAllocation\(multiZoneSummary\) : data\.zonesAllocation \|\| \[\];/);
+  assert.match(step4, /const singlePointOfSale = !isQuick && svcType === "d2d" && multiZoneSummary\.zoneCount === 1 && multiZoneSummary\.allZonesReady && multiZoneSummary\.zones\[0\]\.quantity > 0 \? multiZoneSummary\.zones\[0\] : null;/);
+  assert.match(step4, /const rawFlyerQty = singlePointOfSale \? singlePointOfSale\.quantity : resolveQuoteQuantity\(data\);/);
+  assert.match(step4, /const flyerQty = isMultiZoneQuote \? multiZoneSummary\.totalQuantity : \(quoteCoverageSource\.coverageDecision === "increase" \|\| quoteCoverageSource\.coverageDecision === "useRecommended"\) && quoteCoverageSource\.fullCoverageFlyers != null && rawFlyerQty != null \? Math\.max\(rawFlyerQty, Number\(quoteCoverageSource\.fullCoverageFlyers\)\) : rawFlyerQty;/);
+  assert.match(step4, /isMultiZoneQuote \? buildMultiZoneDistributionZones\(multiZoneSummary\) : resolveConfiguratorDistributionZones\(singlePointOfSaleDistributionInput \|\| data, flyerQty\)\.zones/);
+  assert.match(step4, /const zoneAllocs = isMultiZoneQuote \? flattenMultiZoneAllocation\(multiZoneSummary\) : singlePointOfSale \? singlePointOfSale\.allocation : data\.zonesAllocation \|\| \[\];/);
   assert.match(step4, /const campaignZonesPayload = isMultiZoneQuote \? buildMultiZoneCampaignZonesPayload\(multiZoneSummary\) : zoneAllocs\.length > 0/);
 });
 

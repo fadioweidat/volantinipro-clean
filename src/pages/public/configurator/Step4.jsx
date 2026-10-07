@@ -89,8 +89,26 @@ export function Step4({
     h2h: "Hand to Hand",
     b2b: "Distribuzione presso attività e aziende"
   }[svcType] || "N/D";
-  const rawFlyerQty = resolveQuoteQuantity(data);
-  const flyerQty = isMultiZoneQuote ? multiZoneSummary.totalQuantity : (data.coverageDecision === "increase" || data.coverageDecision === "useRecommended") && data.fullCoverageFlyers != null && rawFlyerQty != null ? Math.max(rawFlyerQty, Number(data.fullCoverageFlyers)) : rawFlyerQty;
+  // HOTFIX PV SUPERSTITE: con un solo PV configurato campaignZones[0] e'
+  // canonico per quantita', decisione di copertura, fabbisogno e input di
+  // distribuzione. Dopo l'eliminazione degli altri PV i mirror top-level
+  // (flyerQuantity/qty, fullCoverageFlyers, zonesAllocation) possono ancora
+  // appartenere al PV eliminato fino al prossimo "Continua" di Step2. Senza
+  // campaignZones configurate resta il percorso legacy invariato.
+  const singlePointOfSale = !isQuick && svcType === "d2d" && multiZoneSummary.zoneCount === 1 && multiZoneSummary.allZonesReady && multiZoneSummary.zones[0].quantity > 0 ? multiZoneSummary.zones[0] : null;
+  const quoteCoverageSource = singlePointOfSale ? {
+    coverageDecision: singlePointOfSale.source.coverageDecision,
+    fullCoverageFlyers: singlePointOfSale.requiredFlyers
+  } : data;
+  const rawFlyerQty = singlePointOfSale ? singlePointOfSale.quantity : resolveQuoteQuantity(data);
+  const flyerQty = isMultiZoneQuote ? multiZoneSummary.totalQuantity : (quoteCoverageSource.coverageDecision === "increase" || quoteCoverageSource.coverageDecision === "useRecommended") && quoteCoverageSource.fullCoverageFlyers != null && rawFlyerQty != null ? Math.max(rawFlyerQty, Number(quoteCoverageSource.fullCoverageFlyers)) : rawFlyerQty;
+  // Stesso input del resolver usato per ogni PV in buildMultiZoneDistributionZones.
+  const singlePointOfSaleDistributionInput = singlePointOfSale ? {
+    selectedComuni: singlePointOfSale.source.selectedComuni || singlePointOfSale.source.selectedMunicipalities || [],
+    zonesAllocation: singlePointOfSale.allocation,
+    cityName: singlePointOfSale.source.cityName,
+    searchedLocation: singlePointOfSale.source.addressLabel || null
+  } : null;
   const pricePerThousand = QUOTE_PRICES[svcType] || 18.5;
   const unitPricePerFlyer = pricePerThousand / 1000;
   // P0 WIRING REALE — griglia territoriale attiva SOLO per D2D (sezione 9
@@ -99,7 +117,7 @@ export function Step4({
   // sulla tariffa flat QUOTE_PRICES invariata (distributionZonesForPricing
   // resta null per loro, calculateQuotePricing ricade sul vecchio calcolo).
   const distributionZonesForPricing = svcType === "d2d"
-    ? isMultiZoneQuote ? buildMultiZoneDistributionZones(multiZoneSummary) : resolveConfiguratorDistributionZones(data, flyerQty).zones
+    ? isMultiZoneQuote ? buildMultiZoneDistributionZones(multiZoneSummary) : resolveConfiguratorDistributionZones(singlePointOfSaleDistributionInput || data, flyerQty).zones
     : null;
   const zones = data.zones || [];
   const selZ = [...S2_ZONES.filter(z => zones.includes(z.id)), ...(data.selectedCaps || []).map(cap => data.capDataMap?.[cap]).filter(Boolean)].filter(z => !z.unavailable);
@@ -567,16 +585,25 @@ export function Step4({
     recommendedFlyers: multiZoneSummary.totalRequiredFlyers ?? data.serviceKpis?.recommendedFlyers,
     coverage: multiZoneSummary.totalRequiredFlyers > 0 ? Math.min(100, Math.round(multiZoneSummary.totalQuantity / multiZoneSummary.totalRequiredFlyers * 100)) : null,
     comuniCount: new Set(multiZoneSummary.zones.flatMap(z => z.allocation.map(r => String(r?.name || "").trim().toLowerCase())).filter(Boolean)).size || null
+  } : singlePointOfSale ? {
+    // KPI del PV superstite dal suo snapshot (scritto da Step2 con gli stessi
+    // serviceKpis): data.serviceKpis puo' essere quello del PV eliminato.
+    ...(data.serviceKpis || {}),
+    families: singlePointOfSale.families ?? data.serviceKpis?.families,
+    pop: singlePointOfSale.population ?? data.serviceKpis?.pop,
+    population: singlePointOfSale.population ?? data.serviceKpis?.population,
+    recommendedFlyers: singlePointOfSale.requiredFlyers ?? data.serviceKpis?.recommendedFlyers,
+    coverage: singlePointOfSale.source.kpiSnapshot?.coverage ?? data.serviceKpis?.coverage
   } : data.serviceKpis || {};
   const step4Omi = data.metadata?.omi ?? null;
   const step4AnalysisLevel = data.analysisLevel || data.metadata?.analysis_level || kpis.analysisLevel || "comune";
   const step4TerritoryPluralLabel = step4AnalysisLevel === "nil" ? "Zone NIL" : "Comuni";
-  const zoneAllocs = isMultiZoneQuote ? flattenMultiZoneAllocation(multiZoneSummary) : data.zonesAllocation || [];
+  const zoneAllocs = isMultiZoneQuote ? flattenMultiZoneAllocation(multiZoneSummary) : singlePointOfSale ? singlePointOfSale.allocation : data.zonesAllocation || [];
   const plannedGpsPoints = data.operationalWaypoints || data.gpsPlannedPoints || data.metadata?.operational_waypoints || [];
   const allocatedRequirement = zoneAllocs.length ? zoneAllocs.reduce((a, z) => a + Number(z.requiredFlyers ?? 0), 0) : null;
-  const requiredQty = isMultiZoneQuote ? multiZoneSummary.totalRequiredFlyers ?? allocatedRequirement : data.searchMode === "municipality" ? kpis.recommendedFlyers ?? data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? allocatedRequirement : data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? kpis.recommendedFlyers ?? allocatedRequirement;
+  const requiredQty = isMultiZoneQuote ? multiZoneSummary.totalRequiredFlyers ?? allocatedRequirement : singlePointOfSale ? singlePointOfSale.requiredFlyers ?? allocatedRequirement : data.searchMode === "municipality" ? kpis.recommendedFlyers ?? data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? allocatedRequirement : data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? kpis.recommendedFlyers ?? allocatedRequirement;
   const rawRemainingQty = flyerQty == null || requiredQty == null ? null : flyerQty - requiredQty;
-  const remainingQty = isMultiZoneQuote ? rawRemainingQty == null ? null : Math.max(0, rawRemainingQty) : data.remainingFlyers ?? data.remainingQuantity ?? Math.max(0, rawRemainingQty);
+  const remainingQty = isMultiZoneQuote || singlePointOfSale ? rawRemainingQty == null ? null : Math.max(0, rawRemainingQty) : data.remainingFlyers ?? data.remainingQuantity ?? Math.max(0, rawRemainingQty);
   const missingQty = rawRemainingQty == null ? null : Math.max(0, -rawRemainingQty);
   const quantityIsSufficient = rawRemainingQty == null ? null : rawRemainingQty >= 0;
   const step4AreaLabel = value => {
@@ -2633,7 +2660,16 @@ export function Step4({
                   // cosi' pricing/KPI/copertura si ricalcolano e la sync con
                   // Step1 resta coerente. Mai un decremento.
                   const target = Math.max(Number(flyerQty) || 0, Math.round(Number(requiredQty) || 0));
-                  if (target > 0) setData(d => ({ ...d, qty: target, flyerQuantity: target }));
+                  // Con un PV canonico la quantita' appartiene a campaignZones[0]:
+                  // si aggiorna anche lui, altrimenti il preventivo non cambierebbe.
+                  if (target > 0) setData(d => ({
+                    ...d,
+                    qty: target,
+                    flyerQuantity: target,
+                    ...(singlePointOfSale && Array.isArray(d.campaignZones) ? {
+                      campaignZones: d.campaignZones.map(z => z.id === singlePointOfSale.id ? { ...z, finalFlyers: target, assigned_flyers: target } : z)
+                    } : {})
+                  }));
                 }} style={{
                   padding: "14px 18px",
                   borderRadius: 10,
