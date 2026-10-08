@@ -7,7 +7,8 @@ import { motion } from "framer-motion";
 import { AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveSmartPairingWaitlist, supabase } from "../../../lib/supabaseClient.js";
 import { supabase as supabaseSdk } from "../../../supabaseClient.js";
 import { QUOTE_PRICES, MONTHS_FULL } from "../../../lib/appConstants.js";
-import { calculateQuotePricing } from "../../../lib/quotePricing.js";
+import { calculateQuotePricing, formatQuoteCurrency } from "../../../lib/quotePricing.js";
+import { formatCampaignStep3Headline, selectCampaignStep3Summary } from "../../../lib/step3/campaignStep3Summary.js";
 import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
 import { calculateBusinessMaterials, calculateBusinessOperationalPlan } from "../../../lib/business/business-config.js";
 import { formatIntegerIT } from "../../../lib/utils/format.js";
@@ -39,6 +40,9 @@ export function Step3({
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   })();
   const [activeCalZoneId, setActiveCalZoneId] = useState(data.activeZoneId || data.campaignZones?.[0]?.id);
+  // FASE 3A: riepilogo campagna multi-PV letto SOLO da campaignZones[] (mai dai
+  // mirror del PV attivo ne' dagli snapshot legacy di Step2). Sola lettura.
+  const campaignSummary = useMemo(() => selectCampaignStep3Summary(data), [data.campaignZones, data.type]);
   const [selDays, setSelDays] = useState([]);
   const [showZoneDetails, setShowZoneDetails] = useState(false);
   const [navError, setNavError] = useState("");
@@ -260,6 +264,9 @@ export function Step3({
   // Solo visualizzazione: allZonesList resta la fonte del modulo Smart Pairing (invariato).
   const displayZonesList = !activeZone && posZones.length > 1 ? posZones.map(posLabelFor) : allZonesList;
   const compactZoneLabel = displayZonesList.length > 1 ? `${displayZonesList[0]} (+${displayZonesList.length - 1} ${posZones.length > 1 && !activeZone ? "punti vendita" : "zone"})` : displayZonesList[0] || "Zona selezionata";
+  // Con una sola zona (o calendario per zona, codice legacy) la UX resta quella single-PV.
+  const isMultiPvCampaign = campaignSummary.isMultiPointOfSale && !activeZone;
+  const campaignZoneLabel = isMultiPvCampaign ? formatCampaignStep3Headline(campaignSummary) : compactZoneLabel;
   const fmtIsoDate = v => {
     if (!v) return "";
     const p = v.split("-");
@@ -737,6 +744,9 @@ export function Step3({
       }}>Lo Smart Pairing può ottimizzare il calendario e la logistica. Non modifica le aziende selezionate, le copie per attività o le prove richieste.</div>
         </div>}
 
+      {/* 0. FASE 3A — RIEPILOGO CAMPAGNA MULTI-PV (sola lettura, da campaignZones[]) */}
+      {isMultiPvCampaign && <Step3CampaignSummary summary={campaignSummary} isMobile={isMobile} />}
+
       {/* 1. HERO CARD */}
       <div style={{
       background: "linear-gradient(135deg, rgba(30,41,59,0.85) 0%, rgba(15,23,42,0.95) 100%)",
@@ -867,8 +877,8 @@ export function Step3({
       }}>
           {(realSmartPairingSlots.length > 0 ? [{
           step: "1",
-          title: "Zona selezionata",
-          desc: compactZoneLabel,
+          title: isMultiPvCampaign ? "Punti vendita" : "Zona selezionata",
+          desc: campaignZoneLabel,
           status: "completed"
         }, {
           step: "2",
@@ -887,14 +897,14 @@ export function Step3({
           status: "future"
         }, {
           step: "5",
-          title: "Applica risparmio",
-          desc: "Fino al 40%",
+          title: isMultiPvCampaign ? "Verifica risparmio" : "Applica risparmio",
+          desc: isMultiPvCampaign ? "Disponibilità per la campagna" : "Fino al 40%",
           status: selDays.length > 0 ? "completed" : "future",
           highlight: true
         }] : [{
           step: "1",
-          title: "Zona selezionata",
-          desc: compactZoneLabel,
+          title: isMultiPvCampaign ? "Punti vendita" : "Zona selezionata",
+          desc: campaignZoneLabel,
           status: "completed"
         }, {
           step: "2",
@@ -1017,12 +1027,16 @@ export function Step3({
         const isLoading = availabilityStatus === "loading";
         const isError = availabilityStatus === "error";
         const bestDiscount = hasMatch ? Math.max(...realSmartPairingSlots.map(s => s.discountPercent)) : 0;
+        // FASE 3A: con piu' PV l'abbinamento e' cercato sul solo PV attivo
+        // (semantica invariata fino alla Fase 3B): nessuna promessa di sconto
+        // sull'intera campagna.
+        const multiPvMatch = isMultiPvCampaign && hasMatch;
         return [{
-          label: hasMatch ? "Risparmio applicato" : "Risparmio disponibile",
-          val: isLoading ? "…" : isError ? "—" : hasMatch ? `${bestDiscount}%` : "Fino al 40%",
-          sub: isLoading ? "Verifica in corso" : isError ? "Non verificabile" : hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
+          label: multiPvMatch ? "Smart Pairing disponibile" : hasMatch ? "Risparmio applicato" : "Risparmio disponibile",
+          val: isLoading ? "…" : isError ? "—" : multiPvMatch ? `Fino al ${bestDiscount}%` : hasMatch ? `${bestDiscount}%` : "Fino al 40%",
+          sub: isLoading ? "Verifica in corso" : isError ? "Non verificabile" : multiPvMatch ? "Verifica disponibilità per la campagna" : hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
           color: isError ? "rgba(255,255,255,0.4)" : hasMatch ? C.green : C.yellow,
-          tip: hasMatch ? "Risparmio assegnato dall'abbinamento confermato." : "Risparmio massimo previsto dalle regole Smart Pairing."
+          tip: multiPvMatch ? "Abbinamento trovato per uno dei punti vendita: il risparmio effettivo sull'intera campagna va verificato." : hasMatch ? "Risparmio assegnato dall'abbinamento confermato." : "Risparmio massimo previsto dalle regole Smart Pairing."
         }, {
           label: "Campagne compatibili",
           val: isLoading ? "…" : isError ? "—" : hasMatch ? realSmartPairingSlots.length : "0",
@@ -1197,6 +1211,7 @@ export function Step3({
           showZoneDetails={showZoneDetails}
           setShowZoneDetails={setShowZoneDetails}
           activeQty={activeQty}
+          campaignSummary={isMultiPvCampaign ? campaignSummary : null}
           averagePairingDiscount={averagePairingDiscount}
           handlePrimary={handlePrimary}
           navError={navError}
@@ -1205,4 +1220,147 @@ export function Step3({
         />
       </div>
     </div>;
+}
+
+// FASE 3A — Riepilogo campagna multi-PV. Sola lettura: nessun editor PV,
+// nessuna mappa, nessuna scrittura di stato. I valori arrivano gia' calcolati
+// da selectCampaignStep3Summary (campaignZones[] + motore prezzi di Step4).
+function Step3CampaignSummary({ summary, isMobile }) {
+  const stats = [{
+    label: "Punti vendita",
+    value: formatIntegerIT(summary.pointOfSaleCount)
+  }, {
+    label: "Volantini totali",
+    value: formatIntegerIT(summary.totalQuantity)
+  }, ...(summary.distributionSubtotal != null ? [{
+    label: "Distribuzione",
+    value: `da ${formatQuoteCurrency(summary.distributionSubtotal)}`
+  }] : [])];
+  return <section aria-label="Riepilogo campagna" data-testid="step3-campaign-summary" style={{
+    background: "rgba(255,255,255,0.035)",
+    borderRadius: 20,
+    padding: isMobile ? "18px 16px" : "22px 28px",
+    border: "1px solid rgba(232,87,26,0.3)",
+    marginBottom: isMobile ? 20 : 28,
+    boxSizing: "border-box",
+    minWidth: 0
+  }}>
+      <div style={{
+      fontFamily: F.sans,
+      fontSize: 11,
+      fontWeight: 800,
+      color: "rgba(255,255,255,0.45)",
+      textTransform: "uppercase",
+      letterSpacing: ".1em",
+      marginBottom: 6
+    }}>Riepilogo campagna</div>
+      <div style={{
+      fontFamily: F.serif,
+      fontSize: isMobile ? 24 : 30,
+      fontWeight: 900,
+      color: C.white,
+      lineHeight: 1.15,
+      marginBottom: 14,
+      overflowWrap: "anywhere"
+    }}>{formatCampaignStep3Headline(summary)}</div>
+      <div style={{
+      display: "grid",
+      gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))`,
+      gap: isMobile ? 8 : 14,
+      marginBottom: 14
+    }}>
+        {stats.map(s => <div key={s.label} style={{
+        background: "rgba(255,255,255,0.04)",
+        borderRadius: 12,
+        padding: isMobile ? "10px 10px" : "12px 16px",
+        minWidth: 0
+      }}>
+            <div style={{
+          fontFamily: F.sans,
+          fontSize: isMobile ? 10 : 11,
+          fontWeight: 700,
+          color: "rgba(255,255,255,0.5)",
+          textTransform: "uppercase",
+          letterSpacing: ".05em",
+          marginBottom: 4
+        }}>{s.label}</div>
+            <div style={{
+          fontFamily: F.sans,
+          fontSize: isMobile ? 15 : 20,
+          fontWeight: 800,
+          color: C.white,
+          overflowWrap: "anywhere"
+        }}>{s.value}</div>
+          </div>)}
+      </div>
+      {summary.overlapPresent && <div role="note" style={{
+      fontFamily: F.sans,
+      fontSize: 12,
+      color: "rgba(255,255,255,0.7)",
+      lineHeight: 1.5,
+      padding: "8px 12px",
+      borderRadius: 10,
+      background: "rgba(245,197,24,0.08)",
+      border: "1px solid rgba(245,197,24,0.25)",
+      marginBottom: 14
+    }}>
+          Alcuni punti vendita condividono parte del territorio. La quantità indicata resta quella prevista per ciascun punto vendita.
+        </div>}
+      <ul aria-label="Punti vendita della campagna" style={{
+      listStyle: "none",
+      margin: 0,
+      padding: 0,
+      display: "flex",
+      flexDirection: "column",
+      gap: 6
+    }}>
+        {summary.rows.map(row => <li key={row.id} data-testid="step3-pos-row" style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "9px 12px",
+        borderRadius: 10,
+        background: "rgba(0,0,0,0.22)",
+        fontFamily: F.sans,
+        minWidth: 0
+      }}>
+            <div style={{
+          minWidth: 0,
+          flex: 1
+        }}>
+              <div style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: C.white,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap"
+          }}>{row.storeName}</div>
+              <div style={{
+            fontSize: 11,
+            color: "rgba(255,255,255,0.55)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap"
+          }} title={row.territoryLabel}>{row.territoryLabel}</div>
+            </div>
+            <div style={{
+          fontSize: 13,
+          fontWeight: 800,
+          color: C.white,
+          whiteSpace: "nowrap",
+          flexShrink: 0
+        }}>{formatIntegerIT(row.quantity)} <span style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: "rgba(255,255,255,0.55)"
+          }}>volantini</span>
+              {row.distributionPrice != null && <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.55)", marginTop: 3 }}>
+                Base {formatQuoteCurrency(row.distributionPrice)}
+              </span>}
+            </div>
+          </li>)}
+      </ul>
+    </section>;
 }

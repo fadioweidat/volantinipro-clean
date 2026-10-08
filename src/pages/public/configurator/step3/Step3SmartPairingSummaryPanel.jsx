@@ -2,8 +2,12 @@ import React from "react";
 import { motion } from "framer-motion";
 import { NavButton } from "../../../../components/NavButton.jsx";
 import { C, F } from "../../../../lib/constants.js";
+import { formatQuoteCurrency } from "../../../../lib/quotePricing.js";
+import { formatIntegerIT } from "../../../../lib/utils/format.js";
 
-export function Step3SmartPairingSummaryPanel({ isMobile, realSmartPairingSlots, pairingDays, formSent, svcLabel, compactZoneLabel, allZonesList, showZoneDetails, setShowZoneDetails, activeQty, averagePairingDiscount, handlePrimary, navError, handleSkipPairing, handleBackToZone }) {
+// FASE 3A: campaignSummary (solo multi-PV, altrimenti null) arriva gia'
+// calcolato da campaignZones[]; con un solo PV il pannello resta invariato.
+export function Step3SmartPairingSummaryPanel({ isMobile, realSmartPairingSlots, pairingDays, formSent, svcLabel, compactZoneLabel, allZonesList, showZoneDetails, setShowZoneDetails, activeQty, campaignSummary = null, averagePairingDiscount, handlePrimary, navError, handleSkipPairing, handleBackToZone }) {
   return (
     <div style={{
         display: "flex",
@@ -70,14 +74,14 @@ export function Step3SmartPairingSummaryPanel({ isMobile, realSmartPairingSlots,
             }}>
                 <span style={{
                 color: "rgba(255,255,255,.5)"
-              }}>Zone</span>
+              }}>{campaignSummary ? "Punti vendita" : "Zone"}</span>
                 <div style={{
                 textAlign: "right"
               }}>
                   <div style={{
                   color: C.white,
                   fontWeight: 700
-                }}>{compactZoneLabel}</div>
+                }}>{campaignSummary ? formatIntegerIT(campaignSummary.pointOfSaleCount) : compactZoneLabel}</div>
                   {allZonesList.length > 1 && <button type="button" onClick={() => setShowZoneDetails(!showZoneDetails)} style={{
                   background: "none",
                   border: "none",
@@ -118,23 +122,35 @@ export function Step3SmartPairingSummaryPanel({ isMobile, realSmartPairingSlots,
             }}>
                 <span style={{
                 color: "rgba(255,255,255,.5)"
-              }}>Quantità</span>
+              }}>{campaignSummary ? "Volantini totali" : "Quantità"}</span>
                 <span style={{
                 color: C.white,
                 fontWeight: 700
-              }}>{activeQty.toLocaleString("it-IT")} vol.</span>
+              }}>{campaignSummary ? formatIntegerIT(campaignSummary.totalQuantity) : activeQty.toLocaleString("it-IT")} vol.</span>
               </div>
+              {campaignSummary && campaignSummary.distributionSubtotal != null && <div style={{
+              display: "flex",
+              justifyContent: "space-between"
+            }}>
+                <span style={{
+                color: "rgba(255,255,255,.5)"
+              }}>Distribuzione</span>
+                <span style={{
+                color: C.white,
+                fontWeight: 700
+              }}>da {formatQuoteCurrency(campaignSummary.distributionSubtotal)}</span>
+              </div>}
               <div style={{
               display: "flex",
               justifyContent: "space-between"
             }}>
                 <span style={{
                 color: "rgba(255,255,255,.5)"
-              }}>Possibile sconto</span>
+              }}>{campaignSummary ? "Smart Pairing" : "Possibile sconto"}</span>
                 <span style={{
                 color: C.green,
                 fontWeight: 800
-              }}>{averagePairingDiscount > 0 ? `-${averagePairingDiscount}%` : "Fino a -40%"}</span>
+              }}>{campaignSummary ? (realSmartPairingSlots.length > 0 ? "Disponibile · da verificare" : "Da verificare") : averagePairingDiscount > 0 ? `-${averagePairingDiscount}%` : "Fino a -40%"}</span>
               </div>
               <div style={{
               display: "flex",
