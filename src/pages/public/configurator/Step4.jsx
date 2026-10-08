@@ -31,6 +31,7 @@ import { Step4TechnicalAnalysisPanel } from "./step4/Step4TechnicalAnalysisPanel
 import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
 import { useCliente } from "../../../hooks/useCliente.js";
 import { calculateQuotePricing, formatQuoteCurrency, resolveQuoteQuantity } from "../../../lib/quotePricing.js";
+import { selectLegacyPairingSlots } from "../../../lib/step3/legacyPairingGuard.js";
 import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
 import { URGENCY_SURCHARGE_PCT } from "../../../lib/pricing/distributionPricing.js";
 import { computeGraphicEstimate, GRAPHIC_SERVICE_PRICE } from "../../../lib/pricing/graphicPricing.js";
@@ -144,7 +145,8 @@ export function Step4({
   // Nessuna data confermata -> "Da definire con il team": si usa la fascia base come prezzo indicativo.
   const campaignDurationKnown = selDays.length > 0;
   const dedicatedSupervisionPrice = campaignDurationKnown && selDays.length > 7 ? 70 : 45;
-  const realStep3Slots = Array.isArray(data.smartPairingSlots) ? data.smartPairingSlots : [];
+  // One guard feeds ALL existing consumers: calendar, price, summary, PDF and payload.
+  const realStep3Slots = selectLegacyPairingSlots(data);
   const realStep3Pairs = Object.fromEntries(realStep3Slots.map(slot => {
     const key = slot.date || slot.day || slot.giorno;
     if (!key) return null;

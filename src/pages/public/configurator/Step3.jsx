@@ -19,9 +19,18 @@ import { buildSmartPairingBypassState, calendarDateKey, fetchSmartPairingAvailab
 import { Step3SmartPairingMainPanel } from "./step3/Step3SmartPairingMainPanel.jsx";
 import { getCampaignZoneLabel as getPointOfSaleLabel } from "../../../lib/step2/campaignZonesModel.js";
 import { Step3SmartPairingSummaryPanel } from "./step3/Step3SmartPairingSummaryPanel.jsx";
+import { PerPvSmartPairingStep3 } from "./step3/PerPvSmartPairingStep3.jsx";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
-export function Step3({
+export function Step3(props) {
+  const zones = props.data.campaignZones || [];
+  // Keep unconfigured/legacy and other-service paths intact. Configured D2D
+  // PVs use explicit provisional mode, including a single surviving PV.
+  const perPv = props.data.type === 'd2d' && zones.length > 0 && zones.every(z => typeof z.id === 'string' && z.id.trim()) && new Set(zones.map(z=>z.id)).size === zones.length;
+  return perPv ? <PerPvSmartPairingStep3 {...props} renderSummary={(summary,isMobile)=><Step3CampaignSummary summary={summary} isMobile={isMobile}/>} /> : <LegacyStep3 {...props}/>;
+}
+
+function LegacyStep3({
   data,
   setData,
   onNext,

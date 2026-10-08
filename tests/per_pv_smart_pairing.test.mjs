@@ -130,8 +130,8 @@ test('sensitivity: deliberately invalid aggregate, date-average and rounding fix
   assert.throws(()=>assert.equal(30,run({...fixture(),selectedDatesByPv:{pv0:[day,'2099-01-07']}}).rows[0].eligiblePercent),assert.AssertionError);
   assert.throws(()=>assert.equal(0.024,run(fixture(['same','same'],[0.03,0.03])).discount),assert.AssertionError);
 });
-test('protected existing files remain byte-identical to approved baseline; engine has no live imports', () => {
-  const paths=['src/pages/public/configurator/Step3.jsx','src/pages/public/configurator/Step4.jsx','src/lib/quotePricing.js','src/lib/smartPairingAvailability.js','src/lib/step2/campaignZonesModel.js'];
+test('protected pricing/client/Step2 sources remain identical to baseline; Phase3B.2 owns UI integration', () => {
+  const paths=['src/lib/quotePricing.js','src/lib/smartPairingAvailability.js','src/lib/step2/campaignZonesModel.js'];
   for(const path of paths) {
     const old=execFileSync('git',['show','047a764d54624088c6271b112ca53be09b6c5732:'+path]);
     const current=readFileSync(new URL('../'+path,import.meta.url));
