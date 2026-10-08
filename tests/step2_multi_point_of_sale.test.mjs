@@ -72,7 +72,10 @@ test("A/T. one PV: not multi, no PV UI, Step4 + payload stay on the production s
   assert.match(panel, /\{campaignZones\.length > 1 && \(\(\) => \{/);
   assert.match(step4, /const isMultiZoneQuote = !isQuick && svcType === "d2d" && multiZoneSummary\.isMultiZone;/);
   assert.match(step4, /const campaignZonesPayload = isMultiZoneQuote \? buildMultiZoneCampaignZonesPayload\(multiZoneSummary\) : zoneAllocs\.length > 0/);
-  assert.match(step4, /const multiZonePosPricing = useMemo\(\(\) => isMultiZoneQuote \? buildPointOfSalePricing\(multiZoneSummary\) : null/);
+  // Phase3B.3 uses shared canonical PV bases; legacy pricing remains the fallback.
+  assert.match(step4, /const multiZonePosPricing = useMemo\(\(\) => isMultiZoneQuote \? economicBreakdown \?/);
+  assert.match(step4, /id:r\.pvId,distributionPrice:r\.base/);
+  assert.match(step4, /: buildPointOfSalePricing\(multiZoneSummary\) : null/);
 });
 
 test("B/C/D. '+ Aggiungi punto vendita' always creates a new campaignZone, from any tab", () => {

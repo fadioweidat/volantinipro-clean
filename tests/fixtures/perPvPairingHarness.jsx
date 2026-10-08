@@ -6,9 +6,11 @@ import {Step4} from '../../src/pages/public/configurator/Step4.jsx';
 const city={name:'Milano',lat:45.46,lng:9.19};
 const seed=window.__PAIRING_SEED || {type:'d2d',subscription:'single',qty:5959,flyerQuantity:5959,hasFlyers:'yes',alreadyPrinted:true,printing:{enabled:false},urgency:'normal',cityName:'Milano',city,selectedComuni:[city],campaignZones:[{id:'pv1',searchMode:'municipality',city,cityName:'Milano',selectedComuni:[city],readyForQuote:true,finalFlyers:5959,assigned_flyers:5959,nilManualMode:true,allocation:[{name:'ISOLA',nil_code:'9',assignedFlyers:5959,requiredFlyers:5959}],kpiSnapshot:{families:5417,population:10000,requiredFlyers:5959,analysisLevel:'nil'}}]};
 window.__PAIRING_REQUESTS=[];
+window.__PAIRING_RELEASES=[];
 const attempts={};
 const request=async(body,{pvId,signal})=>{
  window.__PAIRING_REQUESTS.push({pvId,body,signal});attempts[pvId]=(attempts[pvId]||0)+1;
+ if(window.__PAIRING_HOLD?.[pvId])await new Promise(resolve=>window.__PAIRING_RELEASES.push({pvId,resolve}));
  await new Promise(r=>setTimeout(r,window.__PAIRING_DELAYS?.[pvId] || 80));
  if(window.__PAIRING_FAILURE===pvId&&attempts[pvId]===1)throw Error('MOCK_READ_API_ERROR');
  const date=new Date(Date.parse(body.startDate)+5*86400000).toISOString().slice(0,10);

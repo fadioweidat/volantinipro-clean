@@ -503,6 +503,10 @@ function renderPdf(model) {
   }
 
   section(w, "7. Preventivo e costo", "Calcolo economico stimato");
+  if (model.pricing.smart_pairing?.version === 1) {
+    paragraph(w, "Smart Pairing per PV non verificato: nessuna capacita riservata. Netto base prima di urgenza, piano ed extra.");
+    table(w, ["Punto vendita", "Base", "Sconto", "Netto base"], model.pricing.smart_pairing.rows.map(r => [r.name, formatCurrencyIT(r.base), formatCurrencyIT(r.discount), formatCurrencyIT(r.net)]), [210,100,100,100]);
+  }
   table(w, ["Voce", "Quantit\u00e0", "Prezzo unitario", "Totale"], [...model.pricing.lines.map(l => [
       l.label,
       l.quantity ? `${formatNumberIT(l.quantity)} volantini` : "-",
@@ -513,12 +517,15 @@ function renderPdf(model) {
       String(e.label || "").toLowerCase().includes("ai") ? "1 report" : "1 servizio",
       formatCurrencyIT(e.amount),
       formatCurrencyIT(e.amount),
-    ]),...(model.pricing.discounts || []).map(d => [d.label, "-", "-", `-${formatCurrencyIT(d.amount)}`]),
+    ]),...(model.pricing.urgencySurcharge > 0 ? [["Sovrapprezzo urgenza","-","-",formatCurrencyIT(model.pricing.urgencySurcharge)]] : []),
+    ...(model.pricing.discounts || []).map(d => [d.label, "-", "-", `-${formatCurrencyIT(d.amount)}`]),
+    ...(model.pricing.printingLine?.inTotal ? [[model.pricing.printingLine.label || "Stampa indicativa","-","-",formatCurrencyIT(model.pricing.printingLine.amount)]] : []),
+    ...(model.pricing.graphicLine?.inTotal ? [[model.pricing.graphicLine.label || "Grafica","-","-",formatCurrencyIT(model.pricing.graphicLine.amount)]] : []),
   ], [210, 115, 105, 80]);
   w.ensure(54);
   w.rect(PAGE.margin, w.y - 40, PAGE.w - PAGE.margin * 2, 40, "1 0.97 0.93", "0.99 0.73 0.45");
   w.textAt("Totale stimato", PAGE.margin + 12, w.y - 25, 12, COLORS.ink, "F2");
-  w.textAt(formatCurrencyIT(model.pricing.total), PAGE.w - PAGE.margin - 120, w.y - 25, 16, COLORS.orange, "F2");
+  w.textAt(formatCurrencyIT(model.pricing.grandTotal ?? model.pricing.total), PAGE.w - PAGE.margin - 120, w.y - 25, 16, COLORS.orange, "F2");
   w.move(54);
 
   section(w, "8. Fonti dati", "Origine dei dati utilizzati");

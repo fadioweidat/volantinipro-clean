@@ -438,6 +438,10 @@ export function printQuotePdf(rawData) {
   <!-- Preventivo -->
   <div class="section">
     ${secHeader(nextSec(), "Preventivo e costo", "Calcolo economico stimato")}
+    ${pricing.smart_pairing?.version === 1 ? `<div class="callout">Breakdown per punto vendita — Smart Pairing non verificato, nessuna capacità riservata. Importi base prima di urgenza, piano ed extra.</div>
+    <table class="price-table"><thead><tr><th>Punto vendita</th><th>Base</th><th>Sconto</th><th>Netto base</th></tr></thead><tbody>
+      ${pricing.smart_pairing.rows.map(r => `<tr><td>${String(r.name).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</td><td>${cur(r.base)}</td><td>${cur(r.discount)}</td><td>${cur(r.net)}</td></tr>`).join('')}
+    </tbody></table>` : ''}
     <table class="price-table">
       <thead><tr><th>Voce</th><th>Quantità</th><th>Prezzo unitario</th><th>Totale</th></tr></thead>
       <tbody>
@@ -450,6 +454,7 @@ export function printQuotePdf(rawData) {
         ${(pricing.extras || []).map(e => `<tr class="row-extra">
           <td>${e.label}</td><td>1 servizio</td><td>${cur(e.amount)}</td><td>${cur(e.amount)}</td>
         </tr>`).join("")}
+        ${pricing.urgencySurcharge > 0 ? `<tr><td>Sovrapprezzo urgenza</td><td>—</td><td>—</td><td>${cur(pricing.urgencySurcharge)}</td></tr>` : ''}
         ${(pricing.discounts || []).map(disc => `<tr class="row-discount">
           <td>${disc.label}</td><td>—</td><td>—</td><td>−${cur(disc.amount)}</td>
         </tr>`).join("")}

@@ -32,6 +32,8 @@ import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
 import { useCliente } from "../../../hooks/useCliente.js";
 import { calculateQuotePricing, formatQuoteCurrency, resolveQuoteQuantity } from "../../../lib/quotePricing.js";
 import { selectLegacyPairingSlots } from "../../../lib/step3/legacyPairingGuard.js";
+import { buildPerPvEconomics, pricePerPvQuote, smartPairingSnapshot } from "../../../lib/step3/perPvEconomics.js";
+import { PerPvEconomicSummary } from "./step3/PerPvEconomicSummary.jsx";
 import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
 import { URGENCY_SURCHARGE_PCT } from "../../../lib/pricing/distributionPricing.js";
 import { computeGraphicEstimate, GRAPHIC_SERVICE_PRICE } from "../../../lib/pricing/graphicPricing.js";
@@ -80,7 +82,9 @@ export function Step4({
   const multiZoneSummary = useMemo(() => summarizeCampaignZones(data.campaignZones), [data.campaignZones]);
   const isMultiZoneQuote = !isQuick && svcType === "d2d" && multiZoneSummary.isMultiZone;
   // FASE 2: prezzo distribuzione per punto vendita dallo stesso motore della campagna.
-  const multiZonePosPricing = useMemo(() => isMultiZoneQuote ? buildPointOfSalePricing(multiZoneSummary) : null, [isMultiZoneQuote, multiZoneSummary]);
+  const economicBreakdown = buildPerPvEconomics(data);
+  const economicSnapshot = smartPairingSnapshot(economicBreakdown);
+  const multiZonePosPricing = useMemo(() => isMultiZoneQuote ? economicBreakdown ? {rows:economicBreakdown.rows.map(r=>({id:r.pvId,distributionPrice:r.base}))} : buildPointOfSalePricing(multiZoneSummary) : null, [isMultiZoneQuote, multiZoneSummary, economicBreakdown]);
   const multiZoneUnsupported = !isQuick && svcType !== "d2d" && multiZoneSummary.isMultiZone;
   const cfg = SERVICE_META[svcType] || SERVICE_META.d2d;
   const col = cfg.color;
@@ -499,7 +503,8 @@ export function Step4({
   });
   const printPriceKnown = printQuote.customerPrice != null;
   const printingEstimatedPrice = printPriceKnown ? printQuote.customerPrice : 0;
-  const pricing = calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
+  const commercialInputs = { quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing };
+  const pricing = economicBreakdown ? pricePerPvQuote(economicBreakdown, commercialInputs) : calculateQuotePricing(commercialInputs);
   const { baseCost, smartPairingDiscount, urgencySurcharge: urgSurch, subtotalBeforePlan, planDiscountAmount, extraCost, total } = pricing;
 
   // STAMPA e GRAFICA — voci SEPARATE, mai dentro il motore distribuzione
@@ -1204,6 +1209,8 @@ export function Step4({
       compatibleZone: pdfPlanningRows.find(r => r.pair)?.pair ? `${pdfPlanningRows.find(r => r.pair).pair.zone} – ${pdfPlanningRows.find(r => r.pair).pair.type === "same" ? "stessa zona" : "zona vicina"}` : null
     },
     pricing: {
+      ...(economicSnapshot ? { smart_pairing: economicSnapshot } : {}),
+      urgencySurcharge: urgSurch,
       lines: [{
         label: `Distribuzione ${tLabel}`,
         detail: `${flyerQty.toLocaleString("it-IT", {
@@ -1415,6 +1422,7 @@ export function Step4({
         total_amount: Number(total.toFixed(2)),
         metadata: {
           grand_total: grandTotal,
+          ...(economicSnapshot ? { smart_pairing: economicSnapshot } : {}),
           zona: mainAreaLabel,
           comune: data.cityName || data.comune || selectedZoneNames[0] || null,
           mode: isMultiZoneQuote ? "multi_zone" : data.searchMode || data.areaMode || "configurator",
@@ -2302,6 +2310,7 @@ export function Step4({
         }}>
             {secHead("2", "Famiglie e copertura", "Quante persone raggiungerai con questa campagna", sectionAccent)}
             {isMultiZoneQuote && <Step4MultiZoneSummary summary={multiZoneSummary} posPricing={multiZonePosPricing} campaignTotal={total} campaignQuantity={flyerQty} />}
+            <PerPvEconomicSummary breakdown={economicBreakdown}/>
             {isQuick ? <div style={{
             padding: "14px",
             borderRadius: 10,

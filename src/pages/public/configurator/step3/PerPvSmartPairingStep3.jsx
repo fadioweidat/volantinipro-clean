@@ -5,6 +5,8 @@ import { useIsMobile } from '../../../../hooks/useIsMobile.js';
 import { selectCampaignStep3Summary } from '../../../../lib/step3/campaignStep3Summary.js';
 import { createPairingCoordinator, pairingPeriod } from '../../../../lib/step3/perPvPairingCoordinator.js';
 import { buildPairingContext, evaluatePairingSelection } from '../../../../lib/step3/perPvSmartPairing.js';
+import { buildPerPvEconomics, smartPairingSnapshot } from '../../../../lib/step3/perPvEconomics.js';
+import { PerPvEconomicSummary } from './PerPvEconomicSummary.jsx';
 
 const request = async (body,{signal}) => {
   if(!supabase?.functions?.invoke)throw Error('BACKEND_NOT_CONFIGURED');
@@ -43,7 +45,9 @@ export function PerPvSmartPairingStep3({data,setData,onNext,onBack,renderSummary
   const cached=snapshot.states[owner?.id];
   const state=cached && currentContext?.signature===cached.contextSignature ? cached : null;
   const dates=data.perPvPairingPreferences?.[owner?.id] || [];
-  const summaries=selectCampaignStep3Summary(data);
+  const economics=buildPerPvEconomics({...data,smartPairingMode:'per_pv'},{states:snapshot.states});
+  const originalSummary=selectCampaignStep3Summary(data);
+  const summaries=economics ? {...originalSummary,totalQuantity:economics.totals.quantity,distributionSubtotal:economics.totals.base,rows:originalSummary.rows.map(r=>{const e=economics.rows.find(e=>e.pvId===r.id);return {...r,quantity:e.quantity,distributionPrice:e.base};})} : originalSummary;
   const offered=state?.preferredAvailabilityDates || [];
   const monthDates=offered.filter(d=>d.date.startsWith(month+'-'));
   const eligibility=evaluatePairingSelection({context:currentContext,state,generation:state?.generation,selectedDates:dates,now:Date.now()});
@@ -55,11 +59,12 @@ export function PerPvSmartPairingStep3({data,setData,onNext,onBack,renderSummary
   });
   const proceed=skip=>{
     if(skip)coordinator.current?.skip();
-    setData(prev=>({...prev,smartPairingMode:'per_pv',smartPairingSlots:[],availableDates:[],avgDiscount:0,averagePairingDiscount:0,maxPairingDiscount:0,pairingDiscountPercent:{},pairingType:{},pairingDays:[],smartPairingSelectedDates:[],smartPairingStatus:skip?'skipped_unverified':'provisional'}));
+    setData(prev=>({...prev,perPvPairingEconomicSnapshot:smartPairingSnapshot(buildPerPvEconomics({...prev,smartPairingMode:'per_pv'},{states:coordinator.current?.snapshot().states || {}})),smartPairingMode:'per_pv',smartPairingSlots:[],availableDates:[],avgDiscount:0,averagePairingDiscount:0,maxPairingDiscount:0,pairingDiscountPercent:{},pairingType:{},pairingDays:[],smartPairingSelectedDates:[],smartPairingStatus:skip?'skipped_unverified':'provisional'}));
     onNext();
   };
   return <div data-testid="per-pv-pairing" style={{color:C.white,fontFamily:F.sans,maxWidth:1100,margin:'0 auto',padding:isMobile?'20px 16px':'32px 24px',boxSizing:'border-box',minWidth:0}}>
     {renderSummary(summaries,isMobile)}
+    <PerPvEconomicSummary breakdown={economics}/>
     <h1 style={{fontFamily:F.serif,fontSize:isMobile?30:42,margin:'12px 0'}}>Smart Pairing per punto vendita</h1>
     <p role="status">Disponibilità provvisoria: il territorio non è verificato. Nessuno sconto economico viene applicato in questa fase. Le date sono preferenze e non riservano capacità.</p>
     <div role="group" aria-label="Punti vendita" style={{display:'flex',gap:8,flexWrap:'wrap',margin:'20px 0'}}>
