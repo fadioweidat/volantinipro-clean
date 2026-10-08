@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
+import { computeSemanticFingerprint, fingerprintFromStoredCampaign } from "./submissionFingerprint.ts";
+
+// Idempotency window and the most recent same-email rows checked inside it.
+const IDEMPOTENCY_WINDOW_MS = 10 * 60 * 1000;
+const IDEMPOTENCY_MAX_CANDIDATES = 20;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -155,6 +160,10 @@ serve(async (req) => {
     }
 
     const cityName = body.city_name || null;
+    const startDate = body.start_date || body.startDate || null;
+    const endDate = body.end_date || body.endDate || null;
+    // v1 (legacy): still written so stored rows stay readable by older
+    // function versions; it is no longer used to decide reuse.
     const fingerprint = await computeSubmissionFingerprint({
       clientEmail,
       cityName,
@@ -162,23 +171,44 @@ serve(async (req) => {
       totalAmount,
       zones: validatedZones,
     });
+    // v2: canonical semantic identity of the request (PV ids, territory,
+    // quantities, dates, economic lines, Smart Pairing evidence).
+    const semanticFingerprint = await computeSemanticFingerprint({
+      clientEmail,
+      serviceType,
+      cityName,
+      quantity,
+      totalAmount,
+      startDate,
+      endDate,
+      rawZones,
+      metadata: body.metadata,
+    });
 
-    // Idempotenza sulla richiesta reale (non solo sul nome comune): se lo
-    // stesso cliente ha gia' inviato esattamente la stessa combinazione
-    // citta'/quantita'/importo/zone negli ultimi 10 minuti, e' un retry
-    // (doppio click, timeout di rete) — restituiamo la campagna gia' creata
-    // invece di duplicarla. Una richiesta realmente diversa (altri comuni o
-    // altre quantita') produce un fingerprint diverso e resta una nuova riga.
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data: existingByFingerprint } = await supabase
+    // Idempotenza: un retry (doppio click, timeout di rete) dello stesso
+    // cliente entro 10 minuti restituisce la campagna gia' creata. Una
+    // campagna esistente viene riusata SOLO se l'identita' ricostruita dalla
+    // riga salvata coincide con quella della richiesta: mai sul solo hash
+    // memorizzato, cosi' righe legacy (solo v1) o con metadata incompleti non
+    // possono restituire uno snapshot diverso da quello richiesto. Nessuna
+    // riga esistente viene mai modificata per renderla compatibile. Un errore
+    // di lettura non blocca l'invio: si crea una nuova campagna.
+    const windowStart = new Date(Date.now() - IDEMPOTENCY_WINDOW_MS).toISOString();
+    const { data: recentCandidates } = await supabase
       .from("campaigns")
       .select("*, campaign_zones(*)")
       .eq("client_email", clientEmail)
-      .eq("metadata->>submission_fingerprint", fingerprint)
-      .gte("created_at", tenMinutesAgo)
+      .eq("source", "quote_requests")
+      .gte("created_at", windowStart)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(IDEMPOTENCY_MAX_CANDIDATES);
+    let existingByFingerprint: any = null;
+    for (const candidate of Array.isArray(recentCandidates) ? recentCandidates : []) {
+      if ((await fingerprintFromStoredCampaign(candidate)) === semanticFingerprint) {
+        existingByFingerprint = candidate;
+        break;
+      }
+    }
 
     if (existingByFingerprint) {
       return new Response(JSON.stringify({
@@ -200,6 +230,7 @@ serve(async (req) => {
       company_name: companyName,
       is_public_request: true,
       submission_fingerprint: fingerprint,
+      submission_fingerprint_v2: semanticFingerprint,
     };
 
     // Inseriamo in campaigns con status pending_review
@@ -216,8 +247,8 @@ serve(async (req) => {
           zone_name: cityName,
           quantity: quantity,
           total_amount: totalAmount,
-          start_date: body.start_date || body.startDate || null,
-          end_date: body.end_date || body.endDate || null,
+          start_date: startDate,
+          end_date: endDate,
           client_name: clientName,
           client_phone: clientPhone,
           client_email: clientEmail,
