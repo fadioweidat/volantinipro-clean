@@ -1,0 +1,40 @@
+diff --git a/supabase/functions/submit-campaign-request/index.ts b/supabase/functions/submit-campaign-request/index.ts
+index acd634a..28858b6 100644
+--- a/supabase/functions/submit-campaign-request/index.ts
++++ b/supabase/functions/submit-campaign-request/index.ts
+@@ -1,5 +1,6 @@
+ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
++import { runPriceShadow, stripPriceShadow } from "./pricingShadow.ts";
+ 
+ const corsHeaders = {
+   "Access-Control-Allow-Origin": "*",
+@@ -178,7 +179,7 @@ serve(async (req) => {
+     if (existingByFingerprint) {
+       return new Response(JSON.stringify({
+         success: true,
+-        campaign: existingByFingerprint,
++        campaign: stripPriceShadow(existingByFingerprint),
+         zonesCreated: (existingByFingerprint.campaign_zones || []).length,
+         zonesError: null,
+         idempotent: true,
+@@ -196,6 +197,10 @@ serve(async (req) => {
+       is_public_request: true,
+       submission_fingerprint: fingerprint,
+     };
++    // Phase 3B.4-P1 shadow pricing: server recomputation stored for comparison only.
++    // Never blocks, never changes total_amount; always overwrites any client-supplied
++    // price_authorization. Kill switch: PRICING_SHADOW_MODE=off.
++    (metadata as Record<string, unknown>).price_authorization = await runPriceShadow(supabase, body);
+ 
+     // Inseriamo in campaigns con status pending_review
+     const { data: campaign, error } = await supabase
+@@ -256,7 +261,7 @@ serve(async (req) => {
+       }
+     }
+ 
+-    return new Response(JSON.stringify({ success: true, campaign, zonesCreated: validatedZones.length, zonesError: null }), {
++    return new Response(JSON.stringify({ success: true, campaign: stripPriceShadow(campaign), zonesCreated: validatedZones.length, zonesError: null }), {
+       status: 200,
+       headers: { ...corsHeaders, "Content-Type": "application/json" },
+     });
