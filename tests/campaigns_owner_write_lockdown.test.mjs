@@ -13,7 +13,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+// Normalise line endings: Windows checkouts (core.autocrlf) turn the LF blobs into CRLF,
+// and several mutants below are built with '\n'-specific replacements.
+const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const MIGRATION = read('supabase/migrations/20261009150000_campaigns_owner_write_lockdown.sql');
 const ROLLBACK = read('supabase/migrations/rollback/20261009150000_campaigns_owner_write_lockdown.rollback.sql');
 const CATALOG = JSON.parse(read('tests/fixtures/campaigns_security_catalog.json'));
