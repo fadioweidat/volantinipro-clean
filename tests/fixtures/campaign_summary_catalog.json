@@ -1,0 +1,168 @@
+{
+ "source": "Production catalog (read-only transaction, 2026-10-09); schema, ACLs, policies and view definition only, no row data. Complements campaigns_security_catalog.json (campaigns/quotes/profiles).",
+ "postgres": "17.6",
+ "tables": [
+  {
+   "rel": "campaign_analysis",
+   "rls": true,
+   "force_rls": false,
+   "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+   "cols": [
+    {
+     "d": "gen_random_uuid()",
+     "n": "id",
+     "nn": true,
+     "t": "uuid"
+    },
+    {
+     "d": null,
+     "n": "campaign_id",
+     "nn": true,
+     "t": "uuid"
+    },
+    {
+     "d": null,
+     "n": "zone_id",
+     "nn": false,
+     "t": "uuid"
+    },
+    {
+     "d": "'system'::text",
+     "n": "source",
+     "nn": false,
+     "t": "text"
+    },
+    {
+     "d": null,
+     "n": "households_estimate",
+     "nn": false,
+     "t": "integer"
+    },
+    {
+     "d": null,
+     "n": "population_estimate",
+     "nn": false,
+     "t": "integer"
+    },
+    {
+     "d": null,
+     "n": "competitor_count",
+     "nn": false,
+     "t": "integer"
+    },
+    {
+     "d": null,
+     "n": "poi_count",
+     "nn": false,
+     "t": "integer"
+    },
+    {
+     "d": null,
+     "n": "avg_income_estimate",
+     "nn": false,
+     "t": "numeric(12,2)"
+    },
+    {
+     "d": null,
+     "n": "family_index",
+     "nn": false,
+     "t": "numeric(8,2)"
+    },
+    {
+     "d": null,
+     "n": "commercial_density_index",
+     "nn": false,
+     "t": "numeric(8,2)"
+    },
+    {
+     "d": null,
+     "n": "reach_score",
+     "nn": false,
+     "t": "numeric(8,2)"
+    },
+    {
+     "d": null,
+     "n": "roi_score",
+     "nn": false,
+     "t": "numeric(8,2)"
+    },
+    {
+     "d": null,
+     "n": "confidence_score",
+     "nn": false,
+     "t": "numeric(8,2)"
+    },
+    {
+     "d": "'{}'::jsonb",
+     "n": "raw_inputs",
+     "nn": true,
+     "t": "jsonb"
+    },
+    {
+     "d": "now()",
+     "n": "created_at",
+     "nn": true,
+     "t": "timestamp with time zone"
+    }
+   ],
+   "cons": [
+    {
+     "def": "FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE",
+     "n": "campaign_analysis_campaign_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "n": "campaign_analysis_pkey",
+     "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (zone_id) REFERENCES campaign_zones(id)",
+     "n": "campaign_analysis_zone_id_fkey",
+     "type": "f"
+    }
+   ],
+   "policies": [
+    {
+     "n": "campaign_analysis_own_insert",
+     "perm": "PERMISSIVE",
+     "cmd": "INSERT",
+     "roles": [
+      "public"
+     ],
+     "using": null,
+     "check": "(EXISTS ( SELECT 1\n   FROM campaigns c\n  WHERE ((c.id = campaign_analysis.campaign_id) AND (c.user_id = auth.uid()))))"
+    },
+    {
+     "n": "campaign_analysis_own_select",
+     "perm": "PERMISSIVE",
+     "cmd": "SELECT",
+     "roles": [
+      "public"
+     ],
+     "using": "(EXISTS ( SELECT 1\n   FROM campaigns c\n  WHERE ((c.id = campaign_analysis.campaign_id) AND (c.user_id = auth.uid()))))",
+     "check": null
+    }
+   ],
+   "triggers": []
+  }
+ ],
+ "views": [
+  {
+   "rel": "campaign_summary",
+   "owner": "postgres",
+   "reloptions": null,
+   "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+   "col_acl": null,
+   "is_updatable": false,
+   "rules": [
+    "_RETURN"
+   ],
+   "dependents": null,
+   "referenced_by_functions": null,
+   "def": " SELECT c.id,\n    c.user_id,\n    c.title,\n    c.service_type,\n    c.distribution_mode,\n    c.status AS campaign_status,\n    q.id AS quote_id,\n    q.subtotal AS quote_subtotal,\n    q.service_fee,\n    q.printing_fee,\n    q.logistics_fee,\n    ca.zone_id,\n    ca.source,\n    ca.households_estimate,\n    ca.population_estimate,\n    ca.competitor_count,\n    ca.poi_count,\n    ca.avg_income_estimate,\n    ca.family_index,\n    ca.commercial_density_index,\n    ca.reach_score,\n    ca.roi_score,\n    ca.confidence_score,\n    ca.raw_inputs,\n    ca.created_at AS analysis_created_at\n   FROM campaigns c\n     LEFT JOIN LATERAL ( SELECT quotes.id,\n            quotes.campaign_id,\n            quotes.subtotal,\n            quotes.service_fee,\n            quotes.printing_fee,\n            quotes.logistics_fee,\n            quotes.tax_amount,\n            quotes.total_amount,\n            quotes.currency,\n            quotes.version,\n            quotes.is_active,\n            quotes.created_at\n           FROM quotes\n          WHERE quotes.campaign_id = c.id\n          ORDER BY quotes.id DESC\n         LIMIT 1) q ON true\n     LEFT JOIN campaign_analysis ca ON ca.campaign_id = c.id;"
+  }
+ ],
+ "quotes_acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+ "campaigns_acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}"
+}
