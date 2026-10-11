@@ -155,7 +155,8 @@ export default function CustomerAssistantHost({ page }) {
   return (
     <>
       <VolantiniProAssistantTrigger
-        open={open}
+        expanded={open}
+        compactMobile
         onClick={() => setOpen((prev) => !prev)}
         label="Assistente VolantiniPro"
         badge="?"

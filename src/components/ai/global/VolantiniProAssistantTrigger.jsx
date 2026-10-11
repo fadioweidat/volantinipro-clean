@@ -1,4 +1,5 @@
 import React from "react";
+import "./VolantiniProAssistantTrigger.css";
 
 const F = { sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const ORANGE = "#E8571A";
@@ -11,6 +12,7 @@ export default function VolantiniProAssistantTrigger({
   onAsk,
   onClick,
   expanded = false,
+  compactMobile = false,
   label = "Hai bisogno di aiuto?",
   sublabel = "Chiedi all’assistente VolantiniPro",
   badge = "?",
@@ -48,9 +50,10 @@ export default function VolantiniProAssistantTrigger({
   };
 
   return (
-    <div style={wrap} className="volantinipro-assistant-trigger-wrap">
+    <div style={wrap} className={`volantinipro-assistant-trigger-wrap${compactMobile ? ' vp-assistant-compact-mobile' : ''}`}>
       <button
         type="button"
+        className="vp-assistant-trigger-button"
         style={pill}
         onClick={handleClick}
         aria-expanded={expanded}
@@ -71,7 +74,7 @@ export default function VolantiniProAssistantTrigger({
         >
           {badge}
         </span>
-        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.25 }}>
+        <span className="vp-assistant-trigger-label" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.25 }}>
           <span>{label}</span>
           <span style={{ color: "rgba(255,255,255,.62)", fontSize: 10, fontWeight: 650 }}>{sublabel}</span>
         </span>
