@@ -346,7 +346,10 @@ export function Step2({
     source: item?.source || null
   })).filter(item => item.name), [selectedMunicipalityItems]);
   const selectedMunicipalityDisplayLabel = selectedMunicipalityNames.length > 1 ? `${selectedMunicipalityNames.length} comuni completi` : (selectedMunicipalityItems[0]?.displayName || selectedMunicipalityItems[0]?.label || selectedMunicipalityNames[0] || "");
-  const searchedLocation = data.searchedLocation || "";
+  const activePointOfSaleForSearch = (data.campaignZones || []).find(zone => zone.id === data.activeZoneId);
+  const searchedLocation = data.campaignZones?.length > 1
+    ? activePointOfSaleForSearch?.selectedSearchPoint?.label || activePointOfSaleForSearch?.city?.label || activePointOfSaleForSearch?.cityName || ""
+    : data.searchedLocation || "";
   const selectPrimaryMunicipality = useCallback(comune => {
     if (!comune) return;
     const normalizedComune = {
