@@ -909,7 +909,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
             </div>
 
             {/* BARRA COMPATTA DI CONSIGLIO SUL RAGGIO */}
-            {!simplifiedMilano && radiusAdvisoryData && <div style={{
+            {!simplifiedMilano && radiusAdvisoryData && sharedCoveragePctText != null && <div style={{
               margin: "0 0 16px",
               padding: "12px 16px",
               borderRadius: 12,
