@@ -5247,7 +5247,9 @@ export function Step2({
   // Shared, single-decimal, formatPercentIT-formatted coverage percentage —
   // every banner/sentence in Step 2 reads this instead of re-deriving its own
   // (previously mismatched, e.g. "22%" here vs "21,6%" in the sidebar).
-  const sharedCoveragePctText = step2CoveragePctLabel || (radiusAdvisoryData ? formatPercentIT(radiusAdvisoryData.covPct, Number.isInteger(radiusAdvisoryData.covPct) ? 0 : 1) : null) || formatPercentIT(serviceKpis?.coverage || 0, Number.isInteger(serviceKpis?.coverage || 0) ? 0 : 1);
+  const sharedCoveragePctText = isCoverageCalculationComplete && !hasCoverageCalculationError && hasUsableAllocationData && !territorialDataUnavailable
+    ? step2CoveragePctLabel ?? (radiusAdvisoryData?.covPct != null ? formatPercentIT(radiusAdvisoryData.covPct, Number.isInteger(radiusAdvisoryData.covPct) ? 0 : 1) : serviceKpis?.coverage != null ? formatPercentIT(serviceKpis.coverage, Number.isInteger(serviceKpis.coverage) ? 0 : 1) : null)
+    : null;
   const step2RequirementContextLabel = step2TruthModel.territory.modeLabel || "fabbisogno operativo delle zone selezionate";
   const isCoverageConfigurationValid = step2ViewModel.isCoverageConfigurationValid;
   if (isStep2DebugEnabled() && typeof window !== "undefined") {

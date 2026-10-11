@@ -242,7 +242,8 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                           }
                         }
                       }}
-                      placeholder={simplifiedMilano ? "Cerca un indirizzo o un altro comune" : searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : searchMode === "municipality" ? pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune" : "Cerca comune o CAP"} style={{
+                      aria-label={searchMode === "address" ? "Indirizzo o comune del punto vendita attivo" : "Cerca comune o CAP"}
+                      placeholder={simplifiedMilano ? "Cerca un indirizzo o un altro comune" : searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : searchMode === "municipality" ? pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune" : "Cerca indirizzo o comune (es. Viale Certosa 333, Milano)"} style={{
                       flex: 1,
                       background: "transparent",
                       border: "none",
@@ -1088,6 +1089,17 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                       whiteSpace: "nowrap"
                     }}>
                       Elimina punto vendita
+                    </button>
+                    <small style={{ width: "100%", color: "rgba(255,255,255,.72)", fontFamily: F.sans }}>
+                      Il nome è un'etichetta. Cerca e seleziona l'indirizzo per impostare la zona di questo punto vendita.
+                    </small>
+                    <button type="button" data-testid="pos-search-address" onClick={() => {
+                      switchToRadiusMode();
+                      setDropOpen(true);
+                      document.getElementById("step2-search-input")?.focus();
+                      document.getElementById("step2-search-input")?.scrollIntoView({ block: "center", behavior: "smooth" });
+                    }} style={{ minHeight: 40, padding: "0 12px", borderRadius: 8, border: `1px solid ${col}`, background: "transparent", color: C.white, cursor: "pointer" }}>
+                      Cerca indirizzo per questo punto vendita
                     </button>
                   </div>;
               })()}

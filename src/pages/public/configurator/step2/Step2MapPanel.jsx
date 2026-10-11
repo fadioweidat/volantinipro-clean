@@ -63,7 +63,7 @@ export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeL
                   Annulla
                 </button>
               </div>}
-            {isRadiusMode && radiusKm > 0 && serviceKpis?.coverage != null && <div style={{
+            {isRadiusMode && radiusKm > 0 && <div style={{
               position: "absolute",
               top: 14,
               right: 14,
@@ -90,9 +90,9 @@ export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeL
                 color: "rgba(255,255,255,0.4)"
               }}>·</span>
                 <span style={{
-                color: getCoverageStatus(serviceKpis.coverage) === "coperto" ? "#22C55E" : getCoverageStatus(serviceKpis.coverage) === "parziale" ? "#FACC15" : "#F87171"
+                color: sharedCoveragePctText == null ? "#94A3B8" : getCoverageStatus(serviceKpis?.coverage) === "coperto" ? "#22C55E" : getCoverageStatus(serviceKpis?.coverage) === "parziale" ? "#FACC15" : "#F87171"
               }}>
-                  {sharedCoveragePctText} copertura
+                  {sharedCoveragePctText == null ? "Copertura non disponibile" : `${sharedCoveragePctText} copertura`}
                 </span>
               </div>}
             <Step2MapErrorBoundary resetKey={`${mapCityForStep2?.name || mapCityForStep2?.label || ""}|${data.activeZoneId || ""}`}>
