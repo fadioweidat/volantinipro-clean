@@ -24,3 +24,27 @@ export function buildCustomerDashboardMetrics(campaigns, { loading = false, erro
     flyersDone: completeTotal(campaigns, 'volantini_distribuiti'),
   };
 }
+
+// Partial observations are explanatory text, never authoritative KPI totals.
+export function buildCustomerDashboardNotes(campaigns, { loading = false, error = null } = {}) {
+  if (loading || error || !Array.isArray(campaigns)) return {};
+  const notes = {};
+  const missingPayments = campaigns.filter(row => getCustomerPaymentState(row.stato_pagamento) === CUSTOMER_PAYMENT_STATE.UNAVAILABLE).length;
+  if (missingPayments) {
+    const pending = campaigns.filter(row => getCustomerPaymentState(row.stato_pagamento) === CUSTOMER_PAYMENT_STATE.PENDING).length;
+    notes.payment = `${pending} in attesa confermati · ${missingPayments} ${missingPayments === 1 ? "stato mancante" : "stati mancanti"}`;
+  }
+  for (const [key, field] of [['amount', 'totale_euro'], ['flyers', 'volantini_distribuiti']]) {
+    const values = campaigns.map(row => row[field]).filter(value => value != null && value !== '' && Number.isFinite(Number(value)));
+    const missing = campaigns.length - values.length;
+    if (!missing) continue;
+    if (!values.length) {
+      notes[key] = `Dato mancante per ${missing} campagne`;
+    } else {
+      const total = values.reduce((sum, value) => sum + Number(value), 0);
+      const formatted = key === 'amount' ? `€${total.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : total.toLocaleString('it-IT');
+      notes[key] = `Somma parziale: ${formatted} · ${missing} ${missing === 1 ? "campagna senza dato" : "campagne senza dato"}`;
+    }
+  }
+  return notes;
+}

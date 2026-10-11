@@ -23,7 +23,7 @@ import {
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
-import { buildCustomerDashboardMetrics } from "./src/lib/customerDashboardMetrics.js";
+import { buildCustomerDashboardMetrics, buildCustomerDashboardNotes } from "./src/lib/customerDashboardMetrics.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState, MARKETPLACE_STATUS_LABELS } from "./src/lib/customerCampaigns.js";
 import { CustomerQuotesView } from "./src/pages/customer/CustomerQuotesView.jsx";
 import { CampaignConfigSection, CustomerMessagesPanel } from "./src/components/customer/CampaignHubPanels.jsx";
@@ -5481,6 +5481,7 @@ export function DashboardPage({
     b2b: ["B2B", C.purple]
   };
   const { activeCount, waitingPaymentCount, totalSpent, flyersDone } = buildCustomerDashboardMetrics(campagne, { loading, error });
+  const metricNotes = buildCustomerDashboardNotes(campagne, { loading, error });
   return <div style={{
     minHeight: "100vh",
     background: C.navyMid,
@@ -5563,9 +5564,9 @@ export function DashboardPage({
         gap: 10,
         marginBottom: 16
       }}>
-          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow], ["Totale speso", totalSpent == null ? null : `€${totalSpent.toLocaleString("it-IT", {
+          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow, metricNotes.payment], ["Totale speso", totalSpent == null ? null : `€${totalSpent.toLocaleString("it-IT", {
           minimumFractionDigits: 2
-          })}`, C.orange], ["Volantini distribuiti", flyersDone == null ? null : flyersDone.toLocaleString("it-IT"), C.blue]].map(([l, v, c]) => <div key={l} style={{
+          })}`, C.orange, metricNotes.amount], ["Volantini distribuiti", flyersDone == null ? null : flyersDone.toLocaleString("it-IT"), C.blue, metricNotes.flyers]].map(([l, v, c, note]) => <div key={l} style={{
           padding: 16,
           borderRadius: 13,
           background: "rgba(255,255,255,.045)",
@@ -5593,6 +5594,7 @@ export function DashboardPage({
             color: "rgba(255,255,255,.42)",
             marginTop: 5
           }}>{l}</div>
+              {note && <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.72)", marginTop: 8, lineHeight: 1.5 }}>{note}</div>}
             </div>)}
         </div>
           {isCustomerAiDashboardEnabled && <React.Suspense fallback={<div style={{

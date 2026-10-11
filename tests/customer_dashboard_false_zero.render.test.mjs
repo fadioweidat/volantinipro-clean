@@ -85,3 +85,14 @@ test('non-finite totals are unavailable', () => {
   assert.match(kpi(html,'Totale speso'), /Dato non disponibile/);
   assert.match(kpi(html,'Volantini distribuiti'), /Dato non disponibile/);
 });
+
+test('partial observations explain missing records without replacing authoritative totals', () => {
+  const html = render({campagne:[{...campaign,totale_euro:120.5,stato_pagamento:'in_attesa_pagamento'}, {...campaign,id:'c2',totale_euro:null,stato_pagamento:null,volantini_distribuiti:null}],loading:false,error:null});
+  assert.match(html, /1 in attesa confermati · 1 stato mancante/);
+  assert.match(html, /Somma parziale: €120,50 · 1 campagna senza dato/);
+  assert.match(kpi(html,'Totale speso'), /Dato non disponibile/);
+});
+test('unavailable request never presents partial observations as real data', () => {
+  const html = render({campagne:[{...campaign,totale_euro:null}],loading:false,error:'Network failure'});
+  assert.doesNotMatch(html, /Somma parziale|stati mancanti|campagne senza dato/);
+});
