@@ -10,6 +10,7 @@ import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
+import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
 const debugStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
@@ -613,7 +614,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
           if (isActive) {
             return (
               <div key={z.id} style={{
-                borderLeft: '3px solid rgba(196,133,42,0.85)',
+                borderLeft: `4px solid ${pointOfSaleMapColor(z.id, zones)}`,
                 background: 'rgba(196,133,42,0.07)',
                 padding: '6px 10px 7px 9px',
               }}>
@@ -646,7 +647,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
                 alignItems: 'center',
                 gap: 0,
                 cursor: 'pointer',
-                borderLeft: '3px solid transparent',
+                borderLeft: `3px solid ${pointOfSaleMapColor(z.id, zones)}`,
                 transition: 'background 0.12s',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
@@ -773,6 +774,7 @@ function Step2MapImpl({
   }, [onMapClick]);
   const mapRef = useRef(null);
   const layersRef = useRef({});
+  const campaignBoundsRef = useRef(null);
   const viewRef = useRef({ lat: null, lng: null, radius: null });
   const autoFitRef = useRef({ operational: '', assignments: '' });
   // Leaflet e' bundlato (import L): sempre disponibile, nessun caricamento
@@ -1492,6 +1494,30 @@ function Step2MapImpl({
     // ── Cerchio raggio + marker centro — disegnati DOPO i poligoni comuni
     // (sopra nell'ordine dei layer) così il cerchio resta sempre visibile e
     // non finisce coperto dai fill dei comuni coinvolti. ───────────────────
+    const campaignBounds = L.latLngBounds([]);
+    const activeOverlayRows = nilMode
+      ? (zonesWithCoords || []).filter(row => selected?.includes(row.id))
+      : coveragePolygons?.length ? coveragePolygons : (zonesWithCoords || []).filter(row => selected?.includes(row.id));
+    const campaignOverlays = buildCampaignMapOverlays(campaignZones, activeZoneId, activeOverlayRows);
+    // Inactive PVs first, active PV last. Exact polygons; no synthesized NIL geometry.
+    campaignOverlays.sort((a, b) => Number(a.active) - Number(b.active)).forEach(overlay => {
+      const geometry = parseAndValidateGeoJsonGeometry(overlay.geometry);
+      if (!geometry) return;
+      const layer = L.geoJSON(geometry, {
+        style: { color: overlay.color, fillColor: overlay.color,
+          weight: overlay.active ? 3 : 2, opacity: overlay.active ? 1 : 0.8,
+          fillOpacity: overlay.active ? 0.22 : 0.1, dashArray: overlay.active ? null : '6 3',
+          className: `vp-pv-territory ${overlay.active ? 'vp-pv-active' : 'vp-pv-inactive'}` },
+        interactive: !overlay.active,
+      });
+      layer.bindTooltip(`${esc(overlay.label)} · ${esc(overlay.name)}${overlay.active ? ' · Attivo' : ' · Clicca per attivare'}`);
+      if (!overlay.active) layer.on('click', () => onSelectZone?.(overlay.ownerId));
+      layer.addTo(group);
+      const bounds = layer.getBounds();
+      if (bounds.isValid()) campaignBounds.extend(bounds);
+    });
+    campaignBoundsRef.current = campaignBounds;
+
     zonesList.forEach(z => {
       const isActive = z.id === activeZoneId || z.id === 'active_zone';
       const zCity = isActive ? city : (z.city || null);
@@ -1506,7 +1532,8 @@ function Step2MapImpl({
       // ── 1. Raggio / Circle — sempre nascosto in modalità comune intero,
       // sempre verde tratteggiato (area attiva) quando la zona attiva è in
       // modalità raggio, coerente con lo stile del confine comunale. ──────
-      const showCircle = isRingOn && !isMunicipalityMode && (!isActive || hasConfirmedRadius);
+      const zoneIsRadius = isActive ? !isMunicipalityMode && !nilMode : z.searchMode === 'address' && !z.nilManualMode;
+      const showCircle = isRingOn && zoneIsRadius && (!isActive || hasConfirmedRadius);
       if (showCircle) {
         L.circle([zCity.lat, zCity.lng], {
           radius: zRadius * 1000,
@@ -2166,6 +2193,13 @@ function Step2MapImpl({
           onSelectZone={onSelectZone}
         />
       )}
+      {leafletLoaded && campaignZones?.length > 1 && <button type="button" data-testid="map-show-all-pv" onClick={() => {
+        const bounds = campaignBoundsRef.current;
+        if (bounds?.isValid()) mapRef.current?.fitBounds(bounds, { padding: [45, 45], maxZoom: 15 });
+      }} style={{ position: 'absolute', bottom: 30, left: 12, zIndex: 950, padding: '10px 14px', minHeight: 44,
+        borderRadius: 8, border: '1px solid #64748B', background: '#0F172A', color: '#fff', cursor: 'pointer' }}>
+        Mostra tutte le zone
+      </button>}
 
       {/* Density legend – shown when density layer is active for D2D */}
       {leafletLoaded && city && activeLayers?.density && svcType === 'd2d' && (
