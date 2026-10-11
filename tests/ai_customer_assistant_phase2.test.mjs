@@ -203,7 +203,16 @@ test('Component Render: CustomerAssistantHost monta il trigger sulle route clien
 
   const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
   try {
-    const { default: CustomerAssistantHost } = await vite.ssrLoadModule('/src/components/ai/customer/CustomerAssistantHost.jsx');
+    const { default: CustomerAssistantHost, CustomerContextCard } = await vite.ssrLoadModule('/src/components/ai/customer/CustomerAssistantHost.jsx');
+
+    const partialHtml = renderToStaticMarkup(React.createElement(CustomerContextCard, { stats: { totali: 51, inDistribuzione: 38, inAttesa: null, paymentNote: '1 in attesa confermati · 3 stati mancanti', dataStatus: 'Dati incompleti' } }));
+    assert.match(partialHtml, /Dato non disponibile/);
+    assert.match(partialHtml, /1 in attesa confermati · 3 stati mancanti/);
+    assert.match(partialHtml, /Dati incompleti/);
+    assert.doesNotMatch(partialHtml, /Verificata/);
+    const unknownPayment = renderToStaticMarkup(React.createElement(CustomerContextCard, { campaign: { stato_pagamento: null } }));
+    assert.match(unknownPayment, /Dato non disponibile/);
+    assert.doesNotMatch(unknownPayment, /In attesa/);
 
     // Su dashboard: monta trigger con aria-controls="customer-assistant-drawer"
     const dashboardHtml = renderToStaticMarkup(React.createElement(CustomerAssistantHost, { page: 'dashboard' }));
