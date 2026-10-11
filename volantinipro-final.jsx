@@ -23,6 +23,7 @@ import {
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
+import { buildCustomerDashboardMetrics } from "./src/lib/customerDashboardMetrics.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState, MARKETPLACE_STATUS_LABELS } from "./src/lib/customerCampaigns.js";
 import { CustomerQuotesView } from "./src/pages/customer/CustomerQuotesView.jsx";
 import { CampaignConfigSection, CustomerMessagesPanel } from "./src/components/customer/CampaignHubPanels.jsx";
@@ -5479,11 +5480,7 @@ export function DashboardPage({
     h2h: ["H2H", C.blue],
     b2b: ["B2B", C.purple]
   };
-  const activeCount = campagne.filter(c => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.stato)).length;
-  const waitingPaymentCount = campagne.filter(c => getCustomerPaymentState(c.stato_pagamento) === CUSTOMER_PAYMENT_STATE.PENDING).length;
-  const knownTotals = campagne.map(c => c.totale_euro).filter(value => value != null);
-  const totalSpent = knownTotals.length ? knownTotals.reduce((a, value) => a + Number(value), 0) : null;
-  const flyersDone = campagne.reduce((a, c) => a + Number(c.volantini_distribuiti || 0), 0);
+  const { activeCount, waitingPaymentCount, totalSpent, flyersDone } = buildCustomerDashboardMetrics(campagne, { loading, error });
   return <div style={{
     minHeight: "100vh",
     background: C.navyMid,
@@ -5543,7 +5540,7 @@ export function DashboardPage({
         }}>{session ? "Logout" : "Accedi"}</button>
         </div>
 
-        {error && <div style={{
+        {error && <div role="alert" style={{
         marginBottom: 14,
         padding: "11px 13px",
         borderRadius: 10,
@@ -5552,7 +5549,13 @@ export function DashboardPage({
         color: C.yellow,
         fontFamily: F.sans,
         fontSize: 12
-      }}>Supabase non disponibile: nessuna campagna reale da mostrare.</div>}
+      }}>Impossibile caricare le campagne. I dati non sono disponibili.
+          <button type="button" onClick={() => window.location.reload()} style={{
+            display: "block", marginTop: 10, minHeight: 44, padding: "0 16px",
+            borderRadius: 9, border: "1px solid currentColor", background: "transparent",
+            color: "inherit", fontFamily: F.sans, fontWeight: 700, cursor: "pointer"
+          }}>Riprova</button>
+        </div>}
 
         <div style={{
         display: "grid",
@@ -5562,7 +5565,7 @@ export function DashboardPage({
       }}>
           {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow], ["Totale speso", totalSpent == null ? null : `€${totalSpent.toLocaleString("it-IT", {
           minimumFractionDigits: 2
-          })}`, C.orange], ["Volantini distribuiti", flyersDone.toLocaleString("it-IT"), C.blue]].map(([l, v, c]) => <div key={l} style={{
+          })}`, C.orange], ["Volantini distribuiti", flyersDone == null ? null : flyersDone.toLocaleString("it-IT"), C.blue]].map(([l, v, c]) => <div key={l} style={{
           padding: 16,
           borderRadius: 13,
           background: "rgba(255,255,255,.045)",
@@ -5617,7 +5620,7 @@ export function DashboardPage({
         }}>Lista campagne</div>
           {loading ? <>
               <SkeletonCard /><SkeletonCard /><SkeletonCard />
-            </> : campagne.length === 0 ? <div style={{
+            </> : error ? <div role="status" style={{ padding: 22, color: C.yellow }}>Campagne temporaneamente non disponibili. Usa Riprova per ricaricare.</div> : campagne.length === 0 ? <div style={{
           padding: 22,
           borderRadius: 12,
           background: "rgba(255,255,255,.035)",
