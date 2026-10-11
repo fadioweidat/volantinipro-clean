@@ -1504,6 +1504,7 @@ function Step2MapImpl({
       const geometry = parseAndValidateGeoJsonGeometry(overlay.geometry);
       if (!geometry) return;
       const layer = L.geoJSON(geometry, {
+        pane: 'nilPolygonsPane',
         style: { color: overlay.color, fillColor: overlay.color,
           weight: overlay.active ? 3 : 2, opacity: overlay.active ? 1 : 0.8,
           fillOpacity: overlay.active ? 0.22 : 0.1, dashArray: overlay.active ? null : '6 3',
