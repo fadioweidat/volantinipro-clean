@@ -2048,7 +2048,7 @@ export function Step2({
             // non essere nel dataset Mapbox ma Nominatim la trova.
             if ((searchIntent.intent === "address" || pointSearchIntent) && !mapboxSuggestions.some(s => looksLikeAddressResult(s) || s.placeType === "poi")) {
               try {
-                const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=4`);
+                const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=4`);
                 const nd = await nr.json();
                 if (cancelled) return;
                 const nomAddresses = nd.filter(f => isAddressLikePlaceType(f.addresstype || f.type || f.class)).map(f => {
@@ -2070,7 +2070,7 @@ export function Step2({
       }
       try {
         const isAddressQuery = searchIntent.intent === "address" || pointSearchIntent;
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=10`);
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=10`);
         const d = await r.json();
         if (cancelled) return;
         const suggestions = d.map(f => {
