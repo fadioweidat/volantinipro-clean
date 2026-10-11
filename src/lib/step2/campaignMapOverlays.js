@@ -17,22 +17,27 @@ export function pointOfSaleMapColor(id, zones = []) {
 }
 
 // Display projection only: preserve original geometries, ownership and quantities.
-export function buildCampaignMapOverlays(zones, activeId, activeRows = []) {
+export function buildCampaignMapOverlays(zones, activeId, activeRows = [], availableRows = []) {
   if (!Array.isArray(zones) || zones.length < 2) return [];
-  return zones.flatMap(pv => {
+  const activePv = zones.find(pv => pv.id === activeId);
+  const cityKey = pv => pv?.city?.istat || pv?.city?.id || pv?.city?.label || pv?.cityName || '';
+  return zones.flatMap((pv, index) => {
     const active = pv.id === activeId;
     const selectedIds = new Set(pv.selected || []);
-    const rows = active ? activeRows : pv.zonesAllocation || pv.allocation || [];
+    const sameCityRows = cityKey(pv) === cityKey(activePv) ? availableRows : [];
+    const savedRows = pv.zonesAllocation || pv.allocation || [];
+    const rows = active ? activeRows : [...savedRows, ...sameCityRows.filter(row => selectedIds.has(row.id))];
     const nilSelection = pv.nilManualMode || pv.areaMode === 'custom_zone';
     const seen = new Set();
     return rows.flatMap(row => {
       if (nilSelection && !selectedIds.has(row.id)) return [];
-      const geometry = row.geometry || row.polygon_geojson || row.geometry_geojson;
+      const available = sameCityRows.find(candidate => candidate.id === row.id);
+      const geometry = row.geometry || row.polygon_geojson || row.geometry_geojson || available?.geometry || available?.polygon_geojson || available?.geometry_geojson;
       if (!geometry || row.id == null || seen.has(row.id)) return [];
       seen.add(row.id);
       return [{ key: `${pv.id}:${row.id}`, ownerId: pv.id, active,
-        color: pointOfSaleMapColor(pv.id, zones), label: pv.store_name || pv.cityName || pv.city?.label || 'Punto vendita',
-        name: row.name || row.label || '', geometry }];
+        color: pointOfSaleMapColor(pv.id, zones), label: pv.store_name || `Punto vendita ${index + 1} · ${pv.cityName || pv.city?.label || ''}`,
+        name: row.name || row.label || available?.name || '', geometry }];
     });
   });
 }

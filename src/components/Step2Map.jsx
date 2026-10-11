@@ -609,7 +609,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
           const city     = z.city;
           // FASE 2: nome PV se impostato, modalita' reale (mai "3 km" per un PV Comune/NIL).
           const rad      = getPointOfSaleModeLabel(z);
-          const label    = sanitizeStoreName(z.store_name) || city?.label || city?.name || `Punto vendita ${idx + 1}`;
+          const label    = sanitizeStoreName(z.store_name) || `PV ${idx + 1} · ${city?.label || city?.name || "Zona"}`;
 
           if (isActive) {
             return (
@@ -1498,7 +1498,7 @@ function Step2MapImpl({
     const activeOverlayRows = nilMode
       ? (zonesWithCoords || []).filter(row => selected?.includes(row.id))
       : coveragePolygons?.length ? coveragePolygons : (zonesWithCoords || []).filter(row => selected?.includes(row.id));
-    const campaignOverlays = buildCampaignMapOverlays(campaignZones, activeZoneId, activeOverlayRows);
+    const campaignOverlays = buildCampaignMapOverlays(campaignZones, activeZoneId, activeOverlayRows, zonesWithCoords || []);
     // Inactive PVs first, active PV last. Exact polygons; no synthesized NIL geometry.
     campaignOverlays.sort((a, b) => Number(a.active) - Number(b.active)).forEach(overlay => {
       const geometry = parseAndValidateGeoJsonGeometry(overlay.geometry);

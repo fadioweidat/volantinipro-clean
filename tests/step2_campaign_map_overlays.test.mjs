@@ -36,3 +36,16 @@ test('colliding PV IDs receive distinct stable colors; cleared NIL selections st
   const cleared = [{...zones[0], selected:[]}, zones[1]];
   assert.deepEqual(buildCampaignMapOverlays(cleared,'parco',zones[1].zonesAllocation).map(x=>x.ownerId),['parco']);
 });
+
+test('inactive NIL IDs resolve exact loaded geometry without mutating the saved snapshot', () => {
+  const incomplete = [{...zones[0], zonesAllocation:[{id:'nil_certosa'}]}, zones[1]];
+  const loaded = zones[0].zonesAllocation;
+  const result = buildCampaignMapOverlays(incomplete, 'parco', zones[1].zonesAllocation, loaded);
+  assert.equal(result.find(row => row.ownerId === 'certosa').geometry, polygon);
+  assert.equal(incomplete[0].zonesAllocation[0].geometry, undefined);
+});
+
+test('geometry lookup never borrows a matching ID from a different city', () => {
+  const owners = [{id:'a', cityName:'Roma', nilManualMode:true, selected:['same'], allocation:[]}, {id:'b', cityName:'Milano'}];
+  assert.deepEqual(buildCampaignMapOverlays(owners, 'b', [], [{id:'same',geometry:polygon}]), []);
+});
