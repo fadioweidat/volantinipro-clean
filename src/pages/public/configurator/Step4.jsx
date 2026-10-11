@@ -1795,22 +1795,17 @@ export function Step4({
         lineHeight: 1.65,
         maxWidth: 680
       }}>
-            Con questa configurazione raggiungerai circa{" "}
+            L’area selezionata comprende circa{" "}
             <strong style={{
           color: C.green
         }}>{formatNumber(estimatedFamiliesForSummary, "—")} famiglie{isMultiZoneQuote && multiZoneSummary.hasOverlap ? " (somma non deduplicata, zone sovrapposte)" : ""}</strong>
-            {selectedZoneNames.length > 1 && <>{" "}distribuite in <strong style={{
+            {selectedZoneNames.length > 1 && <>{" "}nelle aree di <strong style={{
             color: col
           }}>{selectedZoneNames.length} {isMultiZoneQuote ? "punti vendita" : "comuni"}</strong></>}
-            {", "}coprendo{" "}
+            {". "}Con {formatNumber(flyerQty, "—")} volantini, la copertura operativa stimata è{" "}
             <strong style={{
           color: C.green
-        }}>{pctToFraction(coverageForSummary) || "dato non disponibile"}</strong>
-            {" "}dell'area selezionata{" "}
-            <span style={{
-          color: "rgba(255,255,255,.45)",
-          fontSize: isMobile ? 12 : 13
-        }}>({coverageForSummary == null ? "—" : `${coverageForSummary}%`})</span>.
+        }}>{coverageForSummary == null ? "dato non disponibile" : `${coverageForSummary}% del fabbisogno operativo`}</strong>.
           </div> : svcType === "h2h" ? <div style={{
         fontFamily: F.sans,
         fontSize: isMobile ? 13 : 15,
