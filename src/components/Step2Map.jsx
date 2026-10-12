@@ -19,9 +19,9 @@ const warnStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.warn(...args);
 };
 
-// CartoDB Voyager – leggibile, strade visibili, aspetto GIS operativo
-const CARTO_VOYAGER = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const CARTO_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+// Ripiego interattivo se Mapbox non e' configurato o rifiuta il dominio.
+const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 // ── POI categories: palette GIS professionale, toni desaturati ──────────────
 const CATEGORY_COLORS = {
@@ -872,9 +872,7 @@ function Step2MapImpl({
       const errEl = document.getElementById('vp-map-error-msg');
       if (errEl) errEl.style.display = 'none';
     };
-    const buildCartoLayer = () => simplifiedMilano
-      ? L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19 })
-      : L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, maxZoom: 19 });
+    const buildFallbackLayer = () => L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 });
 
     let tileLayer;
     if (mbToken) {
@@ -884,7 +882,7 @@ function Step2MapImpl({
       );
       // Token presente ma rifiutato da Mapbox (401/403, tipicamente per
       // restrizione di dominio su un token con URL allowlist): un solo
-      // fallback automatico a CARTO, mai un retry su Mapbox nella stessa
+      // fallback automatico a OSM, mai un retry su Mapbox nella stessa
       // sessione mappa. Il flag e' locale a questo effect (non stato React)
       // perche' 'tileerror' scatta una volta per ogni tile fallita — senza
       // guardia, lo swap verrebbe ripetuto per ciascuna di esse.
@@ -893,13 +891,13 @@ function Step2MapImpl({
         if (fallbackTriggered) return;
         fallbackTriggered = true;
         map.removeLayer(tileLayer);
-        const cartoFallback = buildCartoLayer();
-        cartoFallback.on('tileload', hideMapErrorMsg);
-        cartoFallback.on('tileerror', showMapErrorMsg);
-        cartoFallback.addTo(map);
+        const fallback = buildFallbackLayer();
+        fallback.on('tileload', hideMapErrorMsg);
+        fallback.on('tileerror', showMapErrorMsg);
+        fallback.addTo(map);
       });
     } else {
-      tileLayer = buildCartoLayer();
+      tileLayer = buildFallbackLayer();
       tileLayer.on('tileerror', showMapErrorMsg);
     }
     tileLayer.addTo(map);
