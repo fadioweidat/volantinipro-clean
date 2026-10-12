@@ -113,9 +113,9 @@ test('resolvePoiQueryRadiusKm: valori non validi passano invariati, limite = 6',
 
 // ── Nessun altro valore di Step 2 cambia ─────────────────────────────────────
 test('solo usePoi riceve il raggio limitato: analisi, useSectors e formula tecnica invariati', () => {
-  assert.match(step2Src, /\} = usePoi\(poiCenterLat, poiCenterLng, poiQueryRadiusKm, svcType, distributionTargetSelection\);/);
+  assert.match(step2Src, /\} = usePoi\(displayPoiLat, displayPoiLng, displayPoiRadius, svcType, distributionTargetSelection\);/);
   assert.match(step2Src, /\} = useSectors\(poiCenterLat, poiCenterLng, poiEffectiveRadiusKm, svcType\);/);
-  assert.equal((step2Src.match(/poiQueryRadiusKm/g) || []).length, 2, 'definizione + usePoi, nessun altro uso');
+  assert.equal((step2Src.match(/poiQueryRadiusKm/g) || []).length, 2, 'definizione + fallback visuale POI, nessun altro uso');
   // Il parametro di analisi resta il raggio tecnico.
   assert.match(step2Src, /radiusKm: effectiveRadiusKm,/);
   assert.match(step2Src, /requestedAnalysisLevel === "nil" \? Math\.max\(15, numericRadiusKm\) : Math\.min\(Math\.max\(numericRadiusKm, 3\), 8\) : numericRadiusKm;/);

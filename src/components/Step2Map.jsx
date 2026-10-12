@@ -775,6 +775,7 @@ function Step2MapImpl({
   const mapRef = useRef(null);
   const layersRef = useRef({});
   const campaignBoundsRef = useRef(null);
+  const campaignViewRef = useRef('');
   const viewRef = useRef({ lat: null, lng: null, radius: null });
   const autoFitRef = useRef({ operational: '', assignments: '' });
   // Leaflet e' bundlato (import L): sempre disponibile, nessun caricamento
@@ -1518,6 +1519,19 @@ function Step2MapImpl({
       if (bounds.isValid()) campaignBounds.extend(bounds);
     });
     campaignBoundsRef.current = campaignBounds;
+    if (campaignBounds.isValid()) {
+      const signature = `${activeZoneId}:${campaignOverlays.map(row => row.key).sort().join('|')}:${campaignBounds.toBBoxString()}`;
+      if (viewChanged || campaignViewRef.current !== signature) {
+        campaignViewRef.current = signature;
+        const fitCampaign = () => {
+          if (mapRef.current !== map || !map.getContainer()?.isConnected) return;
+          map.fitBounds(campaignBounds, { padding: [45, 45], maxZoom: 15, animate: false });
+        };
+        fitCampaign();
+        requestAnimationFrame(fitCampaign);
+      }
+    } else campaignViewRef.current = '';
+
 
     zonesList.forEach(z => {
       const isActive = z.id === activeZoneId || z.id === 'active_zone';

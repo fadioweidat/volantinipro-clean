@@ -13,6 +13,8 @@ import { rankNilSearchResults } from "../../../lib/step2/milanoNilView.js";
 import { MilanoNilSearch } from "./step2/MilanoNilSearch.jsx";
 import { MilanoCoverageModeChooser } from "./step2/MilanoCoverageModeChooser.jsx";
 import { OutsideMilanoCoverageModeChooser, deriveOutsideMilanoMode, isOutsideMilanoGuidedView } from "./step2/OutsideMilanoCoverageModeChooser.jsx";
+import { buildCampaignMapOverlays } from "../../../lib/step2/campaignMapOverlays.js";
+import { resolveTerritoryPoiScope } from "../../../lib/step2/territoryPoiScope.js";
 import { resolvePoiQueryRadiusKm } from "../../../lib/step2/poiQueryRadius.js";
 import { MilanoTerritorySummary } from "./step2/MilanoTerritorySummary.jsx";
 import "./step2/milano-client.css";
@@ -1491,6 +1493,20 @@ export function Step2({
     sectors,
     loading: sectorsLoading
   } = useSectors(poiCenterLat, poiCenterLng, poiEffectiveRadiusKm, svcType);
+  const selectedTerritoryPoiScope = useMemo(() => {
+    if (!isResidentialStep2 || !nilManualMode || !apiData || apiData.error) return null;
+    const availableRows = apiToZones(apiData, city, requestedAnalysisLevel, svcType, effectiveRadiusKm) || [];
+    const activeRows = availableRows.filter(row => selected.includes(row.id));
+    const rows = data.campaignZones?.length > 1
+      ? buildCampaignMapOverlays(data.campaignZones, data.activeZoneId, activeRows, availableRows)
+      : activeRows;
+    return resolveTerritoryPoiScope(rows);
+  }, [isResidentialStep2, nilManualMode, apiData, city, requestedAnalysisLevel, svcType, effectiveRadiusKm, selected, data.campaignZones, data.activeZoneId]);
+  // NIL selections define the display POI search area, not the last searched address.
+  const usesSelectedTerritoryPois = isResidentialStep2 && nilManualMode && selected.length > 0;
+  const displayPoiLat = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.lat ?? null : poiCenterLat;
+  const displayPoiLng = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.lng ?? null : poiCenterLng;
+  const displayPoiRadius = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.radiusKm ?? null : poiQueryRadiusKm;
   // Il settore Step1 (data.activityType/businessSector) filtra i marker POI
   // mostrati sulla mappa per tutti i servizi, incluso D2D: la mappa D2D non
   // assegna cassette/promoter sui POI (quello resta un contesto di campagna),
@@ -1501,7 +1517,7 @@ export function Step2({
     loading: poiLoading,
     error: poiError,
     retry: retryPoi
-  } = usePoi(poiCenterLat, poiCenterLng, poiQueryRadiusKm, svcType, distributionTargetSelection);
+  } = usePoi(displayPoiLat, displayPoiLng, displayPoiRadius, svcType, distributionTargetSelection);
   const backendPois = useMemo(() => {
     if (!['d2d', 'h2h', 'b2b'].includes(svcType)) return [];
     const arr = apiData?.metadata?.nearby_activities;
