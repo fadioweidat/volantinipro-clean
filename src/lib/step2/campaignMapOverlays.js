@@ -20,7 +20,7 @@ export function pointOfSaleMapColor(id, zones = []) {
 export function buildCampaignMapOverlays(zones, activeId, activeRows = [], availableRows = []) {
   if (!Array.isArray(zones) || zones.length < 2) return [];
   const activePv = zones.find(pv => pv.id === activeId);
-  const cityKey = pv => pv?.city?.istat || pv?.city?.id || pv?.city?.label || pv?.cityName || '';
+  const cityKey = pv => String(pv?.city?.name || pv?.city?.label || pv?.cityName || '').replace(/\s*\([A-Z]{2}\)\s*$/i, '').trim().toLowerCase();
   return zones.flatMap((pv, index) => {
     const active = pv.id === activeId;
     const selectedIds = new Set(pv.selected || []);

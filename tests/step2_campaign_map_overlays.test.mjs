@@ -49,3 +49,8 @@ test('geometry lookup never borrows a matching ID from a different city', () => 
   const owners = [{id:'a', cityName:'Roma', nilManualMode:true, selected:['same'], allocation:[]}, {id:'b', cityName:'Milano'}];
   assert.deepEqual(buildCampaignMapOverlays(owners, 'b', [], [{id:'same',geometry:polygon}]), []);
 });
+
+test('same municipality resolves geometry across geocoder labels and place IDs', () => {
+  const owners=[{...zones[0],city:{label:'Milano',id:'bootstrap'},zonesAllocation:[]},{...zones[1],city:{label:'Milano (MI)',id:'osm:123'}}];
+  assert.equal(buildCampaignMapOverlays(owners,'parco',zones[1].zonesAllocation,zones[0].zonesAllocation).length,2);
+});
