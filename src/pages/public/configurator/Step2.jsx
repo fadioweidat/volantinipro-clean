@@ -1042,7 +1042,12 @@ export function Step2({
   // (setNilManualMode(v => !v), ramo ON). NON e' switchToNilMode() (quello e'
   // il flusso indirizzo -> NIL, richiede un coverageAddress). Nessuna nuova
   // logica di stato: riusa lo stesso setter.
-  const enterNilManualMode = () => setNilManualMode(true);
+  const enterNilManualMode = () => {
+    // Comune completo seleziona tutte le righe; la scelta manuale NIL deve
+    // partire vuota, senza ereditare le 88 NIL come selezione dell'utente.
+    if (!nilManualMode) setSelected([]);
+    setNilManualMode(true);
+  };
   const switchToNilMode = () => {
     userModeRef.current = "address";
     setDropOpen(false);

@@ -113,6 +113,15 @@ test("F/S. switch keeps per-PV identity; sync never drops store_name", () => {
   assert.deepEqual(s.zones.map(z => z.name), ["Negozio Duomo", "Punto vendita 2", "Filiale Monza", "Punto vendita 4", "Punto vendita 5"]);
 });
 
+test("manual NIL labels ignore stale full-city allocation and removed selections", () => {
+  const pv = { cityName: 'Milano', searchMode: 'municipality', nilManualMode: true,
+    allocation: [{ id: 'duomo', name: 'DUOMO' }, { id: 'certosa', name: 'CERTOSA' }] };
+  assert.equal(getPointOfSaleLocation({ ...pv, selected: [] }), 'Milano');
+  assert.equal(getPointOfSaleLocation({ ...pv, selected: ['certosa'] }), 'Milano · CERTOSA');
+  assert.equal(getPointOfSaleLocation({ ...pv, selected: ['missing'] }), 'Milano');
+  assert.equal(getPointOfSaleLocation(pv), 'Milano · DUOMO, CERTOSA', 'legacy snapshots without selected remain readable');
+});
+
 test("location + mode labels never invent an address", () => {
   assert.equal(getPointOfSaleLocation(PV1), "Milano · BRUZZANO, COMASINA");
   assert.equal(getPointOfSaleModeLabel(PV1), "NIL / quartieri");

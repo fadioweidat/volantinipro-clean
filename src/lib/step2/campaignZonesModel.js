@@ -143,7 +143,12 @@ export function getPointOfSaleLocation(zone) {
   }
   const isNil = Boolean(zone.nilManualMode) || zone.kpiSnapshot?.areaMode === "custom_zone";
   if (isNil) {
-    const nils = getCampaignZoneAllocation(zone).map(r => r?.name).filter(Boolean);
+    // L'allocazione puo' essere ancora quella del Comune completo nel render
+    // di transizione: solo gli ID scelti appartengono al PV in modalita' NIL.
+    const selected = Array.isArray(zone.selected) ? new Set(zone.selected) : null;
+    const nils = getCampaignZoneAllocation(zone)
+      .filter(r => !selected || selected.has(r?.id))
+      .map(r => r?.name).filter(Boolean);
     return nils.length ? `${city || "Milano"} · ${compactList(nils)}` : city;
   }
   const names = municipalityNames(zone);
