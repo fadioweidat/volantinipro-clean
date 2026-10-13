@@ -723,6 +723,8 @@ export function Step4({
     src: "Analisi interna"
   }];
   const kpisPopulation = kpis.population ?? kpis.pop ?? (totP || null);
+  const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
+  const summaryMunicipalityCount = summaryMunicipalityNames.length || null;
   const kpisComuniCount = kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
   const d2dAreaKm2 = kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null);
   const d2dAvgDensity = d2dAreaKm2 && kpisPopulation ? Math.round(kpisPopulation / d2dAreaKm2) : null;
@@ -1966,7 +1968,7 @@ export function Step4({
             color: "rgba(255,255,255,.72)",
             letterSpacing: "-1px",
             lineHeight: 1
-          }}>{selectedZoneNames.length || "—"}</div>
+          }}>{summaryMunicipalityCount ?? "—"}</div>
           </div>
           <div style={{
           padding: "14px 12px",
@@ -2333,8 +2335,8 @@ export function Step4({
               }, {
                 icon: "pin",
                 l: "Comuni coinvolti",
-                sub: selectedZoneNames.slice(0, 2).join(", ") + (selectedZoneNames.length > 2 ? ` +${selectedZoneNames.length - 2}` : ""),
-                v: `${selectedZoneNames.length || "—"}`,
+                sub: summaryMunicipalityNames.slice(0, 2).join(", ") + (summaryMunicipalityNames.length > 2 ? ` +${summaryMunicipalityNames.length - 2}` : ""),
+                v: `${summaryMunicipalityCount ?? "—"}`,
                 c: col
               }, {
                 icon: "chart",
@@ -2705,7 +2707,7 @@ export function Step4({
               const ratingCol = quantityIsSufficient && cov >= 70 ? C.green : quantityIsSufficient || cov >= 40 ? "#F59E0B" : col;
               const tips = [quantityIsSufficient == null ? "Copertura non disponibile: completa l'analisi territoriale nello Step 2." : quantityIsSufficient ? `Configurazione coerente: la quantità copre l'intera area selezionata.` : `Copertura parziale: ${missingQty.toLocaleString("it-IT", {
                 useGrouping: true
-              })} volantini aggiuntivi porterebbero alla copertura completa.`, `Budget adeguato per ${selectedZoneNames.length > 1 ? `${selectedZoneNames.length} comuni selezionati` : mainAreaLabel}.`, disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
+              })} volantini aggiuntivi porterebbero alla copertura completa.`, `Budget adeguato per ${summaryMunicipalityCount > 1 ? `${summaryMunicipalityCount} comuni selezionati` : mainAreaLabel}.`, disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
                 useGrouping: true
               })} volantini aggiuntivi.` : cov >= 40 ? "Copertura iniziale buona per misurare l'efficacia della campagna nel territorio." : "Copertura base: ideale per un primo test dell'area prima di scalare."];
               return <motion.div initial={{
