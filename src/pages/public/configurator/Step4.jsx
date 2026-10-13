@@ -11,7 +11,7 @@ import { BUSINESS_DELIVERY_METHODS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECT
 import { formatAreaKm2, formatNumber, formatPaperWeight } from "../../../lib/utils/format.js";
 import { formatCoverageProportion } from "../../../lib/step2/buildStep2ViewModel.js";
 import { Step4MultiZoneSummary } from "./step4/Step4MultiZoneSummary.jsx";
-import { buildMultiZoneCampaignZonesPayload, buildMultiZoneDistributionZones, buildMultiZoneMetadata, buildPointOfSalePricing, flattenMultiZoneAllocation, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
+import { buildMultiZoneCampaignZonesPayload, buildMultiZoneDistributionZones, buildMultiZoneMetadata, buildPointOfSalePricing, flattenMultiZoneAllocation, summarizeCampaignZones, getCampaignMunicipalityNames } from "../../../lib/step2/campaignZonesModel.js";
 import { getServiceAccent } from "../../../lib/services/service-config.js";
 import { getZoneFullCoverageFlyers } from "../../../lib/doorToDoorCoverage.js";
 import { MONTHS_SHORT, QUOTE_PRICES } from "../../../lib/appConstants.js";
@@ -584,7 +584,7 @@ export function Step4({
     population: multiZoneSummary.totalPopulation ?? data.serviceKpis?.population,
     recommendedFlyers: multiZoneSummary.totalRequiredFlyers ?? data.serviceKpis?.recommendedFlyers,
     coverage: multiZoneSummary.totalRequiredFlyers > 0 ? Math.min(100, Math.round(multiZoneSummary.totalQuantity / multiZoneSummary.totalRequiredFlyers * 100)) : null,
-    comuniCount: new Set(multiZoneSummary.zones.flatMap(z => z.allocation.map(r => String(r?.name || "").trim().toLowerCase())).filter(Boolean)).size || null
+    comuniCount: getCampaignMunicipalityNames(data.campaignZones).length || null
   } : singlePointOfSale ? {
     // KPI del PV superstite dal suo snapshot (scritto da Step2 con gli stessi
     // serviceKpis): data.serviceKpis puo' essere quello del PV eliminato.
@@ -664,7 +664,7 @@ export function Step4({
   // campaignZonesPayload per i campaign_zones reali. Con UNA sola zona in
   // zoneAllocs, quel nome specifico va preferito; con piu' zone (incl.
   // "Milano completo") il comportamento resta invariato.
-  const mainAreaLabel = isMultiZoneQuote ? multiZoneSummary.zones.map(z => (z.source?.store_name && String(z.source.store_name).trim() ? z.name : step4AreaLabel(z.source?.cityName) || z.name)).join(" + ") : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
+  const mainAreaLabel = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones).join(" + ") || "Aree selezionate" : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
   const estimatedFamiliesForSummary = svcType === "d2d" ? kpis.families ?? (selZ.length ? totF : null) : null;
   const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).

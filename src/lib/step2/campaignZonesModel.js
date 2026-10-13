@@ -120,6 +120,24 @@ function municipalityNames(zone) {
   return munis.map(m => (typeof m === "string" ? m : m?.label || m?.name || "")).filter(Boolean);
 }
 
+/** Comuni reali della campagna: una NIL o un PV non sono un Comune. */
+export function getCampaignMunicipalityNames(zones = []) {
+  const names = new Map();
+  for (const zone of zones) {
+    const municipalRows = zone.searchMode === 'address' && zone.kpiSnapshot?.analysisLevel === 'comune'
+      ? getCampaignZoneAllocation(zone) : [];
+    const explicit = Array.isArray(zone.selectedMunicipalities) && zone.selectedMunicipalities.length
+      ? zone.selectedMunicipalities : zone.selectedComuni || [];
+    const candidates = municipalRows.length ? municipalRows : explicit.length ? explicit : [zone.city || zone.cityName];
+    for (const candidate of candidates) {
+      const name = String(typeof candidate === 'string' ? candidate : candidate?.name || candidate?.label || '').trim();
+      const key = name.replace(/\s*\([A-Z]{2}\)\s*$/i, '').trim().toLowerCase();
+      if (key && !names.has(key)) names.set(key, name);
+    }
+  }
+  return [...names.values()];
+}
+
 function compactList(names, max = 2) {
   if (names.length <= max) return names.join(", ");
   return `${names.slice(0, max).join(", ")} +${names.length - max}`;
