@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 // lo storage access della CDN). Stesso import gia' usato da tutti gli altri
 // componenti mappa (GpsMonitor, CampaignReport, Driver, map-studio...).
 import L from 'leaflet';
+import { attachTileFallbackPolicy } from '../lib/map/tileFallbackPolicy.js';
 import 'leaflet/dist/leaflet.css';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
@@ -880,16 +881,8 @@ function Step2MapImpl({
         `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken}`,
         { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
       );
-      // Token presente ma rifiutato da Mapbox (401/403, tipicamente per
-      // restrizione di dominio su un token con URL allowlist): un solo
-      // fallback automatico a OSM, mai un retry su Mapbox nella stessa
-      // sessione mappa. Il flag e' locale a questo effect (non stato React)
-      // perche' 'tileerror' scatta una volta per ogni tile fallita — senza
-      // guardia, lo swap verrebbe ripetuto per ciascuna di esse.
-      let fallbackTriggered = false;
-      tileLayer.on('tileerror', () => {
-        if (fallbackTriggered) return;
-        fallbackTriggered = true;
+      // Switch only after a complete failed batch, never on one tile error.
+      attachTileFallbackPolicy(tileLayer, () => {
         map.removeLayer(tileLayer);
         const fallback = buildFallbackLayer();
         fallback.on('tileload', hideMapErrorMsg);
