@@ -1853,7 +1853,7 @@ export function Step2({
   // true e faceva scattare gisTimedOut). Per H2H/B2B i POI sono invece dati
   // operativi (punti promoter / consegna) e restano parte del gate.
   const poiIsOperationalData = isBusinessStep2 || isMovementStep2;
-  const gisLoading = Boolean(city && (apiLoading || sectorsLoading || (poiIsOperationalData && poiLoading)));
+  const gisLoading = Boolean(city && (apiLoading || (poiIsOperationalData && (sectorsLoading || poiLoading))));
   const [gisSlowConnection, setGisSlowConnection] = useState(false);
   const [gisTimedOut, setGisTimedOut] = useState(false);
   const isGisFailed = Boolean(gisTimedOut || (apiError && !apiLoading && !apiPending));
@@ -5755,7 +5755,8 @@ export function Step2({
         focusedPoiId={focusedPoiId}
         focusedPoiNonce={focusedPoiNonce}
         gisLoading={gisLoading}
-        gisSlowConnection={gisSlowConnection || apiIsRetrying}
+        gisSlowConnection={gisSlowConnection}
+        gisRetrying={apiIsRetrying}
         gisTimedOut={isGisFailed}
         onRetryGis={handleRetryGis}
         handleManualMapClick={handleManualMapClick}

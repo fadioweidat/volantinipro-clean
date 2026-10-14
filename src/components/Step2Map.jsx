@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 // lo storage access della CDN). Stesso import gia' usato da tutti gli altri
 // componenti mappa (GpsMonitor, CampaignReport, Driver, map-studio...).
 import L from 'leaflet';
+import { clusterPoiOnScreen } from '../lib/map/clusterPoiOnScreen.js';
 import { attachTileFallbackPolicy } from '../lib/map/tileFallbackPolicy.js';
 import 'leaflet/dist/leaflet.css';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -667,27 +668,6 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
       </div>
     </div>
   );
-}
-
-// ── Grid-clustering helper for POI markers ────────────────────────────────────
-// Groups nearby POI into clusters without a CDN plugin.
-// cellDeg ≈ 0.003° ≈ 250m at Italian latitudes.
-function gridCluster(pois, cellDeg = 0.003) {
-  const cells = {};
-  for (const p of pois) {
-    const cx = Math.floor(p.lng / cellDeg);
-    const cy = Math.floor(p.lat / cellDeg);
-    const k  = `${cx},${cy}`;
-    if (!cells[k]) cells[k] = [];
-    cells[k].push(p);
-  }
-  return Object.values(cells).map(group => {
-    if (group.length === 1) return { ...group[0], isCluster: false };
-    const lat = group.reduce((s, p) => s + p.lat, 0) / group.length;
-    const lng = group.reduce((s, p) => s + p.lng, 0) / group.length;
-    const rep = group.reduce((b, p) => p.priority > b.priority ? p : b, group[0]);
-    return { lat, lng, isCluster: true, count: group.length, color: rep.color, category: rep.category, pois: group };
-  });
 }
 
 // Quintile-based color scale for density choropleth (D2D families layer).
@@ -1819,13 +1799,10 @@ function Step2MapImpl({
       const poiGroup = L.layerGroup().addTo(map);
       layersRef.current.poiGroup = poiGroup;
 
-      // Cell size scales with radius: bigger area → coarser clustering
-      const cellDeg = mapZoom >= 15 ? 0.00001 : effectiveMapRadius <= 2 ? 0.0015 : effectiveMapRadius <= 5 ? 0.003 : 0.005;
-      // Con pochi risultati mostriamo sempre ogni singolo punto: sono scelte operative,
-      // non semplici indicatori statistici. Il clustering resta utile solo su liste grandi.
+      // Cluster by visible pixel distance at the current zoom.
       const clusters = validPois.length <= 30
         ? validPois.map((poi) => ({ ...poi, isCluster: false }))
-        : gridCluster(validPois, cellDeg);
+        : clusterPoiOnScreen(validPois, poi => map.project([poi.lat, poi.lng], map.getZoom()));
 
       clusters.forEach(item => {
         if (item.isCluster) {
