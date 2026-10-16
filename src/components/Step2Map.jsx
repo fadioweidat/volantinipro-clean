@@ -1335,7 +1335,7 @@ function Step2MapImpl({
           lineJoin: 'round',
         };
         if (simplifiedMilano && isNilZone) {
-          Object.assign(styleUnsel, { color: isContainingNil ? '#38BDF8' : '#7F9DB5', fillColor: '#38BDF8', fillOpacity: isContainingNil ? 0.08 : 0.025, weight: isContainingNil ? 2 : 1, opacity: 0.75, dashArray: isContainingNil ? '4 3' : null });
+          Object.assign(styleUnsel, { color: isContainingNil ? '#38BDF8' : '#7F9DB5', fillColor: isContainingNil ? '#38BDF8' : '#7F9DB5', fillOpacity: isContainingNil ? 0.08 : 0, weight: isContainingNil ? 2 : 1, opacity: 0.75, dashArray: isContainingNil ? '4 3' : null });
           Object.assign(styleSel, { color: '#22D99A', fillColor: '#22D99A', fillOpacity: 0.3, weight: 2.5, opacity: 1 });
         }
         const gisStyle = sel ? styleSel : styleUnsel;
