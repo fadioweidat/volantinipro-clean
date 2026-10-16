@@ -257,6 +257,23 @@ async function loadOmiZones(
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const timingRequestId = crypto.randomUUID();
+  const measurePhase = async <T>(phase: string, run: () => PromiseLike<T>): Promise<T> => {
+    const started = performance.now();
+    let completed = false;
+    try {
+      const result = await run();
+      completed = true;
+      return result;
+    } finally {
+      console.log("ANALYSIS_PHASE_TIMING", JSON.stringify({
+        requestId: timingRequestId, phase,
+        durationMs: Math.round(performance.now() - started),
+        completed
+      }));
+    }
+  };
+
   try {
     const url = new URL(req.url);
     const lat = Number(url.searchParams.get("lat"));
@@ -274,7 +291,7 @@ serve(async (req: Request) => {
       return json({ values: {}, comuni_breakdown: [], metadata: { isEstimated: false }, error: "INVALID_COORDINATES", sources: [] }, 400);
     }
 
-    const mapboxPlace = await useMapbox(lat, lng, warnings);
+    const mapboxPlace = await measurePhase("mapbox", () => useMapbox(lat, lng, warnings));
     if (mapboxPlace) sources.add(sourceLabel("mapbox"));
 
     const supabase = supabaseAdmin();
@@ -289,7 +306,7 @@ serve(async (req: Request) => {
       });
     }
 
-    const pipelineResult = await runTerritorialPipeline({
+    const pipelineResult = await measurePhase("territorial_pipeline", () => runTerritorialPipeline({
       params: {
         lat,
         lng,
@@ -304,22 +321,22 @@ serve(async (req: Request) => {
         sourceLabel
       },
       queryComuni: async (pLat: number, pLng: number, pRadius: number) => {
-        const res = await supabase.rpc("get_comuni_breakdown_in_radius", {
+        const res = await measurePhase("get_comuni_breakdown_in_radius", () => supabase.rpc("get_comuni_breakdown_in_radius", {
           p_lat: pLat,
           p_lng: pLng,
           p_radius_km: pRadius,
-        });
+        }));
         return { data: res.data, error: res.error };
       },
       queryNils: async (pLat: number, pLng: number, pRadius: number) => {
-        const res = await supabase.rpc("get_nil_breakdown_in_radius", {
+        const res = await measurePhase("get_nil_breakdown_in_radius", () => supabase.rpc("get_nil_breakdown_in_radius", {
           center_lat: pLat,
           center_lng: pLng,
           radius_km: pRadius,
-        });
+        }));
         return { data: res.data, error: res.error };
       }
-    });
+    }));
 
     const comuni = pipelineResult.comuni;
     const nilRows = pipelineResult.nilRows;
@@ -354,7 +371,7 @@ serve(async (req: Request) => {
     const totalArea = territorialRows.reduce((acc: number, row: Record<string, unknown>) => acc + Number(row.area_km2 || 0), 0);
     const omiMunicipality = specificMunicipality || (analysisLevel === "nil" ? "Milano" : null);
     const omiLookupRows = analysisLevel === "nil" ? [{ comune_name: "Milano", municipality_name: "Milano", municipality_code: "015146" }] : territorialRows;
-    const omiZones = await loadOmiZones(supabase, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality);
+    const omiZones = await measurePhase("omi", () => loadOmiZones(supabase, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality));
     if (omiZones.length > 0) sources.add(sourceLabel("omi"));
     const omiMinValues = omiZones.map((row: OmiZone) => Number(row.min_value)).filter(Number.isFinite);
     const omiMaxValues = omiZones.map((row: OmiZone) => Number(row.max_value)).filter(Number.isFinite);
