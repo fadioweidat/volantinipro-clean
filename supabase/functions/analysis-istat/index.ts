@@ -306,6 +306,14 @@ serve(async (req: Request) => {
       });
     }
 
+    // With an explicit municipality OMI ignores territorial rows: load it in
+    // parallel. Merge warnings only at the original point to preserve ordering.
+    const omiPrefetchWarnings: string[] = [];
+    const pendingOmi = specificMunicipality
+      ? measurePhase("omi", () => loadOmiZones(supabase, lat, lng, radiusKm, [], omiPrefetchWarnings, specificMunicipality))
+          .then(value => ({ value, error: null }), error => ({ value: null, error }))
+      : null;
+
     const pipelineResult = await measurePhase("territorial_pipeline", () => runTerritorialPipeline({
       params: {
         lat,
@@ -371,7 +379,10 @@ serve(async (req: Request) => {
     const totalArea = territorialRows.reduce((acc: number, row: Record<string, unknown>) => acc + Number(row.area_km2 || 0), 0);
     const omiMunicipality = specificMunicipality || (analysisLevel === "nil" ? "Milano" : null);
     const omiLookupRows = analysisLevel === "nil" ? [{ comune_name: "Milano", municipality_name: "Milano", municipality_code: "015146" }] : territorialRows;
-    const omiZones = await measurePhase("omi", () => loadOmiZones(supabase, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality));
+    const prefetchedOmi = pendingOmi ? await pendingOmi : null;
+    if (prefetchedOmi?.error) throw prefetchedOmi.error;
+    const omiZones = prefetchedOmi?.value ?? await measurePhase("omi", () => loadOmiZones(supabase, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality));
+    if (pendingOmi) warnings.push(...omiPrefetchWarnings);
     if (omiZones.length > 0) sources.add(sourceLabel("omi"));
     const omiMinValues = omiZones.map((row: OmiZone) => Number(row.min_value)).filter(Number.isFinite);
     const omiMaxValues = omiZones.map((row: OmiZone) => Number(row.max_value)).filter(Number.isFinite);
