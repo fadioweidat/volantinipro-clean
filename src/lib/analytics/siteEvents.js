@@ -17,14 +17,18 @@ import { parseUtm, classifyReferrer } from './utm.js';
 import { detectClientDevice } from './device.js';
 import { sanitizeMetadata, quantityBucket } from './eventSchema.js';
 
-// Local development never sends analytics: neither /api/track nor the anon
-// site_events fallback. A dev server pointed at Production keys would
-// otherwise insert page views into the live table.
-const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
-export function isLocalAnalyticsContext({ dev = false, hostname = '' } = {}) {
-  if (dev === true) return true;
-  const host = String(hostname || '').toLowerCase();
-  return LOCAL_HOSTNAMES.has(host) || host.endsWith('.localhost');
+// Analytics are sent ONLY from the production site. Allowlist, not blocklist:
+// any other host (localhost, IPs, *.vercel.app previews, staging, unknown
+// domains) sends nothing — neither /api/track nor the anon site_events
+// fallback — so previews and dev servers pointed at Production keys never
+// write into the live table. Production is https://www.volantinipro.it
+// (SITE_URL in lib/seo/routePolicy.js; vercel.json redirects the apex to it);
+// the apex is allowed too in case the redirect is ever bypassed.
+export const ANALYTICS_PRODUCTION_HOSTS = Object.freeze(['www.volantinipro.it', 'volantinipro.it']);
+export function isAnalyticsAllowed({ dev = false, hostname = '' } = {}) {
+  if (dev === true) return false;
+  const host = String(hostname || '').trim().toLowerCase().replace(/\.$/, '');
+  return ANALYTICS_PRODUCTION_HOSTS.includes(host);
 }
 function currentAnalyticsContext() {
   let dev = false;
@@ -214,7 +218,7 @@ function buildPayload(eventName, { path = null, metadata = null, campaignId = nu
 
 async function dispatch(eventName, opts = {}) {
   if (!ALLOWED_EVENTS.includes(eventName)) return;
-  if (isLocalAnalyticsContext(currentAnalyticsContext())) return;
+  if (!isAnalyticsAllowed(currentAnalyticsContext())) return;
   if (isAnalyticsOptedOut()) return;
   const { url, anonKey } = analyticsEnv();
   if (!url || !anonKey) return;

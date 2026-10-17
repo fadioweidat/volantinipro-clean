@@ -58,7 +58,8 @@ function installBrowserEnv({ localStorage = makeStorage(), sessionStorage = make
   global.window = {
     localStorage,
     sessionStorage,
-    location: { pathname: "/" },
+    // Analytics only leave the production host (allowlist in siteEvents.js).
+    location: { pathname: "/", hostname: "www.volantinipro.it" },
   };
   global.fetch = fetchImpl || (async (url, options) => {
     calls.push({ url, options });

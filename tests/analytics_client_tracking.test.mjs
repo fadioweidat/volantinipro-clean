@@ -27,7 +27,8 @@ function install({ origin = null, fetchImpl } = {}) {
   global.window = {
     localStorage: makeStorage(),
     sessionStorage: makeStorage(),
-    location: origin ? { origin, pathname: '/', search: '', hostname: 'x.test' } : { pathname: '/', search: '' },
+    // Analytics only leave the production host (allowlist in siteEvents.js).
+    location: origin ? { origin, pathname: '/', search: '', hostname: 'www.volantinipro.it' } : { pathname: '/', search: '', hostname: 'www.volantinipro.it' },
   };
   setNavigator({ userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36' });
   global.fetch = fetchImpl || (async (u, o) => { calls.push({ url: u, options: o }); return { ok: true, status: 204 }; });
