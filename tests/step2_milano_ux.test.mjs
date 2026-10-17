@@ -178,7 +178,15 @@ test("firewall: i nuovi file non importano core data/logic vietati", () => {
   // "NIL / Quartiere" entra in selezione NIL manuale RESTANDO in modalità
   // Comune (stesso setter del toggle esistente in Step2ComunePanel), NON
   // switchToNilMode (flusso indirizzo->NIL).
-  assert.match(step2, /const enterNilManualMode = \(\) => setNilManualMode\(true\);/);
+  const enterNilBody = step2.match(/const enterNilManualMode = \(\) => \{([\s\S]*?)\n  \};/)[1];
+  for (const alreadyManual of [false, true]) {
+    let selected = ['duomo', 'brera'];
+    let enabled = false;
+    Function('nilManualMode', 'setSelected', 'setNilManualMode', enterNilBody)(
+      alreadyManual, value => { selected = value; }, value => { enabled = value; });
+    assert.deepEqual(selected, alreadyManual ? ['duomo', 'brera'] : [], 'manual entry clears full-city selection, reentry preserves it');
+    assert.equal(enabled, true);
+  }
   assert.match(step2, /onShowNil=\{enterNilManualMode\}/);
   assert.match(step2, /onUseRadius=\{switchToRadiusMode\}/);
   assert.match(step2, /onKeepMilanoComplete=\{switchToComuneMode\}/);

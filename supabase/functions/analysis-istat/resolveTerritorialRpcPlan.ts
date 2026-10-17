@@ -108,6 +108,14 @@ export async function runTerritorialPipeline({
   let comuni: Array<Record<string, unknown>> = [];
   let rpcComuniError = false;
 
+  // Only overlap requests when NIL is required independently of the comuni response.
+  // Consume the result at its original position, preserving resolver and warning order.
+  const initialPlan = resolveTerritorialRpcPlan({ ...params, warnings: [] });
+  const pendingNil = initialPlan.shouldQueryNil
+    ? Promise.resolve().then(() => queryNils(params.lat, params.lng, params.radiusKm))
+        .then(value => ({ value, error: null }), error => ({ value: null, error }))
+    : null;
+
   if (params.service === "d2d") {
     const comuniResult = await queryComuni(params.lat, params.lng, params.radiusKm);
     if (comuniResult.error) {
@@ -147,7 +155,9 @@ export async function runTerritorialPipeline({
   let nilUnavailable = false;
 
   if (rpcPlan.shouldQueryNil) {
-    const nilResult = await queryNils(params.lat, params.lng, params.radiusKm);
+    const prefetchedNil = pendingNil ? await pendingNil : null;
+    if (prefetchedNil?.error) throw prefetchedNil.error;
+    const nilResult = prefetchedNil?.value || await queryNils(params.lat, params.lng, params.radiusKm);
     if (nilResult.error) {
       nilUnavailable = true;
       warnings.push(`NIL_RPC_UNAVAILABLE:${nilResult.error.message || "get_nil_breakdown_in_radius"}`);

@@ -10,7 +10,7 @@ import { getCoverageStatus } from "../../../../lib/step2/buildStep2ViewModel.js"
 import { normalizeMunicipalityName } from "../../../../lib/step2/addressIntent.js";
 import { truthfulSourceLabel } from "../../../../lib/step2/truthfulSourceLabel.js";
 
-export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, focusedNil, gisLoading, gisSlowConnection, gisTimedOut, onRetryGis, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
+export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, focusedNil, gisLoading, gisSlowConnection, gisRetrying = false, gisTimedOut, onRetryGis, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
   return (
     <>
       {simplifiedMilano && <div className="vp-milano-map-toolbar" role="group" aria-label="Layer della mappa">
@@ -63,7 +63,7 @@ export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeL
                   Annulla
                 </button>
               </div>}
-            {isRadiusMode && radiusKm > 0 && serviceKpis?.coverage != null && <div style={{
+            {isRadiusMode && radiusKm > 0 && <div style={{
               position: "absolute",
               top: 14,
               right: 14,
@@ -90,9 +90,9 @@ export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeL
                 color: "rgba(255,255,255,0.4)"
               }}>·</span>
                 <span style={{
-                color: getCoverageStatus(serviceKpis.coverage) === "coperto" ? "#22C55E" : getCoverageStatus(serviceKpis.coverage) === "parziale" ? "#FACC15" : "#F87171"
+                color: sharedCoveragePctText == null ? "#94A3B8" : getCoverageStatus(serviceKpis?.coverage) === "coperto" ? "#22C55E" : getCoverageStatus(serviceKpis?.coverage) === "parziale" ? "#FACC15" : "#F87171"
               }}>
-                  {sharedCoveragePctText} copertura
+                  {sharedCoveragePctText == null ? "Copertura non disponibile" : `${sharedCoveragePctText} copertura`}
                 </span>
               </div>}
             <Step2MapErrorBoundary resetKey={`${mapCityForStep2?.name || mapCityForStep2?.label || ""}|${data.activeZoneId || ""}`}>
@@ -171,8 +171,10 @@ export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeL
                         </button>
                       )}
                     </>
+                  ) : gisRetrying ? (
+                    "Analisi temporaneamente non disponibile. Nuovo tentativo in corso..."
                   ) : gisSlowConnection ? (
-                    "Connessione temporaneamente lenta. Riprovo..."
+                    "L’analisi delle zone sta richiedendo più tempo. Attendi..."
                   ) : (
                     "Analisi GIS in corso..."
                   )}

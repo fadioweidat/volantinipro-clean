@@ -1,0 +1,39 @@
+{
+  "result": [
+    {
+      "event_message": "ANALYSIS_PHASE_TIMING {\"requestId\":\"0d1f909c-7eb1-4534-80be-abfff9723e9d\",\"phase\":\"mapbox\",\"durationMs\":18,\"completed\":true,\"rpcOk\":null,\"errorCode\":null}\n",
+      "gateway_request_id": "01a14a48-3eb3-787f-bbba-baf8da73bc8f",
+      "timestamp": "2026-10-17T14:33:31.768000"
+    },
+    {
+      "event_message": "ANALYSIS_RPC_TIMING {\"requestId\":\"0d1f909c-7eb1-4534-80be-abfff9723e9d\",\"phase\":\"territorial_bundle\",\"rpcMs\":2194,\"ok\":true,\"status\":200,\"errorCode\":null,\"databasePhases\":{\"get_nil_breakdown_in_radius\":{\"databaseMs\":360.257,\"ok\":true,\"errorCode\":null,\"rows\":88},\"get_omi_zones_by_municipality\":{\"databaseMs\":434.431,\"ok\":true,\"errorCode\":null,\"rows\":200},\"get_comuni_breakdown_in_radius\":{\"databaseMs\":410.565,\"ok\":true,\"errorCode\":null,\"rows\":62}}}\n",
+      "gateway_request_id": "01a14a48-3eb3-787f-bbba-baf8da73bc8f",
+      "timestamp": "2026-10-17T14:33:33.964000"
+    },
+    {
+      "event_message": "ANALYSIS_PHASE_TIMING {\"requestId\":\"0d1f909c-7eb1-4534-80be-abfff9723e9d\",\"phase\":\"omi\",\"durationMs\":2194,\"completed\":true,\"rpcOk\":null,\"errorCode\":null}\n",
+      "gateway_request_id": "01a14a48-3eb3-787f-bbba-baf8da73bc8f",
+      "timestamp": "2026-10-17T14:33:33.965000"
+    },
+    {
+      "event_message": "ANALYSIS_PHASE_TIMING {\"requestId\":\"0d1f909c-7eb1-4534-80be-abfff9723e9d\",\"phase\":\"get_nil_breakdown_in_radius\",\"durationMs\":2193,\"completed\":true,\"rpcOk\":true,\"errorCode\":null}\n",
+      "gateway_request_id": "01a14a48-3eb3-787f-bbba-baf8da73bc8f",
+      "timestamp": "2026-10-17T14:33:33.965000"
+    },
+    {
+      "event_message": "ANALYSIS_PHASE_TIMING {\"requestId\":\"0d1f909c-7eb1-4534-80be-abfff9723e9d\",\"phase\":\"get_comuni_breakdown_in_radius\",\"durationMs\":2193,\"completed\":true,\"rpcOk\":true,\"errorCode\":null}\n",
+      "gateway_request_id": "01a14a48-3eb3-787f-bbba-baf8da73bc8f",
+      "timestamp": "2026-10-17T14:33:33.965000"
+    },
+    {
+      "event_message": "ANALYSIS_PHASE_TIMING {\"requestId\":\"0d1f909c-7eb1-4534-80be-abfff9723e9d\",\"phase\":\"territorial_pipeline\",\"durationMs\":2195,\"completed\":true,\"rpcOk\":null,\"errorCode\":null}\n",
+      "gateway_request_id": "01a14a48-3eb3-787f-bbba-baf8da73bc8f",
+      "timestamp": "2026-10-17T14:33:33.966000"
+    },
+    {
+      "event_message": "ANALYSIS_RESPONSE_TIMING {\"requestId\":\"0d1f909c-7eb1-4534-80be-abfff9723e9d\",\"status\":200,\"totalMs\":2219,\"serializeMs\":1,\"bytes\":284436}\n",
+      "gateway_request_id": "01a14a48-3eb3-787f-bbba-baf8da73bc8f",
+      "timestamp": "2026-10-17T14:33:33.969000"
+    }
+  ]
+}

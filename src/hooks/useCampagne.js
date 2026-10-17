@@ -47,7 +47,7 @@ export function useCampagne({ enabled = true } = {}) {
       return
     }
     async function load() {
-      if (!supabase) { setLoading(false); return }
+      if (!supabase) { setError('Servizio campagne non configurato.'); setLoading(false); return }
       try {
         const { data: authData, error: authError } = await getBridgedUser()
         if (authError) {

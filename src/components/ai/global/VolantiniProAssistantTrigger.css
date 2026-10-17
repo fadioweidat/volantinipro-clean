@@ -1,0 +1,18 @@
+@media (max-width: 640px) {
+  .vp-assistant-compact-mobile {
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 12px !important;
+  }
+
+  .vp-assistant-compact-mobile .vp-assistant-trigger-button {
+    width: 52px;
+    height: 52px;
+    padding: 0 !important;
+    justify-content: center;
+    border-radius: 50% !important;
+  }
+
+  .vp-assistant-compact-mobile .vp-assistant-trigger-label {
+    display: none !important;
+  }
+}

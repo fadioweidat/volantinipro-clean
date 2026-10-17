@@ -12,6 +12,7 @@ import {
   buildPointOfSalePricing,
   buildZoneKpiSnapshot,
   getCampaignZoneLabel,
+  getCampaignMunicipalityNames,
   getPointOfSaleLocation,
   getPointOfSaleModeLabel,
   getPointOfSaleName,
@@ -111,6 +112,23 @@ test("F/S. switch keeps per-PV identity; sync never drops store_name", () => {
   const s = summarizeCampaignZones(MIXED);
   assert.deepEqual(s.zones.map(z => z.id), ["pv1", "pv2", "pv3", "pv4", "pv5"]);
   assert.deepEqual(s.zones.map(z => z.name), ["Negozio Duomo", "Punto vendita 2", "Filiale Monza", "Punto vendita 4", "Punto vendita 5"]);
+});
+
+test("municipality counts distinguish PV and NIL from unique municipalities", () => {
+  const secondMilano = { ...PV1, id: 'certosa', cityName: 'Milano (MI)', selectedComuni: [{ name: 'milano' }], allocation: [row('CERTOSA', 10000)] };
+  assert.deepEqual(getCampaignMunicipalityNames([PV1, secondMilano]), ['Milano']);
+  assert.deepEqual(getCampaignMunicipalityNames([PV1, PV3]), ['Milano', 'Monza']);
+  assert.deepEqual(getCampaignMunicipalityNames([PV4]), ['Cormano', 'Cusano Milanino']);
+  assert.deepEqual(getCampaignMunicipalityNames([{ allocation: [row('BRUZZANO', 10000)] }]), []);
+});
+
+test("manual NIL labels ignore stale full-city allocation and removed selections", () => {
+  const pv = { cityName: 'Milano', searchMode: 'municipality', nilManualMode: true,
+    allocation: [{ id: 'duomo', name: 'DUOMO' }, { id: 'certosa', name: 'CERTOSA' }] };
+  assert.equal(getPointOfSaleLocation({ ...pv, selected: [] }), 'Milano');
+  assert.equal(getPointOfSaleLocation({ ...pv, selected: ['certosa'] }), 'Milano · CERTOSA');
+  assert.equal(getPointOfSaleLocation({ ...pv, selected: ['missing'] }), 'Milano');
+  assert.equal(getPointOfSaleLocation(pv), 'Milano · DUOMO, CERTOSA', 'legacy snapshots without selected remain readable');
 });
 
 test("location + mode labels never invent an address", () => {

@@ -13,6 +13,8 @@ import { rankNilSearchResults } from "../../../lib/step2/milanoNilView.js";
 import { MilanoNilSearch } from "./step2/MilanoNilSearch.jsx";
 import { MilanoCoverageModeChooser } from "./step2/MilanoCoverageModeChooser.jsx";
 import { OutsideMilanoCoverageModeChooser, deriveOutsideMilanoMode, isOutsideMilanoGuidedView } from "./step2/OutsideMilanoCoverageModeChooser.jsx";
+import { buildCampaignMapOverlays } from "../../../lib/step2/campaignMapOverlays.js";
+import { resolveTerritoryPoiScope } from "../../../lib/step2/territoryPoiScope.js";
 import { resolvePoiQueryRadiusKm } from "../../../lib/step2/poiQueryRadius.js";
 import { MilanoTerritorySummary } from "./step2/MilanoTerritorySummary.jsx";
 import "./step2/milano-client.css";
@@ -346,7 +348,10 @@ export function Step2({
     source: item?.source || null
   })).filter(item => item.name), [selectedMunicipalityItems]);
   const selectedMunicipalityDisplayLabel = selectedMunicipalityNames.length > 1 ? `${selectedMunicipalityNames.length} comuni completi` : (selectedMunicipalityItems[0]?.displayName || selectedMunicipalityItems[0]?.label || selectedMunicipalityNames[0] || "");
-  const searchedLocation = data.searchedLocation || "";
+  const activePointOfSaleForSearch = (data.campaignZones || []).find(zone => zone.id === data.activeZoneId);
+  const searchedLocation = data.campaignZones?.length > 1
+    ? activePointOfSaleForSearch?.selectedSearchPoint?.label || activePointOfSaleForSearch?.city?.label || activePointOfSaleForSearch?.cityName || ""
+    : data.searchedLocation || "";
   const selectPrimaryMunicipality = useCallback(comune => {
     if (!comune) return;
     const normalizedComune = {
@@ -1037,7 +1042,12 @@ export function Step2({
   // (setNilManualMode(v => !v), ramo ON). NON e' switchToNilMode() (quello e'
   // il flusso indirizzo -> NIL, richiede un coverageAddress). Nessuna nuova
   // logica di stato: riusa lo stesso setter.
-  const enterNilManualMode = () => setNilManualMode(true);
+  const enterNilManualMode = () => {
+    // Comune completo seleziona tutte le righe; la scelta manuale NIL deve
+    // partire vuota, senza ereditare le 88 NIL come selezione dell'utente.
+    if (!nilManualMode) setSelected([]);
+    setNilManualMode(true);
+  };
   const switchToNilMode = () => {
     userModeRef.current = "address";
     setDropOpen(false);
@@ -1488,6 +1498,20 @@ export function Step2({
     sectors,
     loading: sectorsLoading
   } = useSectors(poiCenterLat, poiCenterLng, poiEffectiveRadiusKm, svcType);
+  const selectedTerritoryPoiScope = useMemo(() => {
+    if (!isResidentialStep2 || !nilManualMode || !apiData || apiData.error) return null;
+    const availableRows = apiToZones(apiData, city, requestedAnalysisLevel, svcType, effectiveRadiusKm) || [];
+    const activeRows = availableRows.filter(row => selected.includes(row.id));
+    const rows = data.campaignZones?.length > 1
+      ? buildCampaignMapOverlays(data.campaignZones, data.activeZoneId, activeRows, availableRows)
+      : activeRows;
+    return resolveTerritoryPoiScope(rows);
+  }, [isResidentialStep2, nilManualMode, apiData, city, requestedAnalysisLevel, svcType, effectiveRadiusKm, selected, data.campaignZones, data.activeZoneId]);
+  // NIL selections define the display POI search area, not the last searched address.
+  const usesSelectedTerritoryPois = isResidentialStep2 && nilManualMode && selected.length > 0;
+  const displayPoiLat = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.lat ?? null : poiCenterLat;
+  const displayPoiLng = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.lng ?? null : poiCenterLng;
+  const displayPoiRadius = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.radiusKm ?? null : poiQueryRadiusKm;
   // Il settore Step1 (data.activityType/businessSector) filtra i marker POI
   // mostrati sulla mappa per tutti i servizi, incluso D2D: la mappa D2D non
   // assegna cassette/promoter sui POI (quello resta un contesto di campagna),
@@ -1498,7 +1522,7 @@ export function Step2({
     loading: poiLoading,
     error: poiError,
     retry: retryPoi
-  } = usePoi(poiCenterLat, poiCenterLng, poiQueryRadiusKm, svcType, distributionTargetSelection);
+  } = usePoi(displayPoiLat, displayPoiLng, displayPoiRadius, svcType, distributionTargetSelection);
   const backendPois = useMemo(() => {
     if (!['d2d', 'h2h', 'b2b'].includes(svcType)) return [];
     const arr = apiData?.metadata?.nearby_activities;
@@ -1829,7 +1853,7 @@ export function Step2({
   // true e faceva scattare gisTimedOut). Per H2H/B2B i POI sono invece dati
   // operativi (punti promoter / consegna) e restano parte del gate.
   const poiIsOperationalData = isBusinessStep2 || isMovementStep2;
-  const gisLoading = Boolean(city && (apiLoading || sectorsLoading || (poiIsOperationalData && poiLoading)));
+  const gisLoading = Boolean(city && (apiLoading || (poiIsOperationalData && (sectorsLoading || poiLoading))));
   const [gisSlowConnection, setGisSlowConnection] = useState(false);
   const [gisTimedOut, setGisTimedOut] = useState(false);
   const isGisFailed = Boolean(gisTimedOut || (apiError && !apiLoading && !apiPending));
@@ -2048,7 +2072,7 @@ export function Step2({
             // non essere nel dataset Mapbox ma Nominatim la trova.
             if ((searchIntent.intent === "address" || pointSearchIntent) && !mapboxSuggestions.some(s => looksLikeAddressResult(s) || s.placeType === "poi")) {
               try {
-                const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=4`);
+                const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=4`);
                 const nd = await nr.json();
                 if (cancelled) return;
                 const nomAddresses = nd.filter(f => isAddressLikePlaceType(f.addresstype || f.type || f.class)).map(f => {
@@ -2070,7 +2094,7 @@ export function Step2({
       }
       try {
         const isAddressQuery = searchIntent.intent === "address" || pointSearchIntent;
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=10`);
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=10`);
         const d = await r.json();
         if (cancelled) return;
         const suggestions = d.map(f => {
@@ -5247,7 +5271,9 @@ export function Step2({
   // Shared, single-decimal, formatPercentIT-formatted coverage percentage —
   // every banner/sentence in Step 2 reads this instead of re-deriving its own
   // (previously mismatched, e.g. "22%" here vs "21,6%" in the sidebar).
-  const sharedCoveragePctText = step2CoveragePctLabel || (radiusAdvisoryData ? formatPercentIT(radiusAdvisoryData.covPct, Number.isInteger(radiusAdvisoryData.covPct) ? 0 : 1) : null) || formatPercentIT(serviceKpis?.coverage || 0, Number.isInteger(serviceKpis?.coverage || 0) ? 0 : 1);
+  const sharedCoveragePctText = isCoverageCalculationComplete && !hasCoverageCalculationError && hasUsableAllocationData && !territorialDataUnavailable
+    ? step2CoveragePctLabel ?? (radiusAdvisoryData?.covPct != null ? formatPercentIT(radiusAdvisoryData.covPct, Number.isInteger(radiusAdvisoryData.covPct) ? 0 : 1) : serviceKpis?.coverage != null ? formatPercentIT(serviceKpis.coverage, Number.isInteger(serviceKpis.coverage) ? 0 : 1) : null)
+    : null;
   const step2RequirementContextLabel = step2TruthModel.territory.modeLabel || "fabbisogno operativo delle zone selezionate";
   const isCoverageConfigurationValid = step2ViewModel.isCoverageConfigurationValid;
   if (isStep2DebugEnabled() && typeof window !== "undefined") {
@@ -5729,7 +5755,8 @@ export function Step2({
         focusedPoiId={focusedPoiId}
         focusedPoiNonce={focusedPoiNonce}
         gisLoading={gisLoading}
-        gisSlowConnection={gisSlowConnection || apiIsRetrying}
+        gisSlowConnection={gisSlowConnection}
+        gisRetrying={apiIsRetrying}
         gisTimedOut={isGisFailed}
         onRetryGis={handleRetryGis}
         handleManualMapClick={handleManualMapClick}

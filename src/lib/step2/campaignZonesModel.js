@@ -120,6 +120,24 @@ function municipalityNames(zone) {
   return munis.map(m => (typeof m === "string" ? m : m?.label || m?.name || "")).filter(Boolean);
 }
 
+/** Comuni reali della campagna: una NIL o un PV non sono un Comune. */
+export function getCampaignMunicipalityNames(zones = []) {
+  const names = new Map();
+  for (const zone of zones) {
+    const municipalRows = zone.searchMode === 'address' && zone.kpiSnapshot?.analysisLevel === 'comune'
+      ? getCampaignZoneAllocation(zone) : [];
+    const explicit = Array.isArray(zone.selectedMunicipalities) && zone.selectedMunicipalities.length
+      ? zone.selectedMunicipalities : zone.selectedComuni || [];
+    const candidates = municipalRows.length ? municipalRows : explicit.length ? explicit : [zone.city || zone.cityName];
+    for (const candidate of candidates) {
+      const name = String(typeof candidate === 'string' ? candidate : candidate?.name || candidate?.label || '').trim();
+      const key = name.replace(/\s*\([A-Z]{2}\)\s*$/i, '').trim().toLowerCase();
+      if (key && !names.has(key)) names.set(key, name);
+    }
+  }
+  return [...names.values()];
+}
+
 function compactList(names, max = 2) {
   if (names.length <= max) return names.join(", ");
   return `${names.slice(0, max).join(", ")} +${names.length - max}`;
@@ -143,7 +161,12 @@ export function getPointOfSaleLocation(zone) {
   }
   const isNil = Boolean(zone.nilManualMode) || zone.kpiSnapshot?.areaMode === "custom_zone";
   if (isNil) {
-    const nils = getCampaignZoneAllocation(zone).map(r => r?.name).filter(Boolean);
+    // L'allocazione puo' essere ancora quella del Comune completo nel render
+    // di transizione: solo gli ID scelti appartengono al PV in modalita' NIL.
+    const selected = Array.isArray(zone.selected) ? new Set(zone.selected) : null;
+    const nils = getCampaignZoneAllocation(zone)
+      .filter(r => !selected || selected.has(r?.id))
+      .map(r => r?.name).filter(Boolean);
     return nils.length ? `${city || "Milano"} · ${compactList(nils)}` : city;
   }
   const names = municipalityNames(zone);
