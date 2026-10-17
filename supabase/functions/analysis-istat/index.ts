@@ -3,7 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.4";
 import { sourceLabel } from "../_shared/dataSources.ts";
-import { runTerritorialPipeline } from "./resolveTerritorialRpcPlan.ts";
+import { runTerritorialPipeline, resolveTerritorialRpcPlan } from "./resolveTerritorialRpcPlan.ts";
+import { createBundledRpc } from "./bundledRpc.ts";
 
 declare const Deno: any;
 
@@ -11,12 +12,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {...corsHeaders, "Content-Type": "application/json" },
-  });
 
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value || 0)));
 const normalizeText = (value: string | null) =>
@@ -190,7 +185,7 @@ function omiIdentity(row: OmiZone) {
 }
 
 async function loadOmiZones(
-  supabase: ReturnType<typeof supabaseAdmin>,
+  supabase: { rpc: (name: string, args: any) => PromiseLike<any> } | null,
   lat: number,
   lng: number,
   radiusKm: number,
@@ -258,18 +253,38 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const timingRequestId = crypto.randomUUID();
+  const requestStarted = performance.now();
+  const json = (body: unknown, status = 200) => {
+    const serializeStarted = performance.now();
+    const text = JSON.stringify(body);
+    const serializeMs = Math.round(performance.now() - serializeStarted);
+    const totalMs = Math.round(performance.now() - requestStarted);
+    console.log('ANALYSIS_RESPONSE_TIMING', JSON.stringify({ requestId: timingRequestId,
+      status, totalMs, serializeMs, bytes: new TextEncoder().encode(text).length }));
+    return new Response(text, { status, headers: { ...corsHeaders,
+      'Content-Type': 'application/json',
+      'X-Analysis-Request-Id': timingRequestId,
+      'Server-Timing': `analysis;dur=${totalMs}, serialize;dur=${serializeMs}`,
+      'Access-Control-Expose-Headers': 'X-Analysis-Request-Id, Server-Timing',
+    } });
+  };
   const measurePhase = async <T>(phase: string, run: () => PromiseLike<T>): Promise<T> => {
     const started = performance.now();
     let completed = false;
+    let rpcOk: boolean | null = null;
+    let errorCode: string | null = null;
     try {
       const result = await run();
       completed = true;
+      rpcOk = result !== null && typeof result === 'object' && 'error' in result
+        ? !(result as any).error : null;
+      errorCode = (result as any)?.error?.code ?? null;
       return result;
     } finally {
       console.log("ANALYSIS_PHASE_TIMING", JSON.stringify({
         requestId: timingRequestId, phase,
         durationMs: Math.round(performance.now() - started),
-        completed
+        completed, rpcOk, errorCode
       }));
     }
   };
@@ -306,11 +321,20 @@ serve(async (req: Request) => {
       });
     }
 
-    // With an explicit municipality OMI ignores territorial rows: load it in
-    // parallel. Merge warnings only at the original point to preserve ordering.
+    const initialPlan = resolveTerritorialRpcPlan({ service, lat, lng,
+      selectionScope, selectedMunicipalityCodes, specificMunicipality, requestedAnalysisLevel });
+    const rpc = service === 'd2d' && specificMunicipality
+      ? createBundledRpc(supabase.rpc.bind(supabase), { lat, lng, radiusKm,
+          municipality: specificMunicipality, includeNil: initialPlan.shouldQueryNil },
+          event => console.log('ANALYSIS_RPC_TIMING', JSON.stringify({ requestId:timingRequestId,...event })))
+      : supabase.rpc.bind(supabase);
+    const territorialClient = { rpc };
+
+    // Keep independent consumers and warning order. For an explicit municipality
+    // they share one database call; otherwise retain the existing RPC path.
     const omiPrefetchWarnings: string[] = [];
     const pendingOmi = specificMunicipality
-      ? measurePhase("omi", () => loadOmiZones(supabase, lat, lng, radiusKm, [], omiPrefetchWarnings, specificMunicipality))
+      ? measurePhase("omi", () => loadOmiZones(territorialClient, lat, lng, radiusKm, [], omiPrefetchWarnings, specificMunicipality))
           .then(value => ({ value, error: null }), error => ({ value: null, error }))
       : null;
 
@@ -329,7 +353,7 @@ serve(async (req: Request) => {
         sourceLabel
       },
       queryComuni: async (pLat: number, pLng: number, pRadius: number) => {
-        const res = await measurePhase("get_comuni_breakdown_in_radius", () => supabase.rpc("get_comuni_breakdown_in_radius", {
+        const res = await measurePhase("get_comuni_breakdown_in_radius", () => rpc("get_comuni_breakdown_in_radius", {
           p_lat: pLat,
           p_lng: pLng,
           p_radius_km: pRadius,
@@ -337,7 +361,7 @@ serve(async (req: Request) => {
         return { data: res.data, error: res.error };
       },
       queryNils: async (pLat: number, pLng: number, pRadius: number) => {
-        const res = await measurePhase("get_nil_breakdown_in_radius", () => supabase.rpc("get_nil_breakdown_in_radius", {
+        const res = await measurePhase("get_nil_breakdown_in_radius", () => rpc("get_nil_breakdown_in_radius", {
           center_lat: pLat,
           center_lng: pLng,
           radius_km: pRadius,
@@ -381,7 +405,7 @@ serve(async (req: Request) => {
     const omiLookupRows = analysisLevel === "nil" ? [{ comune_name: "Milano", municipality_name: "Milano", municipality_code: "015146" }] : territorialRows;
     const prefetchedOmi = pendingOmi ? await pendingOmi : null;
     if (prefetchedOmi?.error) throw prefetchedOmi.error;
-    const omiZones = prefetchedOmi?.value ?? await measurePhase("omi", () => loadOmiZones(supabase, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality));
+    const omiZones = prefetchedOmi?.value ?? await measurePhase("omi", () => loadOmiZones(territorialClient, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality));
     if (pendingOmi) warnings.push(...omiPrefetchWarnings);
     if (omiZones.length > 0) sources.add(sourceLabel("omi"));
     const omiMinValues = omiZones.map((row: OmiZone) => Number(row.min_value)).filter(Number.isFinite);
