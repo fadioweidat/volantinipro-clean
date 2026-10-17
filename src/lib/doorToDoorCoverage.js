@@ -16,6 +16,25 @@ export function getZoneFullCoverageFlyers(zone) {
   );
 }
 
+/**
+ * Operational margin included in the recommended quantity, as a percentage
+ * of households. Same formula as Step 2 (buildStep2TruthModel
+ * operationalMarginPct): one decimal, null when it cannot be derived.
+ */
+export function getOperationalMarginPct(households, recommendedFlyers) {
+  const base = toNumber(households);
+  const recommended = toNumber(recommendedFlyers);
+  if (!(base > 0) || !(recommended > 0)) return null;
+  return Math.round(((recommended - base) / base) * 1000) / 10;
+}
+
+/** "Include margine operativo del 10%" — null when there is no positive margin to state. */
+export function formatOperationalMarginNote(marginPct) {
+  const pct = Number(marginPct);
+  if (marginPct === null || marginPct === undefined || !Number.isFinite(pct) || pct <= 0) return null;
+  return `Include margine operativo del ${pct.toLocaleString("it-IT", { maximumFractionDigits: 1 })}%`;
+}
+
 export function computeDoorToDoorCoverage({ insertedFlyers, selectedZones }) {
   const inserted = Math.max(0, Math.round(toNumber(insertedFlyers)));
   const zones = Array.isArray(selectedZones) ? selectedZones : [];

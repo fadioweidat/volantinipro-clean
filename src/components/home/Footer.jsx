@@ -1,7 +1,7 @@
 import PublicNavLink from '../common/PublicNavLink.jsx';
 import React from "react";
 
-const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
+const F = { serif: "'DM Sans', Inter, system-ui, sans-serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C_ORANGE = "#E8571A";
 const GRAD = "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)";
 
@@ -34,7 +34,7 @@ function SocialIcon({ type }) {
   );
 }
 
-const publicHrefs = {how:'/#come-funziona', prezzi:'/#prezzi', step1:'/configuratore', 'smart-pairing':'/#smart-pairing', 'milano-landing':'/distribuzione-volantini-milano', consultant:'/consulente', 'lavora-con-noi':'/lavora-con-noi', privacy:'/privacy', terms:'/termini', cookie:'/cookie-policy'};
+const publicHrefs = {how:'/#come-funziona', prezzi:'/#prezzi', step1:'/configuratore', 'smart-pairing':'/#smart-pairing', 'milano-landing':'/distribuzione-volantini-milano', consultant:'/consulente', 'lavora-con-noi':'/lavora-con-noi', 'login?context=supplier':'/login?context=supplier', privacy:'/privacy', terms:'/termini', cookie:'/cookie-policy'};
 const columns = [
   {
     title: "Prodotto",
@@ -52,6 +52,7 @@ const columns = [
     links: [
       ["Chi siamo", "how"],
       ["Lavora con noi", "lavora-con-noi"],
+      ["Area fornitori", "login?context=supplier"],
       ["Blog (in prep.)", "prep"],
       ["Contatti", "consultant"],
       ["Press kit (in prep.)", "prep"],

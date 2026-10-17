@@ -1,35 +1,56 @@
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
-const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
+const F = { serif: "'DM Sans', Inter, system-ui, sans-serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C_ORANGE = "#E8571A";
 
-// Board di pianificazione demo statica — nessuna chiamata API, nessun dato
+// Board di pianificazione DIMOSTRATIVA — nessuna chiamata API, nessun dato
 // reale: solo presentazione frontend dell'idea di Smart Pairing (allineamento
 // campagne compatibili sulla stessa finestra/zona). La logica business reale
-// (smart_pairing_waitlist) non viene toccata da questa sezione.
-const MONTH_LABEL = "Settembre 2026";
+// (smart_pairing_waitlist / smart-pairing-availability) non viene toccata.
+// Il mese mostrato e' sempre il mese successivo a oggi (finestra consigliata
+// sempre nel futuro); stati e valori restano un esempio, etichettato come tale.
 const WEEKDAYS = ["L", "M", "M", "G", "V", "S", "D"];
-// stato per giorno 1..30: 'full' pieno, 'limited' capacità limitata,
-// 'recommended' finestra consigliata, 'open' disponibile, null fuori mese.
+// stato esempio per giorno del mese: 'full' pieno, 'limited' capacità limitata,
+// 'recommended' finestra consigliata, 'open' disponibile.
 const DAY_STATE = {
   1: "open", 2: "open", 3: "limited", 4: "limited", 5: "full", 6: "open", 7: "open",
   8: "recommended", 9: "recommended", 10: "recommended", 11: "open", 12: "limited", 13: "open", 14: "open",
   15: "open", 16: "limited", 17: "full", 18: "full", 19: "open", 20: "open", 21: "open",
   22: "limited", 23: "open", 24: "open", 25: "open", 26: "limited", 27: "open", 28: "open",
-  29: "open", 30: "open",
+  29: "open", 30: "open", 31: "open",
 };
+const MONTHS = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+
+/** Example month board: the month after `today`, Monday-first grid. Pure, testable. */
+export function buildSmartPairingExampleMonth(today = new Date()) {
+  const year = today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear();
+  const month = (today.getMonth() + 1) % 12;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = (new Date(year, month, 1).getDay() + 6) % 7; // lunedi' = 0
+  const recommended = Object.keys(DAY_STATE).map(Number).filter((d) => DAY_STATE[d] === "recommended" && d <= daysInMonth);
+  const monthName = MONTHS[month];
+  return {
+    label: `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${year}`,
+    startOffset,
+    days: Array.from({ length: daysInMonth }, (_, i) => i + 1),
+    windowLabel: recommended.length ? `${recommended[0]}–${recommended[recommended.length - 1]} ${monthName}` : null,
+  };
+}
+
 const STATE_COLOR = {
   open: { bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)", dot: null },
   limited: { bg: "rgba(251,191,36,0.08)", border: "rgba(251,191,36,0.3)", dot: "#FBBF24" },
   full: { bg: "rgba(148,163,184,0.05)", border: "rgba(148,163,184,0.12)", dot: "#5B6472" },
   recommended: { bg: "rgba(232,87,26,0.14)", border: "rgba(232,87,26,0.55)", dot: C_ORANGE },
 };
-const START_OFFSET = 1; // 1 settembre 2026 = martedì -> 1 cella vuota (lunedì)
+// #C2410C: white text reaches 5.2:1 (brand #E8571A gives 3.6:1, below WCAG AA for small text).
+const EXAMPLE_BADGE = { display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "#C2410C", color: "#fff", fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" };
 
 export default function SmartPairingSection({ onConfigure }) {
   const reduceMotion = useReducedMotion();
-  const cells = [...Array(START_OFFSET).fill(null), ...Array.from({ length: 30 }, (_, i) => i + 1)];
+  const example = buildSmartPairingExampleMonth();
+  const cells = [...Array(example.startOffset).fill(null), ...example.days];
 
   return (
     <section
@@ -56,10 +77,14 @@ export default function SmartPairingSection({ onConfigure }) {
             Quando esistono campagne compatibili nella tua zona o in zone vicine nello stesso periodo, ti proponiamo la finestra migliore per condividere i costi operativi.
           </p>
 
-          <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gap: 10 }} aria-label="Esempio di pianificazione">
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={EXAMPLE_BADGE}>Esempio</span>
+              <span style={{ fontFamily: F.sans, fontSize: 13, color: "#CBD5E1" }}>Valori illustrativi, non disponibilità reale</span>
+            </div>
             <div style={{ padding: "14px 16px", borderRadius: 12, background: "#122036", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "#8892A0", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Migliore finestra</div>
-              <div style={{ fontFamily: F.serif, fontSize: 20, color: "#F8FAFC" }}>8–10 settembre</div>
+              <div style={{ fontFamily: F.serif, fontSize: 20, color: "#F8FAFC" }}>{example.windowLabel}</div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div style={{ padding: "14px 16px", borderRadius: 12, background: "#122036", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -90,13 +115,13 @@ export default function SmartPairingSection({ onConfigure }) {
           style={{ background: "#111827", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 22, boxShadow: "0 24px 60px rgba(0,0,0,0.3)" }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#F8FAFC" }}>{MONTH_LABEL}</span>
-            <span style={{ fontFamily: F.sans, fontSize: 10, color: "#5B6472" }}>Pianificazione dimostrativa</span>
+            <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#F8FAFC" }}>{example.label}</span>
+            <span style={EXAMPLE_BADGE}>Esempio</span>
           </div>
 
           <div className="sp-cal" style={{ marginBottom: 8 }}>
             {WEEKDAYS.map((d, i) => (
-              <div key={`${d}${i}`} style={{ textAlign: "center", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "#5B6472", padding: "4px 0" }}>{d}</div>
+              <div key={`${d}${i}`} style={{ textAlign: "center", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "#94A3B8", padding: "4px 0" }}>{d}</div>
             ))}
           </div>
           <div className="sp-cal">

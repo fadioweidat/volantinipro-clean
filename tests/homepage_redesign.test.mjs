@@ -60,13 +60,14 @@ test("SmartPairingSection: board di pianificazione reale (calendario, migliore f
   const src = read("src/components/home/SmartPairingSection.jsx");
   assert.match(src, /id="smart-pairing"/);
   assert.match(src, /Pianifica la distribuzione nel momento giusto/);
-  assert.match(src, /Settembre 2026/);
+  // Mese dinamico (mese successivo a oggi) e finestra calcolata, non piu' fissi.
+  assert.match(src, /buildSmartPairingExampleMonth\(\)/);
   assert.match(src, /Migliore finestra/);
-  assert.match(src, /8–10 settembre/);
+  assert.match(src, /\{example\.windowLabel\}/);
   assert.match(src, /Capacità disponibile/);
   assert.match(src, /Copertura consigliata/);
   assert.match(src, /Consigliato/); // badge
-  assert.match(src, /Pianificazione dimostrativa/); // dataset demo dichiarato
+  assert.match(src, />Esempio</); // dataset demo dichiarato in modo visibile
   assert.match(src, /useReducedMotion/);
 });
 

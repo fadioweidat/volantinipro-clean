@@ -38,7 +38,8 @@ function HeroIcon({type}) {
   </svg>;
 }
 const benefits=[['radius','Servizi di distribuzione per ogni tipo di campagna'],['coverage','Mappa operativa con zona, raggio e comuni coinvolti'],['report','GPS, prove fotografiche e report finale verificabile']];
-const trust=['Report GPS verificabili','Analisi territoriale ISTAT','Cartografia GIS','Preventivi e report PDF','Monitoraggio operativo','Analisi di convenienza'];
+// Same three services as the pricing cards, each to its own service page.
+const SERVICE_CHIPS=[['Door to Door','/servizi/door-to-door'],['Hand to Hand','/servizi/hand-to-hand'],['Business','/servizi/business']];
 
 const brandButtonStyle = {
   display: "inline-flex",
@@ -62,7 +63,8 @@ const centerNavStyle = {
 };
 
 const navButtonStyle = {
-  padding: "8px 12px",
+  padding: "8px 8px",
+  whiteSpace: "nowrap",
   border: 0,
   background: "transparent",
   color: "rgba(248, 250, 252, 0.85)",
@@ -74,6 +76,7 @@ const navButtonStyle = {
 };
 
 const headerOutlineButtonStyle = {
+  whiteSpace: "nowrap",
   minHeight: 46,
   padding: "0 20px",
   borderRadius: 8,
@@ -95,6 +98,7 @@ const headerOutlineButtonStyle = {
 };
 
 const primaryButtonStyle = {
+  whiteSpace: "nowrap",
   minHeight: 46,
   padding: "0 22px",
   borderRadius: 8,
@@ -162,7 +166,8 @@ const mobileMenuItemStyle = {
 };
 
 export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowItWorks}) {
-  const compact = useCompact(1120);
+  // Hamburger below 1280px: desktop links + CTAs fit on one line from 1280px up.
+  const compact = useCompact(1280);
   const [menuOpen, setMenuOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
   const [workOpen, setWorkOpen] = useState(false);
@@ -217,7 +222,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
   const select = useCallback(id => setSelected(id), []);
   const metric = n => pending ? '…' : formatHeroMetric(n);
   const kpis = [
-    ['families', 'Famiglie nel raggio', metric(analysis.families)],
+    ['families', `Famiglie nel raggio di ${HERO_SCENARIO.radiusKm} km`, metric(analysis.families)],
     ['radius', 'Raggio analisi', `${HERO_SCENARIO.radiusKm} Km`],
     ['municipalities', 'Comuni coinvolti', metric(analysis.municipalityCount)],
     ['coverage', 'Copertura stimata', `${metric(analysis.coverage)}${analysis.coverage === null || pending ? '' : '%'}`]
@@ -246,7 +251,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
         </button>
 
         {!compact && (
-          <div style={{ display: "flex", gap: 36, alignItems: "center", position: "relative" }}>
+          <div style={{ display: "flex", gap: 24, alignItems: "center", position: "relative" }}>
             <button onClick={() => scrollToSection("come-funziona")} style={navButtonStyle}>Come funziona</button>
             <button onClick={() => scrollToSection("prezzi")} style={navButtonStyle}>Prezzi</button>
             <div
@@ -346,7 +351,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
             </button>
           )}
           <Button variant="primary" className="vb vp-home-hero-header-cta" onClick={configure} style={primaryButtonStyle}>
-            Configura la tua campagna
+            Calcola preventivo
           </Button>
           {compact && (
             <button
@@ -401,7 +406,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
             <button type="button" className="vph-button" onClick={configure}>Calcola il preventivo online <span aria-hidden="true">→</span></button>
             <button type="button" className="vph-button vph-button-secondary" onClick={how}>Vedi come funziona <span aria-hidden="true">▶</span></button>
           </div>
-          <div className="vph-chips" aria-label="Servizi di distribuzione">{['Door to Door','Hand to Hand','Negozi','Scuole','Eventi'].map(chip=><a key={chip} href="#prezzi">{chip}<span aria-hidden="true">↗</span></a>)}</div>
+          <div className="vph-chips" aria-label="Servizi di distribuzione">{SERVICE_CHIPS.map(([chip,href])=><a key={chip} href={href}>{chip}<span aria-hidden="true">↗</span></a>)}</div>
         </div>
         <div className="vph-map-area">
           <div className="vph-kpis" aria-label="Indicatori dello scenario reale">{kpis.map(([icon,label,value])=><div className="vph-kpi" key={icon}><HeroIcon type={icon}/><div><strong>{value}</strong><span>{label}</span></div></div>)}</div>
@@ -422,7 +427,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
           <p className="vph-list-note">Quote sul totale famiglie. Seleziona un comune per evidenziarlo sulla mappa.</p>
         </div>
         <div className="vph-totals">
-          <div className="vph-stat"><HeroIcon type="families"/><strong>{metric(analysis.families)}</strong><span>Famiglie nel raggio</span></div>
+          <div className="vph-stat"><HeroIcon type="families"/><strong>{metric(analysis.families)}</strong><span>Famiglie nel raggio di {HERO_SCENARIO.radiusKm} km</span></div>
           <div className="vph-stat"><HeroIcon type="coverage"/><strong className="vph-orange">{metric(analysis.coverage)}{analysis.coverage!==null&&!pending?'%':''}</strong><span>Copertura stimata <a className="vph-info" href="#vph-methodology" aria-label="Come viene calcolata la copertura stimata" aria-describedby="vph-methodology">i</a></span></div>
           <div className="vph-methodology" id="vph-methodology" tabIndex={-1}><h3>Come leggere la stima</h3><p>La copertura è la media delle percentuali di superficie delle zone analizzate comprese nel raggio. Si basa sui dati territoriali disponibili: non indica la quota di famiglie raggiunte e non garantisce un risultato di consegna.</p><span>{analysis.sources.length?analysis.sources.join(' · '):'Fonti territoriali della piattaforma'}</span></div>
 
@@ -431,7 +436,6 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
       </div>
       </details>
       </div>
-      <ul className="vph-trust">{trust.map(text=><li key={text}><HeroIcon type="check"/>{text}</li>)}</ul>
     </div>
   </section>;
 }

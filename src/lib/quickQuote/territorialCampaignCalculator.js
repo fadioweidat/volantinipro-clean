@@ -1,4 +1,4 @@
-import { getZoneFullCoverageFlyers, computeDoorToDoorCoverage } from "../doorToDoorCoverage.js";
+import { getZoneFullCoverageFlyers, computeDoorToDoorCoverage, getOperationalMarginPct } from "../doorToDoorCoverage.js";
 
 // CALCOLO TERRITORIALE (deterministico) per il Preventivo Rapido.
 //
@@ -28,14 +28,19 @@ function toFiniteNumber(value) {
  * Rapido) per i nomi di campo storici e quelli attuali dell'Edge Function.
  */
 export function extractMunicipalityTerritorialData(row) {
-  if (!row) return { households: null, population: null };
+  if (!row) return { households: null, population: null, recommendedFlyers: null };
   const households = toFiniteNumber(
     row.families ?? row.households ?? row.householdsTotal ?? row.households_total ?? row.households_in_radius
   );
   const population = toFiniteNumber(
     row.population ?? row.populationTotal ?? row.population_total ?? row.population_in_radius
   );
-  return { households, population };
+  // Same per-row flyer field Step 2 reads (apiToZones -> volantiniNelRaggio):
+  // households + the operational margin computed by analysis-istat.
+  const recommendedFlyers = toFiniteNumber(
+    row.volantini_nel_raggio ?? row.volantini_stimati ?? row.recommended_flyers
+  );
+  return { households, population, recommendedFlyers };
 }
 
 /**
@@ -67,9 +72,12 @@ export function computeTerritorialCampaign({ municipalityRows, requestedQuantity
   const allMatched = rows.every((r) => r.matched);
   const totalHouseholds = matchedRows.reduce((sum, r) => sum + r.households, 0);
 
-  // Riusa esattamente la formula di Step2: ogni comune e' una "zona" con un
-  // fabbisogno pieno pari alle famiglie stimate.
-  const zones = matchedRows.map((r) => ({ id: r.municipality, name: r.municipality, families: r.households }));
+  // Riusa esattamente la formula di Step2: ogni comune e' una "zona" il cui
+  // fabbisogno pieno e' volantiniNelRaggio (famiglie + margine operativo
+  // restituito da analysis-istat) e, se il servizio non lo fornisce, le
+  // famiglie stimate (getZoneFullCoverageFlyers, stesso fallback di Step2).
+  const toZone = (r) => ({ id: r.municipality, name: r.municipality, families: r.households, volantiniNelRaggio: r.recommendedFlyers ?? undefined });
+  const zones = matchedRows.map(toZone);
   const recommendedQuantity = zones.length > 0 ? zones.reduce((sum, z) => sum + getZoneFullCoverageFlyers(z), 0) : null;
 
   const hasRequestedQuantity = requestedQuantity != null && Number.isFinite(Number(requestedQuantity)) && Number(requestedQuantity) > 0;
@@ -96,15 +104,15 @@ export function computeTerritorialCampaign({ municipalityRows, requestedQuantity
         estimatedCoverage: null,
       };
     }
-    const municipalityRecommended = Math.round(r.households);
-    const municipalityRequested = !allMatched || totalHouseholds <= 0 || effectiveQuantity == null
+    const municipalityRecommended = getZoneFullCoverageFlyers(toZone(r));
+    const municipalityRequested = !allMatched || totalHouseholds <= 0 || effectiveQuantity == null || !(recommendedQuantity > 0)
       ? null
       : effectiveQuantity >= recommendedQuantity
         ? municipalityRecommended
-        : Math.round((effectiveQuantity * r.households) / totalHouseholds);
+        : Math.round((effectiveQuantity * municipalityRecommended) / recommendedQuantity);
     return {
       municipality: r.municipality,
-      households: municipalityRecommended,
+      households: Math.round(r.households),
       population: r.population != null ? Math.round(r.population) : null,
       recommendedQuantity: municipalityRecommended,
       requestedQuantity: municipalityRequested,
@@ -120,6 +128,7 @@ export function computeTerritorialCampaign({ municipalityRows, requestedQuantity
     allMatched,
     unmatchedMunicipalities: rows.filter((r) => !r.matched).map((r) => r.municipality),
     recommendedQuantity: allMatched ? recommendedQuantity : null,
+    operationalMarginPct: allMatched ? getOperationalMarginPct(totalHouseholds, recommendedQuantity) : null,
     requestedQuantity: hasRequestedQuantity ? Number(requestedQuantity) : null,
     effectiveQuantity: allMatched ? effectiveQuantity : null,
     estimatedCoverage,

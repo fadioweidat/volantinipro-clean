@@ -24,7 +24,7 @@ export default function DifferenceIllustration({ type }) {
     {type === 'analysis' && <>
       <g fill="none" stroke="#b46a43" strokeWidth="1" opacity=".65"><path d="M68 66H32V35m36 63H32v6H17m53 20H42v38m89-95V17m14 51h32V42m-35 68h35v34m-48-4v39M91 55V17" /></g>
       {[[32,35],[17,104],[42,162],[131,17],[177,42],[177,144],[129,179],[91,17],[177,93]].map(([x,y])=><circle key={`${x}-${y}`} cx={x} cy={y} r="4" fill={fill('orange')} />)}
-      <g transform="rotate(3 105 102)"><rect x="56" y="44" width="98" height="104" rx="16" fill={fill('metal')} stroke="#d3916b" /><rect x="61" y="48" width="86" height="94" rx="12" fill={fill('silver')} /><rect x="66" y="54" width="77" height="86" rx="10" fill={fill('metal')} stroke="#39465d" /><rect x="73" y="63" width="64" height="69" rx="6" fill={fill('screen')} /><text x="105" y="111" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="300" fontSize="41" fill="#ff8944">AI</text></g>
+      <g transform="rotate(3 105 102)"><rect x="56" y="44" width="98" height="104" rx="16" fill={fill('metal')} stroke="#d3916b" /><rect x="61" y="48" width="86" height="94" rx="12" fill={fill('silver')} /><rect x="66" y="54" width="77" height="86" rx="10" fill={fill('metal')} stroke="#39465d" /><rect x="73" y="63" width="64" height="69" rx="6" fill={fill('screen')} /><g fill="none" stroke="#ff8944" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M84 120v-12m14 12V98m14 22V90m14 30V80" /><path d="m82 92 16-12 14 6 16-16" /></g></g>
     </>}
     {type === 'gps' && <>
       <g transform="translate(-2 30) rotate(-24 100 85)" fill="none" stroke="#4a5b7b" strokeWidth="1" opacity=".45">{Array.from({length:7},(_,i)=><path key={i} d={`M${i*30-10} 14v156M0 ${i*25+10}h210`} />)}</g>

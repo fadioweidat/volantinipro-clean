@@ -121,3 +121,16 @@
   .vpq-process .vpp-trust { gap:12px; justify-content:flex-start; }
 }
 @media(prefers-reduced-motion:reduce) { .vpq-cta { transition:none; } .vpq-cta:hover,.vpq-cta:active { transform:none; } }
+/* Homepage calculator: real comune search + ISTAT result states (light card, see homepage-visual-review.css). */
+.vpq-search { position:relative; }
+.vpq-search>label { display:block; color:#293f5b; font-size:13px; font-weight:700; margin:0 0 6px; }
+.vpq-place input { flex:1; min-width:0; background:transparent; border:0; color:#10203b; font:600 16px/1.4 'DM Sans',sans-serif; padding:0; outline:none; }
+.vpq-place input::placeholder { color:#5d7189; font-weight:500; }
+.vpq-place:focus-within { border-color:#ff781b; box-shadow:0 0 0 3px #ff781b33; }
+.vpq-search-status { color:#536b84; }
+.vpq-suggestions { position:absolute; z-index:20; left:0; right:0; top:100%; margin:4px 0 0; padding:4px; list-style:none; background:#fff; border:1px solid #cdd9e7; border-radius:10px; box-shadow:0 14px 34px #153a6826; max-height:260px; overflow:auto; }
+.vpq-suggestions li { display:flex; justify-content:space-between; gap:10px; padding:11px 12px; border-radius:7px; font-size:15px; color:#10203b; cursor:pointer; }
+.vpq-suggestions li span { color:#4a5f78; font-size:13px; }
+.vpq-suggestions li.is-active, .vpq-suggestions li:not(.vpq-suggestion-empty):hover { background:#eef2f7; }
+.vpq-suggestions li.vpq-suggestion-empty { color:#40546c; cursor:default; }
+.vpq-calc-alert { font-size:13px; line-height:1.5; color:#7a2e08; background:#fff2e6; border:1px solid #f5c7a5; border-radius:8px; padding:10px 12px; margin:14px 0; }

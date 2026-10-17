@@ -1,7 +1,7 @@
 import React from "react";
 import Button from "../ui/Button.jsx";
 
-const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
+const F = { serif: "'DM Sans', Inter, system-ui, sans-serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const CO = "#E8571A";
 
 const features = [

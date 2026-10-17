@@ -17,6 +17,23 @@ import { parseUtm, classifyReferrer } from './utm.js';
 import { detectClientDevice } from './device.js';
 import { sanitizeMetadata, quantityBucket } from './eventSchema.js';
 
+// Local development never sends analytics: neither /api/track nor the anon
+// site_events fallback. A dev server pointed at Production keys would
+// otherwise insert page views into the live table.
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+export function isLocalAnalyticsContext({ dev = false, hostname = '' } = {}) {
+  if (dev === true) return true;
+  const host = String(hostname || '').toLowerCase();
+  return LOCAL_HOSTNAMES.has(host) || host.endsWith('.localhost');
+}
+function currentAnalyticsContext() {
+  let dev = false;
+  try { dev = import.meta.env?.DEV === true; } catch { dev = false; }
+  let hostname = '';
+  try { hostname = typeof window !== 'undefined' ? window.location?.hostname || '' : ''; } catch { hostname = ''; }
+  return { dev, hostname };
+}
+
 function analyticsEnv() {
   try {
     return { url: import.meta.env.VITE_SUPABASE_URL, anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY };
@@ -197,6 +214,7 @@ function buildPayload(eventName, { path = null, metadata = null, campaignId = nu
 
 async function dispatch(eventName, opts = {}) {
   if (!ALLOWED_EVENTS.includes(eventName)) return;
+  if (isLocalAnalyticsContext(currentAnalyticsContext())) return;
   if (isAnalyticsOptedOut()) return;
   const { url, anonKey } = analyticsEnv();
   if (!url || !anonKey) return;

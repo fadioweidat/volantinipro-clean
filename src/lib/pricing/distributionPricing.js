@@ -25,7 +25,7 @@ export const TERRITORY_LABELS = {
 // Griglia commerciale V1 (sezione 3 del ticket), IVA esclusa — nessuna
 // modifica al trattamento IVA, il sistema gia' lavora IVA esclusa a monte
 // (QUOTE_PRICES in appConstants.js non applica IVA).
-const GRID_QUANTITIES = [1000, 2500, 5000, 10000, 20000, 30000, 50000];
+export const GRID_QUANTITIES = [1000, 2500, 5000, 10000, 20000, 30000, 50000];
 const DISTRIBUTION_GRID = {
   [TERRITORY_TIERS.MILANO_CORE]: [120, 150, 210, 350, 660, 960, 1500],
   [TERRITORY_TIERS.HINTERLAND_DENSE]: [140, 180, 260, 420, 800, 1170, 1850],

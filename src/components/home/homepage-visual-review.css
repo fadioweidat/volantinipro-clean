@@ -117,3 +117,14 @@
   .vpg-features { grid-column:auto; grid-template-columns:minmax(0,1fr); gap:12px; }.vpg-feature { flex-direction:row; text-align:left; padding:20px 16px; gap:16px; }.home-shell-dark .vpg-feature h3 { font-size:18px; }.vpg-feature p { font-size:14px; }.vpg-cta { max-width:none; min-height:51px; font-size:15px; }
 }
 @media (prefers-reduced-motion: reduce) { .vpg-section * { animation:none!important; transition:none!important; } }
+
+/* Homepage typography: sans for every heading. app.css forces h1-h4 to DM Serif
+   site-wide with !important; this scoped rule wins only inside the homepage. */
+.home-shell-dark :is(h1,h2,h3,h4,.serif-title,.dm-serif) { font-family:'DM Sans',Inter,system-ui,sans-serif!important; }
+
+/* WCAG AA for white-text CTAs: #CE4B15 is the lightest tone of the #E8571A family
+   (same hue/saturation, lightness 44.4%) that reaches 4.5:1 with white (4.52:1).
+   Applied ONLY as the background of buttons with white text; hover goes darker
+   (never lighter, so it stays above 4.5:1). Scoped to the homepage shell. */
+.home-shell-dark.saas-home-refinement :is(.vb, .vph-button:not(.vph-button-secondary), .vpq-cta, .vpp-cta) { background:#CE4B15!important; border-color:#CE4B15!important; }
+.home-shell-dark.saas-home-refinement :is(.vb, .vph-button:not(.vph-button-secondary), .vpq-cta, .vpp-cta):hover { background:#B84313!important; filter:none!important; }

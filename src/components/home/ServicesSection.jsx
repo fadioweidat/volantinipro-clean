@@ -2,9 +2,11 @@ import PublicNavLink from '../common/PublicNavLink.jsx';
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import Button from "../ui/Button.jsx";
+import { formatQuoteCurrency } from "../../lib/quotePricing.js";
+import { calculateHomepagePriceExample, getDoorToDoorCampaignMinimum, getStartingPricePerThousand } from "../../lib/pricing/homepagePricing.js";
 
 const F = {
-  serif: "'DM Serif Display', Georgia, serif",
+  serif: "'DM Sans', Inter, system-ui, sans-serif",
   sans: "'DM Sans', Inter, system-ui, sans-serif",
 };
 
@@ -44,6 +46,19 @@ function BriefcaseIcon() {
   );
 }
 
+// Prices come from the live engine (homepagePricing.js), never typed here.
+function startingPriceNote(service) {
+  const price = getStartingPricePerThousand(service);
+  return price === null ? "Su progetto" : `da ${formatQuoteCurrency(price, 0)} ogni 1.000 volantini`;
+}
+
+// it-IT leaves 4-digit numbers ungrouped ("5000"); the homepage always shows "5.000".
+const formatThousands = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+const D2D_MINIMUM = getDoorToDoorCampaignMinimum();
+
+const PRICE_EXAMPLE = calculateHomepagePriceExample({ comune: "Cormano", provincia: "MI", quantity: 5000 });
+
 // Esportato per il Service JSON-LD in SeoMeta.jsx: stessa fonte del testo
 // realmente visibile, mai una copia duplicata.
 export const services = [
@@ -51,7 +66,8 @@ export const services = [
     key: "d2d",
     title: "Door to Door",
     subtitle: "Distribuzione residenziale",
-    priceNote: "Prezzo calcolato sulla tua zona",
+    priceNote: startingPriceNote("d2d"),
+    priceDetail: D2D_MINIMUM === null ? "IVA esclusa" : `Minimo campagna da ${formatQuoteCurrency(D2D_MINIMUM, 0)} · IVA esclusa`,
     bullets: ["Cassette, condomini, ville", "GPS punto-per-punto", "Report foto e mappe"],
     cta: "Calcola Door to Door",
     icon: <MailboxIcon />,
@@ -62,7 +78,9 @@ export const services = [
     key: "h2h",
     title: "Hand to Hand",
     subtitle: "Distribuzione a mano",
+    // H2H rate awaiting business confirmation: no starting price shown until then.
     priceNote: "Prezzo calcolato sulla tua zona",
+    priceDetail: "Solo distribuzione, IVA esclusa",
     bullets: ["Alto passaggio pedonale", "Fasce orarie ottimali", "POI strategici inclusi"],
     cta: "Calcola Hand to Hand",
     icon: <UsersIcon />,
@@ -73,7 +91,8 @@ export const services = [
     key: "b2b",
     title: "Business Distribution",
     subtitle: "Distribuzione B2B",
-    priceNote: "Prezzo calcolato sulla tua zona",
+    priceNote: "Su progetto",
+    priceDetail: "Preventivo dedicato in base al target",
     bullets: ["Uffici e negozi mirati", "Categorie merceologiche", "Competitor mappati"],
     cta: "Richiedi progetto Business",
     icon: <BriefcaseIcon />,
@@ -168,6 +187,8 @@ export default function ServicesSection({ onConfigure, onConsultant, onServiceLi
               whileHover={reduceMotion ? undefined : { y: -3, borderColor: "rgba(232, 87, 26, 0.4)" }}
               style={{
                 borderRadius: 16,
+                // app.css gives .servizio-card a 520px min-height; these cards fit their content.
+                minHeight: 0,
                 padding: "24px 22px",
                 border: "1px solid rgba(255, 255, 255, 0.08)",
                 background: "#122036",
@@ -201,12 +222,15 @@ export default function ServicesSection({ onConfigure, onConsultant, onServiceLi
                   color: C.primary,
                   lineHeight: 1.25,
                   letterSpacing: "-0.01em",
-                  marginBottom: 18,
+                  marginBottom: 4,
                 }}
               >
                 {service.priceNote}
               </div>
-              <div style={{ display: "grid", gap: 10, marginBottom: 20, flex: 1 }}>
+              <div style={{ fontFamily: F.sans, fontSize: 12.5, color: "#AEB9C9", marginBottom: 14 }}>
+                {service.priceDetail}
+              </div>
+              <div style={{ display: "grid", gap: 6, alignContent: "start", marginBottom: 18, flex: 1 }}>
                 {service.bullets.map((bullet) => (
                   <div
                     key={bullet}
@@ -314,6 +338,37 @@ export default function ServicesSection({ onConfigure, onConsultant, onServiceLi
                 </React.Fragment>
               ))}
             </div>
+            <p style={{ margin: "4px 0 0", fontFamily: F.sans, fontSize: 14, color: "#CBD5E1", lineHeight: 1.5 }}>
+              Prezzo finale calcolato in automatico in base a zona, quantità e servizio. Preventivo immediato, senza impegno.
+            </p>
+            {PRICE_EXAMPLE.total !== null && (
+              <div
+                data-testid="homepage-price-example"
+                style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 6, fontFamily: F.sans }}
+              >
+                <span
+                  style={{
+                    padding: "3px 10px",
+                    borderRadius: 999,
+                    // #C2410C: 5.2:1 with white (brand orange is 3.6:1, below AA for 12px text).
+                    background: "#C2410C",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: ".06em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Esempio
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.white }}>
+                  {formatThousands(PRICE_EXAMPLE.quantity)} volantini Door to Door a {PRICE_EXAMPLE.comune} ({PRICE_EXAMPLE.provincia}) → {formatQuoteCurrency(PRICE_EXAMPLE.total, 0)}
+                </span>
+                <span style={{ fontSize: 13, color: "#AEB9C9" }}>
+                  Solo distribuzione, IVA esclusa, consegna standard, stampa esclusa.
+                </span>
+              </div>
+            )}
           </div>
 
           <button

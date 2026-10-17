@@ -1,7 +1,7 @@
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
-const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
+const F = { serif: "'DM Sans', Inter, system-ui, sans-serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C_ORANGE = "#E8571A";
 
 const CARDS = [
@@ -186,7 +186,7 @@ export default function DashboardClienteSection({ onConfigure }) {
                       <span style={{ fontFamily: F.sans, fontSize: 8, color: "#8E9AA8", fontVariantNumeric: "tabular-nums" }}>{item.time}</span>
                     </div>
                     <div style={{ fontFamily: F.sans, fontSize: 8.5, fontWeight: 800, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.via}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 7.5, color: "#6B7A90" }}>{item.zone} · Civico verificato</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "#A3B1C4" }}>{item.zone} · Civico verificato</div>
                   </div>
                 ))}
               </div>
@@ -208,8 +208,8 @@ export default function DashboardClienteSection({ onConfigure }) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 3, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              <span style={{ fontFamily: F.sans, fontSize: 9, color: "#546274" }}>Anteprima dimostrativa — dati d'esempio account cliente</span>
-              <span style={{ fontFamily: F.sans, fontSize: 9, color: "#546274" }}>ID #VP-2026-8941</span>
+              <span style={{ fontFamily: F.sans, fontSize: 10, color: "#A3B1C4" }}>Anteprima dimostrativa — dati d'esempio account cliente</span>
+              <span style={{ fontFamily: F.sans, fontSize: 10, color: "#A3B1C4" }}>ID #VP-2026-8941</span>
             </div>
           </div>
         </motion.div>

@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { useServiceAnalysis } from "../../hooks/useServiceAnalysis.js";
-import { normalizeNominatimGeocodeResult, canonicalizeItalianMunicipalityName } from "../../lib/geocoding/canonicalizeItalianMunicipalityName.js";
+import { canonicalizeItalianMunicipalityName } from "../../lib/geocoding/canonicalizeItalianMunicipalityName.js";
+import { searchItalianMunicipalities } from "../../lib/geocoding/searchItalianMunicipalities.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../../lib/extraServicesRegistry.js";
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
 import { printQuotePdf } from "../../lib/pdf/printQuotePdf.js";
@@ -19,6 +20,7 @@ import { getBusinessDefaultCopies } from "../../lib/business/business-config.js"
 import { calculateQuotePricing } from "../../lib/quotePricing.js";
 import { QUOTE_PRICES } from "../../lib/appConstants.js";
 import { resolveConfiguratorDistributionZones } from "../../lib/pricing/resolveConfiguratorDistributionZones.js";
+import { formatOperationalMarginNote } from "../../lib/doorToDoorCoverage.js";
 import { submitPublicCampaign } from "../../lib/supabaseClient.js";
 import { sendQuoteAdminNotification, sendQuoteCustomerConfirmation } from "../../api/sendEmailConferma.js";
 import { trackQuoteCompleted } from "../../lib/analytics/siteEvents.js";
@@ -48,24 +50,6 @@ const POI_SINGLE_COMUNE_RADIUS_KM = 3;
 // tocca lo Step2 in alcun modo: e' applicato solo qui, sui 3 fetch
 // per-comune sotto.
 const POI_PER_COMUNE_TIMEOUT_MS = 25000;
-
-// Ranking client-side dei suggerimenti Nominatim: il provider ordina per
-// "importance" (popolazione/rilevanza OSM), non per aderenza al testo
-// digitato — per query brevi questo puo' mettere un capoluogo (es. "Varese")
-// prima del comune con corrispondenza esatta/prefisso (es. "Varedo").
-// Riordina soltanto i risultati gia' restituiti dal provider: nessun comune
-// inventato o aggiunto.
-function rankMunicipalitySuggestions(list, query) {
-  const q = String(query || "").trim().toLowerCase();
-  const rank = (s) => {
-    const name = String(s.name || "").toLowerCase();
-    if (name === q) return 0;
-    if (name.startsWith(q)) return 1;
-    if (name.includes(q)) return 2;
-    return 3;
-  };
-  return [...list].sort((a, b) => rank(a) - rank(b));
-}
 
 const SERVICE_OPTIONS = [
   { id: "d2d", label: "Door to Door", sub: "Cassette postali", icon: "mailbox" },
@@ -178,11 +162,9 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     let stale = false;
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(comuneInput)}&countrycodes=it&format=json&addressdetails=1&limit=6&featuretype=city`);
-        const d = await r.json();
+        const ranked = await searchItalianMunicipalities(comuneInput);
         if (stale) return;
-        const normalized = d.map((f) => normalizeNominatimGeocodeResult(f, { addressLike: false }));
-        setSuggestions(rankMunicipalitySuggestions(normalized, comuneInput));
+        setSuggestions(ranked);
       } catch {
         if (!stale) setSuggestions([]);
       } finally {
@@ -348,8 +330,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         const rowName = row.comune_name || row.municipality_name || row.comune || row.name || "";
         return canonicalizeItalianMunicipalityName(rowName, row).toLowerCase() === c.name.toLowerCase();
       });
-      const { households, population } = extractMunicipalityTerritorialData(match);
-      return { municipality: c.name, households, population, matched: Boolean(match) && households != null };
+      const { households, population, recommendedFlyers } = extractMunicipalityTerritorialData(match);
+      return { municipality: c.name, households, population, recommendedFlyers, matched: Boolean(match) && households != null };
     });
   }, [comuni, apiData]);
 
@@ -1038,6 +1020,11 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <span style={{ fontFamily: F.sans, fontSize: 12.5, fontWeight: 800, color: C.green }}>
                       Fabbisogno stimato: {n(recommendedQty)} volantini
+                      {formatOperationalMarginNote(campaign.operationalMarginPct) && (
+                        <span style={{ display: "block", marginTop: 2, fontSize: 11.5, fontWeight: 600, color: "rgba(255,255,255,.78)" }}>
+                          {formatOperationalMarginNote(campaign.operationalMarginPct)}
+                        </span>
+                      )}
                     </span>
                     <span style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.7)" }}>
                       Copertura: {qty == null ? "100%" : `${coveragePctAtCurrentQty}%`}

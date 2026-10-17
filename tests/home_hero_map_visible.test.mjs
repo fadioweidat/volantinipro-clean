@@ -212,7 +212,7 @@ try {
     globalThis.__HERO_SA__ = validData(); let configured=0,how=0,login=0,renderer;
     act(()=>{renderer=TestRenderer.create(React.createElement(VolantiniProHeroMap,{onConfigure:()=>configured++,onHowItWorks:()=>how++,onLogin:()=>login++}));});
     const buttons=renderer.root.findAllByType('button');
-    act(()=>buttons.find(b=>b.children.includes('Configura la tua campagna')).props.onClick());
+    act(()=>buttons.find(b=>b.children.includes('Calcola preventivo')).props.onClick());
     act(()=>buttons.find(b=>b.children.includes('Vedi come funziona ')).props.onClick());
     act(()=>buttons.find(b=>b.children.includes('Area Cliente')).props.onClick());
     assert.deepEqual([configured,how,login],[1,1,1]);act(()=>renderer.unmount());

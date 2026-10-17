@@ -22,8 +22,11 @@ function FooterMark({ type }) {
 function DifferenceCard({ card }) {
   const [expanded, setExpanded] = useState(false);
   return <article className={`vpd-card vpd-card--${card.id}`} aria-labelledby={`difference-${card.id}`}>
-    <DifferenceIllustration type={card.id} />
-    <span className="vpd-badge">{card.badge}</span>
+    {/* Badge and illustration share a reserved header row: the art never sits under the text. */}
+    <div className="vpd-card-head">
+      <span className="vpd-badge">{card.badge}</span>
+      <DifferenceIllustration type={card.id} />
+    </div>
     <div className="vpd-card-intro">
       <h3 id={`difference-${card.id}`}>{card.title}</h3>
       <p>{card.desc}</p>

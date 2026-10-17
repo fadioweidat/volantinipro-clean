@@ -6,7 +6,7 @@ import { saveSmartPairingWaitlist } from "../../lib/supabaseClient.js";
 // mantiene servizio "Enterprise" e la nota inizia con [ENTERPRISE LEAD].
 // Design: compatto/SaaS, dark premium, brand VolantiniPro.
 
-const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
+const F = { serif: "'DM Sans', Inter, system-ui, sans-serif", sans: "'DM Sans',sans-serif" };
 const C = {
   orange: "#E8571A", orangeHover: "#D14A14", navy: "#0B1020",
   blue: "#60A5FA", green: "#2ECC8A", red: "#F87171", white: "#FFFFFF",
@@ -181,8 +181,9 @@ function EnterpriseContactModal({ onClose }) {
   );
 }
 
+// #CE4B15: white text 4.52:1 (WCAG AA); brand #E8571A is 3.6:1.
 const primaryCta = {
-  background: C.orange, color: "#fff", border: "none",
+  background: "#CE4B15", color: "#fff", border: "none",
   padding: "12px 22px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer",
 };
 const ghostCta = {

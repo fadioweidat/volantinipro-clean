@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "../ui/Button.jsx";
 
-const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
+const F = { serif: "'DM Sans', Inter, system-ui, sans-serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C_ORANGE = "#E8571A";
 
 // Homepage: SOLO le 6 FAQ principali (ridotte da 12). Il set completo resta
@@ -78,7 +78,7 @@ export default function FAQSection({ onContact }) {
             Le domande più frequenti.
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 14.5, lineHeight: 1.6, color: "#94A3B8", margin: "16px 0 22px", maxWidth: 360 }}>
-            Non trovi la risposta che cerchi?<br />Scrivici, rispondiamo entro 2 ore.
+            Non trovi la risposta che cerchi?<br />Scrivici, rispondiamo entro 2 ore lavorative.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }} style={{ display: "inline-block" }}>

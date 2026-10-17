@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 
 const F = {
-  serif: "'DM Serif Display', serif",
+  serif: "'DM Sans', Inter, system-ui, sans-serif",
   sans: "'DM Sans', Inter, system-ui, sans-serif",
 };
 

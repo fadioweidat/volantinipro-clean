@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
+const F = { serif: "'DM Sans', Inter, system-ui, sans-serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C_ORANGE = "#E8571A";
 
 export default function FinalCtaSection({ onConfigure }) {

@@ -13,7 +13,8 @@ export function Navbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
   const [workOpen, setWorkOpen] = useState(false); // dropdown "Lavora con noi"
-  const isMobile = useIsMobile();
+  // Hamburger below 1280px: desktop links + CTAs fit on one line from 1280px up.
+  const isMobile = useIsMobile(1280);
   const hasSession = typeof window !== "undefined" && !!localStorage.getItem("vp_supabase_session");
   useEffect(() => {
     const h = () => setSc(window.scrollY > 20);
@@ -99,7 +100,7 @@ export function Navbar({
 
         {!isMobile && <div style={{
         display: "flex",
-        gap: 36,
+        gap: 24,
         alignItems: "center",
         position: "relative"
       }}>
@@ -108,11 +109,12 @@ export function Navbar({
           border: "none",
           color: "rgba(255, 255, 255, 0.82)",
           fontFamily: F.sans,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 700,
           cursor: "pointer",
-          padding: "8px 12px",
+          padding: "8px 8px",
           minHeight: 44,
+          whiteSpace: "nowrap",
           transition: "color 0.2s ease"
         }}>
               Come funziona
@@ -122,11 +124,12 @@ export function Navbar({
           border: "none",
           color: "rgba(255, 255, 255, 0.82)",
           fontFamily: F.sans,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 700,
           cursor: "pointer",
-          padding: "8px 12px",
+          padding: "8px 8px",
           minHeight: 44,
+          whiteSpace: "nowrap",
           transition: "color 0.2s ease"
         }}>
               Prezzi
@@ -139,10 +142,11 @@ export function Navbar({
             border: "none",
             color: "rgba(255, 255, 255, 0.82)",
             fontFamily: F.sans,
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: 700,
             cursor: "pointer",
-            padding: "8px 12px",
+            padding: "8px 8px",
+            whiteSpace: "nowrap",
             minHeight: 44,
             display: "flex",
             alignItems: "center",
@@ -223,11 +227,12 @@ export function Navbar({
           border: "none",
           color: "rgba(255, 255, 255, 0.82)",
           fontFamily: F.sans,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 700,
           cursor: "pointer",
-          padding: "8px 12px",
+          padding: "8px 8px",
           minHeight: 44,
+          whiteSpace: "nowrap",
           transition: "color 0.2s ease"
         }}>
               Chi siamo
@@ -237,11 +242,12 @@ export function Navbar({
           border: "none",
           color: "rgba(255, 255, 255, 0.82)",
           fontFamily: F.sans,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 700,
           cursor: "pointer",
-          padding: "8px 12px",
+          padding: "8px 8px",
           minHeight: 44,
+          whiteSpace: "nowrap",
           transition: "color 0.2s ease"
         }}>
               Contatti
@@ -260,11 +266,12 @@ export function Navbar({
           border: "none",
           color: "rgba(255, 255, 255, 0.82)",
           fontFamily: F.sans,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 700,
           cursor: "pointer",
-          padding: "8px 12px",
+          padding: "8px 8px",
           minHeight: 44,
+          whiteSpace: "nowrap",
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -329,7 +336,8 @@ export function Navbar({
         {!isMobile && <div style={{
         display: "flex",
         gap: 14,
-        alignItems: "center"
+        alignItems: "center",
+        whiteSpace: "nowrap"
       }}>
             <button onClick={() => go(hasSession ? "dashboard" : "login")} style={{
           minHeight: 44,
@@ -360,7 +368,7 @@ export function Navbar({
           boxShadow: "0 6px 16px rgba(232, 87, 26, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
           transition: "all 0.2s ease"
         }}>
-              Configura la tua campagna
+              Calcola preventivo
             </button>
           </div>}
 
