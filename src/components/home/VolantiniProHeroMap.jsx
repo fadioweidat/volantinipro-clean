@@ -225,7 +225,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
     ['families', `Famiglie entro ${HERO_SCENARIO.radiusKm} km`, metric(analysis.families)],
     ['radius', 'Raggio analisi', `${HERO_SCENARIO.radiusKm} Km`],
     ['municipalities', 'Comuni coinvolti', metric(analysis.municipalityCount)],
-    ['coverage', 'Copertura stimata', `${metric(analysis.coverage)}${analysis.coverage === null || pending ? '' : '%'}`]
+    ['coverage', 'delle famiglie dei comuni coinvolti', `${metric(analysis.familiesShare)}${analysis.familiesShare === null || pending ? '' : '%'}`]
   ];
 
   return <section className="vph-hero" ref={section} aria-labelledby="vph-title" data-analysis-state={pending ? 'loading' : analysis.groups.length ? 'ready' : 'unavailable'}>
@@ -428,8 +428,8 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
         </div>
         <div className="vph-totals">
           <div className="vph-stat"><HeroIcon type="families"/><strong>{metric(analysis.families)}</strong><span>Famiglie entro {HERO_SCENARIO.radiusKm} km</span></div>
-          <div className="vph-stat"><HeroIcon type="coverage"/><strong className="vph-orange">{metric(analysis.coverage)}{analysis.coverage!==null&&!pending?'%':''}</strong><span>Copertura stimata <a className="vph-info" href="#vph-methodology" aria-label="Come viene calcolata la copertura stimata" aria-describedby="vph-methodology">i</a></span></div>
-          <div className="vph-methodology" id="vph-methodology" tabIndex={-1}><h3>Come leggere la stima</h3><p>La copertura è la media delle percentuali di superficie delle zone analizzate comprese nel raggio. Si basa sui dati territoriali disponibili: non indica la quota di famiglie raggiunte e non garantisce un risultato di consegna.</p><span>{analysis.sources.length?analysis.sources.join(' · '):'Fonti territoriali della piattaforma'}</span></div>
+          <div className="vph-stat"><HeroIcon type="coverage"/><strong className="vph-orange">{metric(analysis.familiesShare)}{analysis.familiesShare!==null&&!pending?'%':''}</strong><span>delle famiglie dei comuni coinvolti <a className="vph-info" href="#vph-methodology" aria-label="Come viene calcolata la quota di famiglie" aria-describedby="vph-methodology">i</a></span></div>
+          <div className="vph-methodology" id="vph-methodology" tabIndex={-1}><h3>Come leggere la stima</h3><p>La percentuale è il rapporto tra le famiglie dentro il raggio e le famiglie totali dei comuni coinvolti (per Milano, dei quartieri toccati dal raggio). Si basa sui dati territoriali ISTAT disponibili e non garantisce un risultato di consegna.</p><span>{analysis.sources.length?analysis.sources.join(' · '):'Fonti territoriali della piattaforma'}</span></div>
 
         </div>
         <HomepageRadiusPreview groups={analysis.groups} selected={selected} loading={pending}/>

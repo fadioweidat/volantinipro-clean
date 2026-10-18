@@ -11,8 +11,11 @@ function geometry(value) {
   } catch { return null; }
 }
 export function normalizeHomepageAnalysis(data) {
-  if (!data || data.error) return { groups: [], families: null, coverage: null, municipalityCount: null, missingGeometries: 0, sources: [] };
-  const groups=new Map(), seen=new Set(), coverages=[]; let missingGeometries=0;
+  if (!data || data.error) return { groups: [], families: null, familiesShare: null, municipalityCount: null, missingGeometries: 0, sources: [] };
+  // familiesShare = families inside the radius / total families of the territories involved
+  // (whole comuni; for Milano the NIL quartieri touched by the radius). Weighted by families,
+  // never a mean of per-zone percentages. Null as soon as one territory lacks either figure.
+  const groups=new Map(), seen=new Set(); let missingGeometries=0, familiesInRadius=0, familiesTotal=0, shareComplete=true;
   const rows=Array.isArray(data.comuni_breakdown)?data.comuni_breakdown:[];
   // Prefer the returned NIL detail when a response also includes its parent municipality.
   const nilParents=new Set(rows.filter(r=>r.nil_code||r.territory_level==='nil').map(r=>String(r.municipality_code||'')));
@@ -23,7 +26,9 @@ export function normalizeHomepageAnalysis(data) {
     if (!name) continue;
     const key=`${code}:${isNil?row.nil_code||row.nil_name:'comune'}`; if(seen.has(key))continue; seen.add(key);
     const families=number(row.households_in_radius ?? row.famiglie_nel_raggio);
-    const pct=number(row.pct_copertura); coverages.push(pct!==null&&pct<=100?pct:null);
+    const pct=number(row.pct_copertura);
+    const total=number(row.households_total ?? row.famiglie_totali);
+    if(families===null||total===null||families>total)shareComplete=false; else {familiesInRadius+=families; familiesTotal+=total;}
     const geo=geometry(row.geometry_geojson ?? row.geometry); if(!geo)missingGeometries++;
     if(!groups.has(code))groups.set(code,{id:code,name,families:0,partial:false,isNil,units:[],features:[]});
     const group=groups.get(code); if(families===null)group.partial=true; else group.families+=families;
@@ -32,6 +37,6 @@ export function normalizeHomepageAnalysis(data) {
   }
   const result=[...groups.values()].map(g=>({...g,families:g.partial?null:g.families})).sort((a,b)=>(b.families??-1)-(a.families??-1));
   const families=result.length&&result.every(g=>g.families!==null)?result.reduce((s,g)=>s+g.families,0):null;
-  return {groups:result.map((g,i)=>({...g,color:COLORS[i%COLORS.length],share:families>0&&g.families!==null?100*g.families/families:null})),families,municipalityCount:result.length||null,coverage:coverages.length&&coverages.every(n=>n!==null)?Math.round(coverages.reduce((s,n)=>s+n,0)/coverages.length):null,missingGeometries,sources:Array.isArray(data.sources)?data.sources.filter(s=>typeof s==='string'&&/ISTAT|PostGIS|geograf/i.test(s)):[]};
+  return {groups:result.map((g,i)=>({...g,color:COLORS[i%COLORS.length],share:families>0&&g.families!==null?100*g.families/families:null})),families,municipalityCount:result.length||null,familiesShare:seen.size&&shareComplete&&familiesTotal>0?Math.round(100*familiesInRadius/familiesTotal):null,missingGeometries,sources:Array.isArray(data.sources)?data.sources.filter(s=>typeof s==='string'&&/ISTAT|PostGIS|geograf/i.test(s)):[]};
 }
 export const formatHeroMetric = value => value===null||value===undefined?'—':new Intl.NumberFormat('it-IT',{maximumFractionDigits:0,useGrouping:"always"}).format(value);
