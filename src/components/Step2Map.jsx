@@ -877,11 +877,16 @@ function Step2MapImpl({
       );
       // Switch only after a complete failed batch, never on one tile error.
       attachTileFallbackPolicy(tileLayer, () => {
-        map.removeLayer(tileLayer);
-        const fallback = buildFallbackLayer();
-        fallback.on('tileload', hideMapErrorMsg);
-        fallback.on('tileerror', showMapErrorMsg);
-        fallback.addTo(map);
+        // Leaflet still accesses this layer's map after firing tile/load events.
+        // Let its callback finish before detaching the failed layer.
+        requestAnimationFrame(() => {
+          if (mapRef.current !== map || !map.hasLayer(tileLayer)) return;
+          map.removeLayer(tileLayer);
+          const fallback = buildFallbackLayer();
+          fallback.on('tileload', hideMapErrorMsg);
+          fallback.on('tileerror', showMapErrorMsg);
+          fallback.addTo(map);
+        });
       });
     } else {
       tileLayer = buildFallbackLayer();
