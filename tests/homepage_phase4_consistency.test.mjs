@@ -29,7 +29,9 @@ test("Smart Pairing demo values are visibly labelled Esempio and no fixed month 
 
 test("hero and calculator say where families are counted", () => {
   const hero = read("src/components/home/VolantiniProHeroMap.jsx");
-  assert.match(hero, /Famiglie nel raggio di \$\{HERO_SCENARIO\.radiusKm\} km/);
+  assert.match(hero, /Famiglie entro \$\{HERO_SCENARIO\.radiusKm\} km/);
+  assert.match(hero, /<span>Famiglie entro \{HERO_SCENARIO\.radiusKm\} km<\/span>/);
+  assert.doesNotMatch(hero, /Famiglie nel raggio/);
   assert.doesNotMatch(hero, />Famiglie nel raggio</);
   assert.match(read("src/components/home/HomeQuoteCalculator.jsx"), /Famiglie nel Comune di \$\{comune\.name\}/);
 });

@@ -48,3 +48,7 @@ test("configurator link and suggestion dedup", async () => {
   const list = uniqueByComune([{ name: "Cormano", province: "Milano" }, { name: "Cormano", province: "Milano" }, { name: "Cormano", province: "Altro" }]);
   assert.equal(list.length, 2);
 });
+
+test("calculator shows no step tabs (only step 1 exists on the homepage)", () => {
+  assert.doesNotMatch(CALC, /vpq-example-steps|Quantità e servizi|Percorso nel configuratore/);
+});

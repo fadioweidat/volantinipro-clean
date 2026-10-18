@@ -222,7 +222,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
   const select = useCallback(id => setSelected(id), []);
   const metric = n => pending ? '…' : formatHeroMetric(n);
   const kpis = [
-    ['families', `Famiglie nel raggio di ${HERO_SCENARIO.radiusKm} km`, metric(analysis.families)],
+    ['families', `Famiglie entro ${HERO_SCENARIO.radiusKm} km`, metric(analysis.families)],
     ['radius', 'Raggio analisi', `${HERO_SCENARIO.radiusKm} Km`],
     ['municipalities', 'Comuni coinvolti', metric(analysis.municipalityCount)],
     ['coverage', 'Copertura stimata', `${metric(analysis.coverage)}${analysis.coverage === null || pending ? '' : '%'}`]
@@ -427,7 +427,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
           <p className="vph-list-note">Quote sul totale famiglie. Seleziona un comune per evidenziarlo sulla mappa.</p>
         </div>
         <div className="vph-totals">
-          <div className="vph-stat"><HeroIcon type="families"/><strong>{metric(analysis.families)}</strong><span>Famiglie nel raggio di {HERO_SCENARIO.radiusKm} km</span></div>
+          <div className="vph-stat"><HeroIcon type="families"/><strong>{metric(analysis.families)}</strong><span>Famiglie entro {HERO_SCENARIO.radiusKm} km</span></div>
           <div className="vph-stat"><HeroIcon type="coverage"/><strong className="vph-orange">{metric(analysis.coverage)}{analysis.coverage!==null&&!pending?'%':''}</strong><span>Copertura stimata <a className="vph-info" href="#vph-methodology" aria-label="Come viene calcolata la copertura stimata" aria-describedby="vph-methodology">i</a></span></div>
           <div className="vph-methodology" id="vph-methodology" tabIndex={-1}><h3>Come leggere la stima</h3><p>La copertura è la media delle percentuali di superficie delle zone analizzate comprese nel raggio. Si basa sui dati territoriali disponibili: non indica la quota di famiglie raggiunte e non garantisce un risultato di consegna.</p><span>{analysis.sources.length?analysis.sources.join(' · '):'Fonti territoriali della piattaforma'}</span></div>
 

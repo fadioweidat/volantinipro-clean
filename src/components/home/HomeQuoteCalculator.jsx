@@ -113,7 +113,6 @@ export default function HomeQuoteCalculator({ onConfigure }) {
 
   return <article className="vpq-example" aria-labelledby="vpq-example-title" data-calculator-state={status} data-calculator-error={error || undefined}>
     <div className="vpq-example-heading"><h3 id="vpq-example-title">Calcola ora il tuo preventivo</h3></div>
-    <ol className="vpq-example-steps" aria-label="Percorso nel configuratore"><li><b>1</b> Territorio</li><li><b>2</b> Quantità e servizi</li><li><b>3</b> Preventivo</li></ol>
 
     <div className="vpq-search">
       <label htmlFor="vpq-comune-input">Comune</label>

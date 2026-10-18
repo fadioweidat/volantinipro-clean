@@ -134,3 +134,4 @@
 .vpq-suggestions li.is-active, .vpq-suggestions li:not(.vpq-suggestion-empty):hover { background:#eef2f7; }
 .vpq-suggestions li.vpq-suggestion-empty { color:#40546c; cursor:default; }
 .vpq-calc-alert { font-size:13px; line-height:1.5; color:#7a2e08; background:#fff2e6; border:1px solid #f5c7a5; border-radius:8px; padding:10px 12px; margin:14px 0; }
+.vpq-example-heading + .vpq-search { margin-top:18px; }
