@@ -100,6 +100,20 @@ const MAP_CSS = `
 .leaflet-tile {
   filter: brightness(1.08) contrast(1.10) saturate(0.94);
 }
+.vp-osm-dark-tiles .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(.78) contrast(.9) saturate(.65);
+}
+.leaflet-popup.vp-poi-popup .leaflet-popup-content {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin: 14px;
+  line-height: 1.5;
+}
+.leaflet-popup.vp-poi-popup .leaflet-popup-content-wrapper,
+.leaflet-popup.vp-poi-popup .leaflet-popup-tip {
+  background: #101827;
+  color: #fff;
+}
 .gis-radius-glow {
   filter: drop-shadow(0 0 10px rgba(232,87,26,0.12));
 }
@@ -853,7 +867,7 @@ function Step2MapImpl({
       const errEl = document.getElementById('vp-map-error-msg');
       if (errEl) errEl.style.display = 'none';
     };
-    const buildFallbackLayer = () => L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 });
+    const buildFallbackLayer = () => L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19, className: 'vp-osm-dark-tiles' });
 
     let tileLayer;
     if (mbToken) {
@@ -1858,7 +1872,7 @@ function Step2MapImpl({
                 ? `<br>${businessDetails ? `${businessDetails}<br>` : ''}<span style="color:#7DD3FC">Clicca per selezionare l'attività</span>`
                 : '<br><span style="color:#7DD3FC">Clicca per aggiungere e assegnare</span>');
           const contextLabel = svcType === 'd2d'
-            ? '<br><span style="color:#7DD3FC">Attività presente dentro il raggio selezionato</span>'
+            ? '<br><span style="color:#7DD3FC">Attività mostrata come riferimento sulla mappa</span>'
             : assignmentLabel;
           const tip = `${_buildPoiTip(item)}${contextLabel}`;
           const poiMarker = L.marker([item.lat, item.lng], {
@@ -1867,7 +1881,18 @@ function Step2MapImpl({
               : selectablePoiIcon(L, item.color || categoryColor(item.category), isSel, assignment?.operatorNumber, item.category),
             zIndexOffset: isSel ? 500 : 200,
             pane: 'poiSelectionPane',
-          }).bindTooltip(tip, { direction: 'top', offset: [0, -16], opacity: 1 });
+          });
+          if (map.getSize().x <= 640) {
+            poiMarker.bindPopup(tip, {
+              className: 'vp-poi-popup',
+              maxWidth: Math.max(140, Math.min(260, map.getSize().x - 80)),
+              autoPan: true,
+              autoPanPadding: [20, 20],
+              closeButton: true,
+            });
+          } else {
+            poiMarker.bindTooltip(tip, { direction: 'auto', offset: [0, -16], opacity: 1 });
+          }
           if (svcType !== 'd2d') poiMarker.on('click', () => onTogglePoi?.(item));
           poiMarker.addTo(poiGroup);
           if (item.id != null) poiMarkersByIdRef.current.set(item.id, poiMarker);

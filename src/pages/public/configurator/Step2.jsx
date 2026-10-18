@@ -5967,7 +5967,7 @@ export function Step2({
           nilResidual={{ active: residualDecisionPending, proposal: nilResidualProposal, strategy: coverageStrategy, onChoose: chooseResidualStrategy }}
           advancedContent={renderComunePanel()} onOpenReport={() => setIsAdminView(true)}
           actions={{ step2ZonesReady, coverageDecisionReady: coverageDecisionReady || step2ConfigReady, canContinueCalendar, handleNext, col, continueLabel, operationalSelectionReady, isMovementStep2, isBusinessStep2 }}
-        /> : <Step2SummaryPanel
+        /> : <Step2SummaryPanel hasTerritoryContext={Boolean(city)}
           activeCampaignZone={activeCampaignZone}
           activePointOfSaleName={campaignZones.length > 1 && activeCampaignZone ? getPointOfSaleName(activeCampaignZone, Math.max(0, campaignZones.findIndex(z => z.id === activeCampaignZone.id))) : null}
           areaMode={areaMode}
