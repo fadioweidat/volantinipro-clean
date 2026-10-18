@@ -76,3 +76,18 @@ test("white-text CTAs use #CE4B15 (>= 4.5:1), hover darker, homepage-scoped", ()
   assert.ok(1.05 / (L("CE4B15") + 0.05) >= 4.5);
   assert.ok(1.05 / (L("B84313") + 0.05) >= 4.5);
 });
+
+test("hero map options: closed by default below 768px behind an icon toggle; desktop always visible; OSM attribution kept", () => {
+  const map = read("src/components/home/HomepageTerritoryMap.jsx");
+  const css = read("src/components/home/homepage-hero.css");
+  assert.match(map, /useState\(\(\)=>!\(typeof window!=='undefined'&&window\.matchMedia\?\.\('\(max-width: 767px\)'\)\.matches\)\)/);
+  assert.match(map, /className="vph-map-toggle" aria-controls="vph-map-controls" aria-expanded=\{panelOpen\}/);
+  assert.match(map, /id="vph-map-controls" className=\{`vph-map-controls\$\{panelOpen\?'':' is-collapsed'\}`\}/);
+  assert.match(map, /attributionControl:true/);
+  assert.match(map, /attribution:'&copy; <a href="https:\/\/www\.openstreetmap\.org\/copyright">OpenStreetMap<\/a>'/);
+  assert.match(css, /\.vph-map-toggle \{ display:none; \}/);
+  assert.match(css, /@media \(max-width:767px\) \{[\s\S]*\.vph-map-controls\.is-collapsed \{ display:none; \}/);
+  assert.match(css, /\.vph-map-frame \.vph-map-toggle \{ display:grid;[^}]*width:44px; height:44px;/);
+  // the collapsed state never applies on desktop
+  assert.doesNotMatch(css.replace(/@media \(max-width:767px\) \{[\s\S]*$/, ""), /is-collapsed/);
+});

@@ -290,3 +290,15 @@
 /* Put glass on its own layer so text never participates in backdrop compositing. */
 .vph-composition .vph-summary { isolation:isolate; background:transparent; backdrop-filter:none; -webkit-backdrop-filter:none; }
 .vph-composition .vph-summary::before { content:''; position:absolute; inset:0; z-index:-1; border-radius:inherit; background:rgba(7,16,31,.72); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); pointer-events:none; }
+
+/* Mobile map options: closed by default behind an icon button; desktop unchanged.
+   The toggle sits above the OSM attribution (bottom-right), which must stay visible. */
+.vph-map-toggle { display:none; }
+@media (max-width:767px) {
+  .vph-map-frame .vph-map-toggle { display:grid; place-items:center; position:absolute; z-index:510; right:12px; bottom:30px; width:44px; height:44px; padding:0; border:1px solid #46566d; border-radius:10px; background:#071525ed; color:#cbd8ea; box-shadow:0 8px 20px #0005; cursor:pointer; }
+  .vph-map-frame .vph-map-toggle[aria-expanded="true"] { border-color:#ff7b36; color:#ffb27f; }
+  .vph-map-frame .vph-map-toggle:focus-visible { outline:2px solid #ffb47c; outline-offset:2px; }
+  .vph-composition .vph-map-controls, .vph-map-controls { top:auto; bottom:82px; right:12px; }
+  .vph-composition .vph-map-controls.is-collapsed, .vph-map-controls.is-collapsed { display:none; }
+  .vph-composition .vph-map .leaflet-control-attribution, .vph-map .leaflet-control-attribution { font-size:11px; line-height:1.4; margin-bottom:5px; padding:1px 6px; }
+}
