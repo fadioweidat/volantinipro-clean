@@ -59,6 +59,12 @@ Direct anonymous comuni/NIL probes return [] under existing RLS. They are retain
 
 Raw responses remain in local `review-artifacts/step2-timeout/`; timing manifests are committed. No payment, GPS, pricing, auth or production business records were changed.
 
+## Overnight confirmation, 18 October 2026
+
+At 12:45 UTC, after overnight test inactivity, three consecutive full analyses completed HTTP 200 in 3890/1869/926 ms. All retained the same 284436-byte response, 88 NIL and SHA256 above. Full sector calls completed HTTP 200 in 632/350/129 ms with the same eight features and response hash. This is test inactivity, not a claim that the shared production database received no other traffic. The existing server Mapbox reverse-lookup warning remains.
+
+Remote branch and local implementation both verified at `0d7d99ba864c137124528c9b22f46ef65f312631`. The original preview alias resolves to READY deployment `dpl_42ooM8c8YVXpgfBeKPwAkVstgdow` for that commit. Live Edge remains ACTIVE v49 with SHA256 `a5f65ae3c13685cb9b54a6e453134a3d977e2949a165256ab05cf3e488bacb39`. Evidence: `review-artifacts/step2-timeout/overnight-20261018-timings.json`. No additional browser or physical Samsung verification is claimed for this overnight HTTP run.
+
 ROOT CAUSE:
 Concurrent RPC fan-out and fresh database backends amplified PostgREST/database contention; A/B reproduced 57014 and reversed it by consolidating identical reads. Exact CPU/memory/connection-wait proportions remain unmeasured.
 
