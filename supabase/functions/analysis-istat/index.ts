@@ -443,7 +443,12 @@ serve(async (req: Request) => {
       geometry_geojson: row.geometry_geojson || null,
     }));
 
-    const normalizedNilBreakdown = nilRows.map((row: Record<string, unknown>) => ({
+    // A NIL kept as a whole territory by the resolver (Milano intera / multi with
+    // Milano) must read the same in nil_breakdown as in comuni_breakdown.
+    const resolvedNilRows = new Map(territorialRows
+      .filter((row: Record<string, unknown>) => row.nil_code)
+      .map((row: Record<string, unknown>) => [String(row.nil_code).trim(), row]));
+    const normalizedNilBreakdown = nilRows.map((raw: Record<string, unknown>) => resolvedNilRows.get(String(raw.nil_code ?? "").trim()) || raw).map((row: Record<string, unknown>) => ({
       territory_level: "nil",
       nil_code: row.nil_code ? String(row.nil_code).trim() : null,
       nil_name: row.nil_name || null,
