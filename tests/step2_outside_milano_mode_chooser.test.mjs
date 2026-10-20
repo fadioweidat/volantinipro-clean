@@ -237,7 +237,9 @@ test("il gate nasconde SOLO la configurazione avanzata: riepilogo e «Continua»
   assert.match(step2Src, /\{!milanoClientView && !outsideMilanoAwaitingChoice && renderComunePanel\(\)\}/);
   // Step2SummaryPanel (contiene Step2BottomActions / "Continua") resta nel
   // ramo "non Milano" senza alcuna condizione aggiuntiva.
-  assert.match(step2Src, /\/> : <Step2SummaryPanel\n/);
+  // faa2b27: the only prop added is the "zone selected" context (placeholder
+  // before any zone is chosen), unrelated to the outside-Milano gate.
+  assert.match(step2Src, /\/> : <Step2SummaryPanel hasTerritoryContext=\{Boolean\(city\)\}\n/);
   assert.doesNotMatch(step2Src, /outsideMilano[^\n]*Step2SummaryPanel|outsideMilano[^\n]*Step2BottomActions|outsideMilano[^\n]*handleNext|outsideMilano[^\n]*canContinue/);
   // Il selettore Milano usa ancora la propria condizione, non quella nuova.
   assert.match(step2Src, /const milanoClientView = milanoUxVisible && !isAdminView && !isCapMode;/);
@@ -246,7 +248,11 @@ test("il gate nasconde SOLO la configurazione avanzata: riepilogo e «Continua»
 
 test("raggio di analisi invariato (15 km NIL); ai POI arriva solo il raggio limitato senza settore", () => {
   assert.match(step2Src, /requestedAnalysisLevel === "nil" \? Math\.max\(15, numericRadiusKm\)/);
-  assert.match(step2Src, /usePoi\(poiCenterLat, poiCenterLng, poiQueryRadiusKm, svcType, distributionTargetSelection\)/);
+  // aefbe5b: with manually selected NILs the POI area is the circle around
+  // those NILs, still capped by the same no-sector rule (6 km).
+  assert.match(step2Src, /usePoi\(displayPoiLat, displayPoiLng, displayPoiRadius, svcType, distributionTargetSelection\)/);
+  assert.match(step2Src, /const displayPoiRadius = usesSelectedTerritoryPois \? selectedTerritoryPoiRadiusKm : poiQueryRadiusKm;/);
+  assert.match(step2Src, /poiRadiusKm: selectedTerritoryPoiScope\.radiusKm,\s*usesTechnicalAnalysisRadius: true,/);
 });
 
 after(async () => {

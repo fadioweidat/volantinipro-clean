@@ -1511,7 +1511,17 @@ export function Step2({
   const usesSelectedTerritoryPois = isResidentialStep2 && nilManualMode && selected.length > 0;
   const displayPoiLat = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.lat ?? null : poiCenterLat;
   const displayPoiLng = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.lng ?? null : poiCenterLng;
-  const displayPoiRadius = usesSelectedTerritoryPois ? selectedTerritoryPoiScope?.radiusKm ?? null : poiQueryRadiusKm;
+  // The circle around the selected NILs can exceed the no-sector POI cap
+  // (distant NILs, other PV overlays): apply the same 6 km rule as the analysis radius.
+  const selectedTerritoryPoiRadiusKm = selectedTerritoryPoiScope?.radiusKm != null
+    ? resolvePoiQueryRadiusKm({
+      poiRadiusKm: selectedTerritoryPoiScope.radiusKm,
+      usesTechnicalAnalysisRadius: true,
+      serviceType: svcType,
+      targetSelection: distributionTargetSelection,
+    })
+    : null;
+  const displayPoiRadius = usesSelectedTerritoryPois ? selectedTerritoryPoiRadiusKm : poiQueryRadiusKm;
   // Il settore Step1 (data.activityType/businessSector) filtra i marker POI
   // mostrati sulla mappa per tutti i servizi, incluso D2D: la mappa D2D non
   // assegna cassette/promoter sui POI (quello resta un contesto di campagna),
