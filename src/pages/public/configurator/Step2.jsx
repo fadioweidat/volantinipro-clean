@@ -3516,6 +3516,31 @@ export function Step2({
   const finalFlyersRounded = Math.round(Number(finalFlyers || 0));
   const hasUsableAllocationData = isResidentialStep2 ? selZones.some(zone => !zone?.isFallback && Number(zone?.families || 0) > 0 && getZoneFullCoverageFlyers(zone) > 0) : isMovementStep2 ? selectedOperationalPois.length > 0 || step1OperationalPoints.length > 0 : selectedOperationalPois.length > 0;
   const allocationStatus = hasUsableAllocationData && assignedFlyersTotal === finalFlyersRounded ? "success" : "pending";
+  // Quantity the customer never chose (Step 1 placeholder 10.000): use the
+  // recommended quantity of the selected territory instead. Only D2D with a
+  // single point of sale, only once the analysis of this territory settled and
+  // before any quantity decision in Step 2; a quantity typed or picked by the
+  // customer (quantitySource "customer") is never touched.
+  const recommendedForDefaultQuantity = Math.round(Number(requiredFlyers) || 0);
+  useEffect(() => {
+    if (data.quantitySource !== "default") return;
+    if (!isResidentialStep2 || !analysisOwnedByActiveZone || apiLoading || apiPending || !hasUsableAllocationData) return;
+    if ((Array.isArray(data.campaignZones) ? data.campaignZones.length : 0) > 1) return;
+    if (coverageDecision) return;
+    if (!(recommendedForDefaultQuantity > 0)) return;
+    if (Math.round(Number(availableFlyers) || 0) === recommendedForDefaultQuantity && Number(data.qty) === recommendedForDefaultQuantity) return;
+    setAvailableFlyers(recommendedForDefaultQuantity);
+    setData(prev => ({
+      ...prev,
+      qty: recommendedForDefaultQuantity,
+      flyerQuantity: recommendedForDefaultQuantity,
+      flyerQuantityFromStep1: recommendedForDefaultQuantity,
+      insertedFlyersOriginal: recommendedForDefaultQuantity,
+      originalFlyerQuantity: recommendedForDefaultQuantity,
+      availableFlyers: recommendedForDefaultQuantity
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.quantitySource, isResidentialStep2, analysisOwnedByActiveZone, apiLoading, apiPending, hasUsableAllocationData, data.campaignZones?.length, coverageDecision, recommendedForDefaultQuantity]);
   // ── RESIDUO NIL (ticket "residuo non allocato") ───────────────────────────
   // Nessuna nuova formula: il residuo e' quanto della quantita' NON copre il
   // fabbisogno pieno delle NIL selezionate, letto da zonesAllocation (stessa
@@ -3650,8 +3675,13 @@ export function Step2({
       };
     });
   }, [data.activeZoneId, localZoneId, analysisOwnedByActiveZone, coverageMode, coverageDecision, availableFlyers, requiredFlyers, manualFlyersNumber, finalFlyersRounded, allocationStatus, hasUsableAllocationData, zonesAllocationKey]);
+  // A quantity decided in Step 2 is the customer's choice from then on.
+  function markQuantityChosenByCustomer() {
+    if (data.quantitySource !== "customer") setData(prev => ({ ...prev, quantitySource: "customer" }));
+  }
   function updateManual(id, val) {
     const num = parseInt(val) || 0;
+    markQuantityChosenByCustomer();
     setAllocationMode("manual");
     setCoverageDecision("manual");
     setManualAssignments(prev => {
@@ -3677,6 +3707,7 @@ export function Step2({
   }
   function selectCoverageQuantityDecision(nextDecision) {
     const normalized = normalizeCoverageDecision(nextDecision);
+    markQuantityChosenByCustomer();
     setCoverageDecision(normalized);
     setPartialCoverageConfirmed(normalized === "keepCurrent");
     if (normalized === "keepCurrent" || normalized === "useRecommended") {
@@ -3694,6 +3725,7 @@ export function Step2({
   }
   function updateManualFlyersQuantity(value) {
     const num = parseInt(value, 10);
+    markQuantityChosenByCustomer();
     setCoverageDecision("manual");
     setAllocationMode("auto");
     if (!Number.isFinite(num) || num <= 0) {
