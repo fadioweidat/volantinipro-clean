@@ -25,3 +25,5 @@
   - src/pages/public/configurator/Step2.jsx:4247 marginalZoneCoverage (somma % con tetto 100)
   Già corretti / non coinvolti: hero homepage (b9dc5fe, quota pesata), Preventivo Rapido, assistente AI
   (buildQuoteAssistantContext.js:123/322), report territoriale (buildTerritorialReportSnapshot.js:77), dashboard cliente.
+
+- Rigenerare snapshot hero quando ISTAT pubblica nuovi dati (npm run snapshot:hero, poi commit di src/components/home/heroScenarioSnapshot.json; la data visibile si aggiorna da sola).

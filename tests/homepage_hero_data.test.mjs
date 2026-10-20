@@ -27,7 +27,7 @@ test('familiesShare is null when a territory lacks the in-radius or total figure
 test('hero shows the families share with its plain-language label and updated methodology',async()=>{
   const {readFileSync}=await import('node:fs');
   const hero=readFileSync(new URL('../src/components/home/VolantiniProHeroMap.jsx',import.meta.url),'utf8');
-  assert.match(hero,/\['coverage', 'delle famiglie dei comuni coinvolti', `\$\{metric\(analysis\.familiesShare\)\}/);
+  assert.match(hero,/\['coverage', 'delle famiglie dei comuni coinvolti', pending \? skeleton : `\$\{formatHeroMetric\(analysis\.familiesShare\)\}/);
   assert.match(hero,/<span>delle famiglie dei comuni coinvolti <a className="vph-info"/);
   assert.doesNotMatch(hero,/Copertura stimata|analysis\.coverage|media delle percentuali/);
   assert.match(hero,/rapporto tra le famiglie dentro il raggio e le famiglie totali dei comuni coinvolti/);

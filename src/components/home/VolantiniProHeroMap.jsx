@@ -3,6 +3,13 @@ import { useReducedMotion } from 'framer-motion';
 import { useServiceAnalysis } from '../../hooks/useServiceAnalysis.js';
 import HomepageTerritoryMap from './HomepageTerritoryMap.jsx';
 import { HERO_SCENARIO, normalizeHomepageAnalysis, formatHeroMetric } from './homepageHeroData.js';
+import { validateHeroSnapshot } from './heroSnapshot.js';
+
+// Real analysis-istat data for the hero scenario, saved by `npm run snapshot:hero`.
+// Eager glob: if the file is deleted the build still works and the hero goes live.
+// A missing or invalid snapshot -> null -> live call exactly as before.
+const SNAPSHOT_FILES = import.meta.glob('./heroScenarioSnapshot.json', { eager: true, import: 'default' });
+export const HERO_SNAPSHOT = validateHeroSnapshot(SNAPSHOT_FILES['./heroScenarioSnapshot.json'], HERO_SCENARIO);
 import { Logo } from '../common/Logo.jsx';
 import Button from '../ui/Button.jsx';
 import './homepage-hero.css';
@@ -165,7 +172,7 @@ const mobileMenuItemStyle = {
   cursor: "pointer",
 };
 
-export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowItWorks}) {
+export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowItWorks,snapshot=HERO_SNAPSHOT}) {
   // Hamburger below 1280px: desktop links + CTAs fit on one line from 1280px up.
   const compact = useCompact(1280);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -185,20 +192,23 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
     return () => observer.disconnect();
   }, []);
 
+  // With a valid snapshot the live call is not made at all (no cold start, no
+  // per-visit load on the Edge Function); without it, same live call as before.
+  const live = active && !snapshot;
   const { data, loading, error } = useServiceAnalysis(
-    active ? HERO_SCENARIO.lat : null,
-    active ? HERO_SCENARIO.lng : null,
+    live ? HERO_SCENARIO.lat : null,
+    live ? HERO_SCENARIO.lng : null,
     HERO_SCENARIO.radiusKm,
     'd2d',
-    active ? HERO_SCENARIO.name : null,
+    live ? HERO_SCENARIO.name : null,
     null,
     'hero_preview',
     'comune',
     'radius'
   );
 
-  const analysis = useMemo(() => normalizeHomepageAnalysis(error ? null : data), [data, error]);
-  const pending = !error && !data || loading;
+  const analysis = useMemo(() => normalizeHomepageAnalysis(snapshot ? snapshot.data : (error ? null : data)), [snapshot, data, error]);
+  const pending = snapshot ? false : (!error && !data || loading);
 
   const scrollToSection = (id) => {
     setMenuOpen(false);
@@ -220,12 +230,14 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
   };
 
   const select = useCallback(id => setSelected(id), []);
-  const metric = n => pending ? '…' : formatHeroMetric(n);
+  // Loading: animated placeholder, never a number (aria: "Caricamento").
+  const skeleton = <span className="vph-skeleton" role="img" aria-label="Caricamento" />;
+  const metric = n => pending ? skeleton : formatHeroMetric(n);
   const kpis = [
     ['families', `Famiglie entro ${HERO_SCENARIO.radiusKm} km`, metric(analysis.families)],
     ['radius', 'Raggio analisi', `${HERO_SCENARIO.radiusKm} Km`],
     ['municipalities', 'Comuni coinvolti', metric(analysis.municipalityCount)],
-    ['coverage', 'delle famiglie dei comuni coinvolti', `${metric(analysis.familiesShare)}${analysis.familiesShare === null || pending ? '' : '%'}`]
+    ['coverage', 'delle famiglie dei comuni coinvolti', pending ? skeleton : `${formatHeroMetric(analysis.familiesShare)}${analysis.familiesShare === null ? '' : '%'}`]
   ];
 
   return <section className="vph-hero" ref={section} aria-labelledby="vph-title" data-analysis-state={pending ? 'loading' : analysis.groups.length ? 'ready' : 'unavailable'}>
@@ -409,8 +421,8 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
           <div className="vph-chips" aria-label="Servizi di distribuzione">{SERVICE_CHIPS.map(([chip,href])=><a key={chip} href={href}>{chip}<span aria-hidden="true">↗</span></a>)}</div>
         </div>
         <div className="vph-map-area">
-          <div className="vph-kpis" aria-label="Indicatori dello scenario reale">{kpis.map(([icon,label,value])=><div className="vph-kpi" key={icon}><HeroIcon type={icon}/><div><strong>{value}</strong><span>{label}</span></div></div>)}</div>
-          <HomepageTerritoryMap groups={analysis.groups} selected={selected} onSelect={select} loading={pending} unavailable={Boolean(error)||!pending&&!analysis.groups.length} missingGeometries={analysis.missingGeometries}/>
+          <div className="vph-kpis" aria-label="Indicatori dello scenario reale" aria-busy={pending}>{kpis.map(([icon,label,value])=><div className="vph-kpi" key={icon}><HeroIcon type={icon}/><div><strong>{value}</strong><span>{label}</span></div></div>)}</div>
+          <HomepageTerritoryMap groups={analysis.groups} selected={selected} onSelect={select} dataDateLabel={snapshot?.dateLabel || null} loading={pending} unavailable={Boolean(error)||!pending&&!analysis.groups.length} missingGeometries={analysis.missingGeometries}/>
         </div>
       </div>
       <details className="vpq-territory-details">
@@ -423,7 +435,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
         </div>
         <div className="vph-analysis">
           <div className="vph-list-heading"><span>Comune</span><span>Famiglie</span><span>Quota</span></div>
-          {pending?<p className="vph-empty" role="status">Lettura dei dati territoriali…</p>:!analysis.groups.length?<p className="vph-empty" role="status">Dati territoriali momentaneamente non disponibili. Nessuna stima sostitutiva.</p>:<ul aria-label="Famiglie per comune">{analysis.groups.map(g=><li key={g.id}><button type="button" className="vph-zone" onClick={()=>select(selected===g.id?null:g.id)} aria-pressed={selected===g.id}><span className="vph-zone-name"><i style={{backgroundColor:g.color}}/><span>{g.name}{g.isNil&&<small>NIL nel raggio</small>}</span></span><strong>{formatHeroMetric(g.families)}</strong><span>{g.share===null?'—':`${Math.round(g.share)}%`}</span></button></li>)}</ul>}
+          {pending?<div className="vph-skeleton-list" role="status" aria-label="Lettura dei dati territoriali">{[0,1,2].map(i=><span key={i} className="vph-skeleton vph-skeleton-row" aria-hidden="true" />)}</div>:!analysis.groups.length?<p className="vph-empty" role="status">Dati territoriali momentaneamente non disponibili. Nessuna stima sostitutiva.</p>:<ul aria-label="Famiglie per comune">{analysis.groups.map(g=><li key={g.id}><button type="button" className="vph-zone" onClick={()=>select(selected===g.id?null:g.id)} aria-pressed={selected===g.id}><span className="vph-zone-name"><i style={{backgroundColor:g.color}}/><span>{g.name}{g.isNil&&<small>NIL nel raggio</small>}</span></span><strong>{formatHeroMetric(g.families)}</strong><span>{g.share===null?'—':`${Math.round(g.share)}%`}</span></button></li>)}</ul>}
           <p className="vph-list-note">Quote sul totale famiglie. Seleziona un comune per evidenziarlo sulla mappa.</p>
         </div>
         <div className="vph-totals">

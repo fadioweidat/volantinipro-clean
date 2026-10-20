@@ -302,3 +302,13 @@
   .vph-composition .vph-map-controls.is-collapsed, .vph-map-controls.is-collapsed { display:none; }
   .vph-composition .vph-map .leaflet-control-attribution, .vph-map .leaflet-control-attribution { font-size:11px; line-height:1.4; margin-bottom:5px; padding:1px 6px; }
 }
+
+/* Loading placeholders: animated, never a number; static for prefers-reduced-motion. */
+.vph-skeleton { display:inline-block; vertical-align:middle; width:4.2ch; height:.78em; border-radius:6px; background:linear-gradient(90deg,#ffffff14 25%,#ffffff33 50%,#ffffff14 75%); background-size:200% 100%; animation:vph-shimmer 1.3s ease-in-out infinite; }
+.vph-skeleton-list { display:grid; gap:10px; padding:6px 0; }
+.vph-skeleton-row { width:100%; height:14px; }
+@keyframes vph-shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
+@media (prefers-reduced-motion: reduce) { .vph-skeleton { animation:none; background:#ffffff26; } }
+/* Snapshot date: second line of the map scenario chip. */
+.vph-map-context-text { display:flex; flex-direction:column; gap:2px; }
+.vph-map-context-date { font-size:.92em; color:#b8c8dc; }

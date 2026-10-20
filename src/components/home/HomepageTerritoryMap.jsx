@@ -3,7 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { HERO_SCENARIO, formatHeroMetric } from './homepageHeroData.js';
 
-export default function HomepageTerritoryMap({ groups, selected, onSelect, loading, unavailable, missingGeometries }) {
+export default function HomepageTerritoryMap({ groups, selected, onSelect, loading, unavailable, missingGeometries, dataDateLabel = null }) {
   const host=useRef(null), mapRef=useRef(null), territories=useRef(null), radiusLayer=useRef(null);
   const [boundaries,setBoundaries]=useState(true), [radiusVisible,setRadiusVisible]=useState(true), [tilesFailed,setTilesFailed]=useState(false);
   // Below 768px the map options start closed (they covered the territory labels on phones);
@@ -56,7 +56,7 @@ export default function HomepageTerritoryMap({ groups, selected, onSelect, loadi
   useEffect(()=>{const map=mapRef.current,radius=radiusLayer.current;if(!map||!radius)return;if(radiusVisible)radius.addTo(map);else map.removeLayer(radius);},[radiusVisible]);
   return <div className="vph-map-frame" role="region" aria-label="Mappa interattiva: Cormano e territori nel raggio di 3 chilometri">
     <div className="vph-map" ref={host} />
-    <div className="vph-map-context"><span className="vph-live-dot" />Scenario reale · Cormano · 3 km</div>
+    <div className="vph-map-context"><span className="vph-live-dot" /><span className="vph-map-context-text">Scenario reale · Cormano · 3 km{dataDateLabel&&<span className="vph-map-context-date">Dati ISTAT aggiornati al {dataDateLabel}</span>}</span></div>
     {(loading||unavailable||missingGeometries>0||tilesFailed)&&<div className="vph-map-status" role="status">{loading?'Caricamento analisi territoriale…':unavailable?'Analisi non disponibile. La mappa resta esplorabile.':tilesFailed?'Sfondo cartografico temporaneamente non disponibile.':`${missingGeometries} confini non disponibili nella fonte.`}</div>}
     <button type="button" className="vph-map-toggle" aria-controls="vph-map-controls" aria-expanded={panelOpen} aria-label={panelOpen?'Nascondi opzioni mappa':'Mostra opzioni mappa'} onClick={()=>setPanelOpen(v=>!v)}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>

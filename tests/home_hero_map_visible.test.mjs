@@ -28,12 +28,14 @@ export const HomepageTerritoryMap = (props) => {
     "data-selected": String((props.selected || []).length),
     "data-radius": String(props.radius),
     "data-interactive": String(props.interactive),
+    "data-date": String(props.dataDateLabel || ""),
   });
 };
 export default HomepageTerritoryMap;
 `;
 
-const USE_SA_STUB = `export function useServiceAnalysis() {
+const USE_SA_STUB = `export function useServiceAnalysis(...args) {
+  (globalThis.__HERO_SA_CALLS__ ||= []).push(args);
   return globalThis.__HERO_SA__ || { data: null, loading: true, error: null };
 }
 export default useServiceAnalysis;
@@ -131,12 +133,13 @@ function textOf(renderer) {
 
 let VolantiniProHeroMap;
 try {
-  ({ VolantiniProHeroMap } = await vite.ssrLoadModule("/src/components/home/VolantiniProHeroMap.jsx"));
+  let HERO_SNAPSHOT;
+  ({ VolantiniProHeroMap, HERO_SNAPSHOT } = await vite.ssrLoadModule("/src/components/home/VolantiniProHeroMap.jsx"));
   installDom();
 
   const mount = () => {
     let r;
-    act(() => { r = TestRenderer.create(React.createElement(VolantiniProHeroMap, {})); });
+    act(() => { r = TestRenderer.create(React.createElement(VolantiniProHeroMap, { snapshot: null })); });
     return r;
   };
 
@@ -188,13 +191,13 @@ try {
 
     globalThis.__HERO_SA__ = { data: null, loading: true, error: null };
     let r;
-    act(() => { r = TestRenderer.create(React.createElement(VolantiniProHeroMap, {})); });
+    act(() => { r = TestRenderer.create(React.createElement(VolantiniProHeroMap, { snapshot: null })); });
     assert.equal(countMaps(r).length, 1);
     assert.equal((globalThis.__S2M_MOUNTS__ || 0) - mountsBefore, 1, "un solo mount iniziale");
 
     // l'analisi termina in errore (era il caso che prima smontava la mappa)
     globalThis.__HERO_SA__ = { data: null, loading: false, error: new Error("late error") };
-    act(() => { r.update(React.createElement(VolantiniProHeroMap, {})); });
+    act(() => { r.update(React.createElement(VolantiniProHeroMap, { snapshot: null })); });
 
     assert.equal(countMaps(r).length, 1, "mappa ancora presente dopo la transizione");
     assert.equal((globalThis.__S2M_MOUNTS__ || 0) - mountsBefore, 1, "nessun remount di HomepageTerritoryMap");
@@ -202,7 +205,7 @@ try {
 
     // e ancora presente dopo un ulteriore ciclo (zero-zone)
     globalThis.__HERO_SA__ = { data: { comuni_breakdown: [] }, loading: false, error: null };
-    act(() => { r.update(React.createElement(VolantiniProHeroMap, {})); });
+    act(() => { r.update(React.createElement(VolantiniProHeroMap, { snapshot: null })); });
     assert.equal(countMaps(r).length, 1);
     assert.equal((globalThis.__S2M_MOUNTS__ || 0) - mountsBefore, 1);
     assert.equal((globalThis.__S2M_UNMOUNTS__ || 0) - unmountsBefore, 0);
@@ -210,12 +213,42 @@ try {
   });
   test('Homepage primary, how-it-works and customer buttons preserve parent callbacks', () => {
     globalThis.__HERO_SA__ = validData(); let configured=0,how=0,login=0,renderer;
-    act(()=>{renderer=TestRenderer.create(React.createElement(VolantiniProHeroMap,{onConfigure:()=>configured++,onHowItWorks:()=>how++,onLogin:()=>login++}));});
+    act(()=>{renderer=TestRenderer.create(React.createElement(VolantiniProHeroMap,{snapshot:null,onConfigure:()=>configured++,onHowItWorks:()=>how++,onLogin:()=>login++}));});
     const buttons=renderer.root.findAllByType('button');
     act(()=>buttons.find(b=>b.children.includes('Calcola preventivo')).props.onClick());
     act(()=>buttons.find(b=>b.children.includes('Vedi come funziona ')).props.onClick());
     act(()=>buttons.find(b=>b.children.includes('Area Cliente')).props.onClick());
     assert.deepEqual([configured,how,login],[1,1,1]);act(()=>renderer.unmount());
+  });
+  test('F) committed snapshot: numbers, borders and date without any live analysis-istat call', () => {
+    assert.ok(HERO_SNAPSHOT, 'heroScenarioSnapshot.json passes validation');
+    globalThis.__HERO_SA__ = { data: null, loading: true, error: null }; // live would still be loading
+    globalThis.__HERO_SA_CALLS__ = [];
+    let r;
+    act(() => { r = TestRenderer.create(React.createElement(VolantiniProHeroMap, {})); });
+    const json = JSON.stringify(r.toJSON());
+    assert.ok(globalThis.__HERO_SA_CALLS__.length > 0);
+    for (const args of globalThis.__HERO_SA_CALLS__) {
+      assert.equal(args[0], null, 'lat null -> no live fetch');
+      assert.equal(args[4], null, 'municipality null -> no live fetch');
+    }
+    assert.match(json, /"data-date":"\d{2}\/\d{2}\/\d{4}"/, 'snapshot date passed to the map chip');
+    assert.match(json, /"data-analysis-state":"ready"/);
+    assert.ok(Number(r.root.findAll((n) => n.props && n.props['data-step2map'] === '1')[0].props['data-zones']) > 0, 'borders passed to the map');
+    assert.doesNotMatch(json, /vph-skeleton/);
+    act(() => r.unmount());
+  });
+  test('G) no snapshot + loading: animated placeholders, never numbers; date not shown', () => {
+    globalThis.__HERO_SA__ = { data: null, loading: true, error: null };
+    let r;
+    act(() => { r = TestRenderer.create(React.createElement(VolantiniProHeroMap, { snapshot: null })); });
+    const skeletons = r.root.findAll((n) => n.props && typeof n.props.className === 'string' && n.props.className.includes('vph-skeleton') && n.props['aria-label'] === 'Caricamento');
+    assert.ok(skeletons.length >= 3, 'families, comuni and share show a placeholder');
+    const textOf = (inst) => inst.children.map((c) => (typeof c === 'string' ? c : textOf(c))).join('');
+    const kpiText = r.root.findAll((n) => n.props && n.props.className === 'vph-kpi').map((k) => textOf(k.findByType('strong')));
+    assert.ok(kpiText.filter((t) => /\d/.test(t) && !/Km/.test(t)).length === 0, 'no digits in loading KPI values (except the fixed radius)');
+    assert.match(JSON.stringify(r.toJSON()), /"data-date":""/, 'no date without snapshot');
+    act(() => r.unmount());
   });
 } finally {
   await vite.close();
