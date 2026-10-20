@@ -203,7 +203,16 @@ test('Component Render: CustomerAssistantHost monta il trigger sulle route clien
 
   const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
   try {
-    const { default: CustomerAssistantHost } = await vite.ssrLoadModule('/src/components/ai/customer/CustomerAssistantHost.jsx');
+    const { default: CustomerAssistantHost, CustomerContextCard } = await vite.ssrLoadModule('/src/components/ai/customer/CustomerAssistantHost.jsx');
+
+    const partialHtml = renderToStaticMarkup(React.createElement(CustomerContextCard, { stats: { totali: 51, inDistribuzione: 38, inAttesa: null, paymentNote: '1 in attesa confermati · 3 stati mancanti', dataStatus: 'Dati incompleti' } }));
+    assert.match(partialHtml, /Dato non disponibile/);
+    assert.match(partialHtml, /1 in attesa confermati · 3 stati mancanti/);
+    assert.match(partialHtml, /Dati incompleti/);
+    assert.doesNotMatch(partialHtml, /Verificata/);
+    const unknownPayment = renderToStaticMarkup(React.createElement(CustomerContextCard, { campaign: { stato_pagamento: null } }));
+    assert.match(unknownPayment, /Dato non disponibile/);
+    assert.doesNotMatch(unknownPayment, /In attesa/);
 
     // Su dashboard: monta trigger con aria-controls="customer-assistant-drawer"
     const dashboardHtml = renderToStaticMarkup(React.createElement(CustomerAssistantHost, { page: 'dashboard' }));
@@ -224,3 +233,15 @@ test('Component Render: CustomerAssistantHost monta il trigger sulle route clien
   }
 });
 
+
+test('Customer responses use authoritative full counts and disclose unknown payments', () => {
+ const snapshot = {scope:'customer_dashboard',counts:{active:51},campaigns:[{paymentStatus:'in_attesa_pagamento'},{paymentStatus:null},{paymentStatus:'pagato'}]};
+ assert.equal(deterministicCustomerResponse(snapshot,'Quante campagne ho attive?').answer,'Hai 51 campagne attive.');
+ const answer = deterministicCustomerResponse(snapshot,'Ci sono pagamenti da completare?').answer;
+ assert.match(answer,/1 campagne con pagamento in attesa/);
+ assert.match(answer,/Per 1 campagne lo stato del pagamento non è disponibile/);
+ const code = fs.readFileSync(new URL('../supabase/functions/ai-core/index.ts',import.meta.url),'utf8');
+ const handler = code.slice(code.indexOf('async function handleCustomerDashboard'),code.indexOf('async function handleDriverAssignment'));
+ assert.doesNotMatch(handler,/\.limit\(10\)/);
+ assert.match(handler,/\.range\(offset, offset \+ 499\)/);
+});

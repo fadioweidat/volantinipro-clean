@@ -116,7 +116,7 @@ test('Step2MapPanel renders "Analisi GIS in corso..." during standard loading', 
   assert.doesNotMatch(html, /Servizio temporaneamente non disponibile/);
 });
 
-test('Step2MapPanel renders "Connessione temporaneamente lenta. Riprovo..." during slow connection / retry', () => {
+test('Step2MapPanel reports a slow analysis without claiming a network fault or retry', () => {
   const html = renderToStaticMarkup(
     React.createElement(Step2MapPanel, {
       gisLoading: true,
@@ -128,9 +128,18 @@ test('Step2MapPanel renders "Connessione temporaneamente lenta. Riprovo..." duri
     })
   );
 
-  assert.match(html, /Connessione temporaneamente lenta\. Riprovo\.\.\./);
+  assert.match(html, /L’analisi delle zone sta richiedendo più tempo/);
+  assert.doesNotMatch(html, /Connessione temporaneamente lenta|Nuovo tentativo|Riprovo/);
   assert.doesNotMatch(html, /Servizio temporaneamente non disponibile/);
   assert.doesNotMatch(html, /Dati non disponibili, riprova o cambia raggio/);
+});
+
+test('Step2MapPanel announces retry only when a retry is actually active', () => {
+  const html = renderToStaticMarkup(React.createElement(Step2MapPanel, {
+    gisLoading: true, gisRetrying: true, gisSlowConnection: false,
+    gisTimedOut: false, showTerritoryData: true, data: { activeZoneId: 'milano' },
+  }));
+  assert.match(html, /Nuovo tentativo in corso/);
 });
 
 test('Step2MapPanel renders "Servizio temporaneamente non disponibile. Riprova." with Riprova button on timeout', () => {

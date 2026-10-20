@@ -48,6 +48,7 @@ export default defineConfig(({ mode }) => {
     // lo leggiamo qui da process.env e lo inseriamo nel bundle come
     // stringa statica. Vuoto in sviluppo locale (nessun commit finto).
     define: {
+      __VERCEL_BUILD__: JSON.stringify(process.env.VERCEL === '1'),
       __COMMIT_SHA__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA || ''),
       __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     },

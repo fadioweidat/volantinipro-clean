@@ -45,7 +45,10 @@ export async function fetchPoiSearchElements({ centerLat, centerLng, radiusKm, s
   // endpoint Vercel gemello 1:1) si usa quella; altrimenti resta l'Edge
   // Function Supabase. Payload, risposta e gestione errori sono identici.
   const override = String(readEnv('VITE_POI_SEARCH_URL') || '').trim();
-  const endpoint = override || (base ? `${String(base).replace(/\/+$/, '')}/functions/v1/poi-search` : null);
+  // Il proxy Node e' disponibile sulle build Vercel anche senza override env.
+  // In locale Vite non serve /api: resta il percorso Supabase.
+  const vercelBuild = typeof __VERCEL_BUILD__ !== 'undefined' && __VERCEL_BUILD__;
+  const endpoint = override || (vercelBuild ? '/api/poi-search' : (base ? `${String(base).replace(/\/+$/, '')}/functions/v1/poi-search` : null));
   if (!endpoint) throw new Error('POI_SEARCH_UNAVAILABLE');
 
   const headers = { 'Content-Type': 'application/json' };

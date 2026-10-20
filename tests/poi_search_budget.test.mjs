@@ -66,6 +66,32 @@ function installFetch(handler) {
 
 const { fetchPoiSearchElements } = await import('../src/api/poiSearch.js');
 
+test('build Vercel: default same-origin senza credenziali Supabase, override preservato', async () => {
+  globalThis.__VERCEL_BUILD__ = true;
+  const previousOverride = process.env.VITE_POI_SEARCH_URL;
+  delete process.env.VITE_POI_SEARCH_URL;
+  try {
+    const calls = installFetch(async () => ({ ok: true, json: async () => ({ elements: [] }) }));
+    const params = { centerLat: 45.55, centerLng: 9.16, radiusKm: 3, serviceType: 'd2d' };
+    assert.deepEqual(await fetchPoiSearchElements(params), []);
+    assert.equal(calls[0].url, '/api/poi-search');
+    assert.equal(calls[0].init.headers.Authorization, undefined);
+    assert.equal(calls[0].init.headers.apikey, undefined);
+    process.env.VITE_POI_SEARCH_URL = 'https://proj.supabase.co/functions/v1/poi-search';
+    await fetchPoiSearchElements(params);
+    assert.equal(calls[1].url, process.env.VITE_POI_SEARCH_URL);
+    assert.equal(calls[1].init.headers.apikey, 'anon-test-key');
+    delete process.env.VITE_POI_SEARCH_URL;
+    globalThis.__VERCEL_BUILD__ = false;
+    await fetchPoiSearchElements(params);
+    assert.equal(calls[2].url, 'https://proj.supabase.co/functions/v1/poi-search');
+  } finally {
+    delete globalThis.__VERCEL_BUILD__;
+    if (previousOverride === undefined) delete process.env.VITE_POI_SEARCH_URL;
+    else process.env.VITE_POI_SEARCH_URL = previousOverride;
+  }
+});
+
 test('timeout client: una risposta appesa viene abortita, lancia POI_SEARCH_UNAVAILABLE (no hang)', async () => {
   process.env.POI_SEARCH_CLIENT_TIMEOUT_MS = '150';
   installFetch((_url, init) => new Promise((_res, rej) => {

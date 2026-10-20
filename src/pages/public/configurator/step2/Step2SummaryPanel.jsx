@@ -5,7 +5,14 @@ import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { Step2BottomActions } from "./Step2BottomActions.jsx";
 import { Step2SynthesisMessage } from "./Step2SynthesisMessage.jsx";
 
-export function Step2SummaryPanel({ activeCampaignZone, activePointOfSaleName = null, areaMode, businessMaterialPlan, businessOperationalPlan, canContinueCalendar, col, continueLabel, step2ConfigReady, coverageDecisionReady, finalFlyersRounded, h2hMainOutputs, handleNext, hasUnconfirmedAddressPoint, isBusinessStep2, isMobile, isMovementStep2, isResidentialStep2, missingFlyers, operationalSelectionReady, pois, radius, radiusKm, residentialMainOutputsNormalized, selZones, selectedOperationalPois, setIsAdminView, showTerritoryData, step2CoverageFullLabel, step2CoveragePctLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, step2ZonesReady, transportState, zonesInRadius }) {
+export function Step2SummaryPanel({ hasTerritoryContext = true, activeCampaignZone, activePointOfSaleName = null, areaMode, businessMaterialPlan, businessOperationalPlan, canContinueCalendar, col, continueLabel, step2ConfigReady, coverageDecisionReady, finalFlyersRounded, h2hMainOutputs, handleNext, hasUnconfirmedAddressPoint, isBusinessStep2, isMobile, isMovementStep2, isResidentialStep2, missingFlyers, operationalSelectionReady, pois, radius, radiusKm, residentialMainOutputsNormalized, selZones, selectedOperationalPois, setIsAdminView, showTerritoryData, step2CoverageFullLabel, step2CoveragePctLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, step2ZonesReady, transportState, zonesInRadius }) {
+  if (!hasTerritoryContext) return (
+    <div role="status" style={{ padding: 20, color: C.white, fontFamily: F.sans, lineHeight: 1.6 }}>
+      <strong>Seleziona una zona per calcolare la copertura</strong>
+      <p>Cerca un comune, un indirizzo o un CAP per iniziare il preventivo.</p>
+      <button type="button" disabled>Seleziona la zona per continuare</button>
+    </div>
+  );
   return (
     <>
       {/* RIGHT COLUMN - ACTIVE ZONE SUMMARY */}

@@ -5,6 +5,8 @@ import { getAssistantRouteConfig, ASSISTANT_ROLES } from "../global/assistantRou
 import { runCustomerDashboardAi } from "../../../ai/adapters/customerAssistantAdapter.js";
 import { useCampagne } from "../../../hooks/useCampagne.js";
 import { useCampagnaDetail } from "../../../hooks/useCampagnaDetail.js";
+import { buildCustomerDashboardMetrics, buildCustomerDashboardNotes } from "../../../lib/customerDashboardMetrics.js";
+import { CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState } from "../../../lib/customerCampaigns.js";
 import "../quote/quote-assistant.css";
 
 const HUMAN_REQUEST_PATTERN = /(?:parlare|sentire|contattare|scrivere).*(?:persona|operatore|consulente|umano|assistenza|admin)|(?:persona|operatore|consulente|umano|assistenza|admin).*(?:parlare|sentire|contattare|scrivere)/i;
@@ -34,7 +36,7 @@ export function CustomerContextCard({ campaign, stats }) {
           </div>
           <div>
             <span className="quote-ai__context-label">Pagamento</span>
-            <span className="quote-ai__context-value">{campaign.stato_pagamento === "pagato" ? "Saldato" : "In attesa"}</span>
+            <span className="quote-ai__context-value">{getCustomerPaymentState(campaign.stato_pagamento) === CUSTOMER_PAYMENT_STATE.PAID ? "Saldato" : getCustomerPaymentState(campaign.stato_pagamento) === CUSTOMER_PAYMENT_STATE.PENDING ? "In attesa" : CUSTOMER_DATA_UNAVAILABLE}</span>
           </div>
         </div>
       </div>
@@ -51,19 +53,20 @@ export function CustomerContextCard({ campaign, stats }) {
         <div className="quote-ai__context-grid">
           <div>
             <span className="quote-ai__context-label">Campagne totali</span>
-            <span className="quote-ai__context-value">{stats.totali}</span>
+            <span className="quote-ai__context-value">{stats.totali ?? CUSTOMER_DATA_UNAVAILABLE}</span>
           </div>
           <div>
             <span className="quote-ai__context-label">In distribuzione</span>
-            <span className="quote-ai__context-value">{stats.inDistribuzione}</span>
+            <span className="quote-ai__context-value">{stats.inDistribuzione ?? CUSTOMER_DATA_UNAVAILABLE}</span>
           </div>
           <div>
             <span className="quote-ai__context-label">Da saldare</span>
-            <span className="quote-ai__context-value">{stats.inAttesa}</span>
+            <span className="quote-ai__context-value">{stats.inAttesa ?? CUSTOMER_DATA_UNAVAILABLE}</span>
+            {stats.paymentNote && <span className="quote-ai__context-label">{stats.paymentNote}</span>}
           </div>
           <div>
             <span className="quote-ai__context-label">Copertura dati</span>
-            <span className="quote-ai__context-value">Verificata</span>
+            <span className="quote-ai__context-value">{stats.dataStatus}</span>
           </div>
         </div>
       </div>
@@ -81,17 +84,22 @@ export default function CustomerAssistantHost({ page }) {
   const isDetailPage = Boolean(campaignId);
 
   const { campagna: detailCampaign } = useCampagnaDetail(isDetailPage ? campaignId : null);
-  const { campagne: dashboardCampaigns } = useCampagne({ enabled: !isDetailPage });
+  const { campagne: dashboardCampaigns, loading, error } = useCampagne({ enabled: !isDetailPage });
 
   const stats = useMemo(() => {
     if (isDetailPage) return null;
     const list = dashboardCampaigns || [];
+    const metrics = buildCustomerDashboardMetrics(dashboardCampaigns, { loading, error });
+    const notes = buildCustomerDashboardNotes(dashboardCampaigns, { loading, error });
+    const unavailable = loading || error || !Array.isArray(dashboardCampaigns);
     return {
-      totali: list.length,
-      inDistribuzione: list.filter((c) => c.stato === "in_distribuzione").length,
-      inAttesa: list.filter((c) => c.stato_pagamento === "in_attesa" || c.stato_pagamento === "non_pagato").length,
+      totali: unavailable ? null : list.length,
+      inDistribuzione: unavailable || list.some(c => !c.stato) ? null : list.filter((c) => c.stato === "in_distribuzione").length,
+      inAttesa: metrics.waitingPaymentCount,
+      paymentNote: notes.payment,
+      dataStatus: loading ? "Caricamento" : error ? "Errore di caricamento" : unavailable ? CUSTOMER_DATA_UNAVAILABLE : Object.values(metrics).some(value => value == null) ? "Dati incompleti" : "Indicatori disponibili",
     };
-  }, [isDetailPage, dashboardCampaigns]);
+  }, [isDetailPage, dashboardCampaigns, loading, error]);
 
   const handleAsk = useCallback(
     async (question) => {
@@ -155,7 +163,8 @@ export default function CustomerAssistantHost({ page }) {
   return (
     <>
       <VolantiniProAssistantTrigger
-        open={open}
+        expanded={open}
+        compactMobile
         onClick={() => setOpen((prev) => !prev)}
         label="Assistente VolantiniPro"
         badge="?"

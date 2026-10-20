@@ -11,7 +11,7 @@ import { BUSINESS_DELIVERY_METHODS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECT
 import { formatAreaKm2, formatNumber, formatPaperWeight } from "../../../lib/utils/format.js";
 import { formatCoverageProportion } from "../../../lib/step2/buildStep2ViewModel.js";
 import { Step4MultiZoneSummary } from "./step4/Step4MultiZoneSummary.jsx";
-import { buildMultiZoneCampaignZonesPayload, buildMultiZoneDistributionZones, buildMultiZoneMetadata, buildPointOfSalePricing, flattenMultiZoneAllocation, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
+import { buildMultiZoneCampaignZonesPayload, buildMultiZoneDistributionZones, buildMultiZoneMetadata, buildPointOfSalePricing, flattenMultiZoneAllocation, summarizeCampaignZones, getCampaignMunicipalityNames } from "../../../lib/step2/campaignZonesModel.js";
 import { getServiceAccent } from "../../../lib/services/service-config.js";
 import { getZoneFullCoverageFlyers } from "../../../lib/doorToDoorCoverage.js";
 import { MONTHS_SHORT, QUOTE_PRICES } from "../../../lib/appConstants.js";
@@ -584,7 +584,7 @@ export function Step4({
     population: multiZoneSummary.totalPopulation ?? data.serviceKpis?.population,
     recommendedFlyers: multiZoneSummary.totalRequiredFlyers ?? data.serviceKpis?.recommendedFlyers,
     coverage: multiZoneSummary.totalRequiredFlyers > 0 ? Math.min(100, Math.round(multiZoneSummary.totalQuantity / multiZoneSummary.totalRequiredFlyers * 100)) : null,
-    comuniCount: new Set(multiZoneSummary.zones.flatMap(z => z.allocation.map(r => String(r?.name || "").trim().toLowerCase())).filter(Boolean)).size || null
+    comuniCount: getCampaignMunicipalityNames(data.campaignZones).length || null
   } : singlePointOfSale ? {
     // KPI del PV superstite dal suo snapshot (scritto da Step2 con gli stessi
     // serviceKpis): data.serviceKpis puo' essere quello del PV eliminato.
@@ -664,7 +664,7 @@ export function Step4({
   // campaignZonesPayload per i campaign_zones reali. Con UNA sola zona in
   // zoneAllocs, quel nome specifico va preferito; con piu' zone (incl.
   // "Milano completo") il comportamento resta invariato.
-  const mainAreaLabel = isMultiZoneQuote ? multiZoneSummary.zones.map(z => (z.source?.store_name && String(z.source.store_name).trim() ? z.name : step4AreaLabel(z.source?.cityName) || z.name)).join(" + ") : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
+  const mainAreaLabel = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones).join(" + ") || "Aree selezionate" : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
   const estimatedFamiliesForSummary = svcType === "d2d" ? kpis.families ?? (selZ.length ? totF : null) : null;
   const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).
@@ -723,6 +723,8 @@ export function Step4({
     src: "Analisi interna"
   }];
   const kpisPopulation = kpis.population ?? kpis.pop ?? (totP || null);
+  const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
+  const summaryMunicipalityCount = summaryMunicipalityNames.length || null;
   const kpisComuniCount = kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
   const d2dAreaKm2 = kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null);
   const d2dAvgDensity = d2dAreaKm2 && kpisPopulation ? Math.round(kpisPopulation / d2dAreaKm2) : null;
@@ -1795,22 +1797,17 @@ export function Step4({
         lineHeight: 1.65,
         maxWidth: 680
       }}>
-            Con questa configurazione raggiungerai circa{" "}
+            L’area selezionata comprende circa{" "}
             <strong style={{
           color: C.green
         }}>{formatNumber(estimatedFamiliesForSummary, "—")} famiglie{isMultiZoneQuote && multiZoneSummary.hasOverlap ? " (somma non deduplicata, zone sovrapposte)" : ""}</strong>
-            {selectedZoneNames.length > 1 && <>{" "}distribuite in <strong style={{
+            {selectedZoneNames.length > 1 && <>{" "}nelle aree di <strong style={{
             color: col
           }}>{selectedZoneNames.length} {isMultiZoneQuote ? "punti vendita" : "comuni"}</strong></>}
-            {", "}coprendo{" "}
+            {". "}Con {formatNumber(flyerQty, "—")} volantini, la copertura operativa stimata è{" "}
             <strong style={{
           color: C.green
-        }}>{pctToFraction(coverageForSummary) || "dato non disponibile"}</strong>
-            {" "}dell'area selezionata{" "}
-            <span style={{
-          color: "rgba(255,255,255,.45)",
-          fontSize: isMobile ? 12 : 13
-        }}>({coverageForSummary == null ? "—" : `${coverageForSummary}%`})</span>.
+        }}>{coverageForSummary == null ? "dato non disponibile" : `${coverageForSummary}% del fabbisogno operativo`}</strong>.
           </div> : svcType === "h2h" ? <div style={{
         fontFamily: F.sans,
         fontSize: isMobile ? 13 : 15,
@@ -1971,7 +1968,7 @@ export function Step4({
             color: "rgba(255,255,255,.72)",
             letterSpacing: "-1px",
             lineHeight: 1
-          }}>{selectedZoneNames.length || "—"}</div>
+          }}>{summaryMunicipalityCount ?? "—"}</div>
           </div>
           <div style={{
           padding: "14px 12px",
@@ -2338,8 +2335,8 @@ export function Step4({
               }, {
                 icon: "pin",
                 l: "Comuni coinvolti",
-                sub: selectedZoneNames.slice(0, 2).join(", ") + (selectedZoneNames.length > 2 ? ` +${selectedZoneNames.length - 2}` : ""),
-                v: `${selectedZoneNames.length || "—"}`,
+                sub: summaryMunicipalityNames.slice(0, 2).join(", ") + (summaryMunicipalityNames.length > 2 ? ` +${summaryMunicipalityNames.length - 2}` : ""),
+                v: `${summaryMunicipalityCount ?? "—"}`,
                 c: col
               }, {
                 icon: "chart",
@@ -2710,7 +2707,7 @@ export function Step4({
               const ratingCol = quantityIsSufficient && cov >= 70 ? C.green : quantityIsSufficient || cov >= 40 ? "#F59E0B" : col;
               const tips = [quantityIsSufficient == null ? "Copertura non disponibile: completa l'analisi territoriale nello Step 2." : quantityIsSufficient ? `Configurazione coerente: la quantità copre l'intera area selezionata.` : `Copertura parziale: ${missingQty.toLocaleString("it-IT", {
                 useGrouping: true
-              })} volantini aggiuntivi porterebbero alla copertura completa.`, `Budget adeguato per ${selectedZoneNames.length > 1 ? `${selectedZoneNames.length} comuni selezionati` : mainAreaLabel}.`, disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
+              })} volantini aggiuntivi porterebbero alla copertura completa.`, `Budget adeguato per ${summaryMunicipalityCount > 1 ? `${summaryMunicipalityCount} comuni selezionati` : mainAreaLabel}.`, disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
                 useGrouping: true
               })} volantini aggiuntivi.` : cov >= 40 ? "Copertura iniziale buona per misurare l'efficacia della campagna nel territorio." : "Copertura base: ideale per un primo test dell'area prima di scalare."];
               return <motion.div initial={{

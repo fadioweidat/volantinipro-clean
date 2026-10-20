@@ -107,6 +107,24 @@ export function deterministicCustomerResponse(snapshot: any, question: string): 
   // 4. Caso nessuna campagna
   const campaigns = Array.isArray(snapshot?.campaigns) ? snapshot.campaigns : [];
   const singleCampaign = snapshot?.currentCampaign || snapshot?.campaign;
+  if (snapshot?.scope === "customer_dashboard" && Array.isArray(snapshot?.campaigns)) {
+    if (/campagn.*attiv|attiv.*campagn/i.test(normalized)) {
+      const active = snapshot?.counts?.active;
+      return safeCustomerResult(Number.isInteger(active) && active >= 0 ? `Hai ${active} campagne attive.` : "Il numero di campagne attive non è disponibile.");
+    }
+    if (/pagament|saldare|saldo/i.test(normalized)) {
+      const paid = new Set(["pagato", "paid", "completed"]);
+      const pending = new Set(["in_attesa", "in_attesa_pagamento", "pending"]);
+      let pendingCount = 0;
+      let missingCount = 0;
+      for (const campaign of campaigns) {
+        const state = String(campaign.paymentStatus ?? "").trim().toLowerCase();
+        if (pending.has(state)) pendingCount++;
+        else if (!paid.has(state)) missingCount++;
+      }
+      return safeCustomerResult(`Risultano ${pendingCount} campagne con pagamento in attesa.${missingCount ? ` Per ${missingCount} campagne lo stato del pagamento non è disponibile: il conteggio è incompleto.` : ""}`);
+    }
+  }
   if (campaigns.length === 0 && !singleCampaign) {
     if (/(?:campagn|preventiv|stat|attivit)/i.test(normalized)) {
       return safeCustomerResult(

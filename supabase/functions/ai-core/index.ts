@@ -1085,7 +1085,7 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
         quantity: campaign.quantity ?? null,
         totalAmount: campaign.total_amount ?? null,
         status: campaign.status || "in_attesa",
-        paymentStatus: campaign.metadata?.payment_status || "non_pagato",
+        paymentStatus: campaign.metadata?.payment_status ?? campaign.metadata?.stato_pagamento ?? null,
         startDate: campaign.start_date ?? null,
         endDate: campaign.end_date ?? null,
         zones: (campaign.campaign_zones || []).map((z: any) => z.zone_name),
@@ -1094,14 +1094,20 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
     };
   } else {
     // General customer dashboard overview: query campaigns belonging to authenticated user
-    const { data: campaigns, error: campaignsError } = await supabase
-      .from("campaigns")
-      .select("id, user_id, title, city, service_type, quantity, total_amount, status, start_date, end_date, created_at, metadata, campaign_zones(id, zone_name, status)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (campaignsError) return json({ answer: null, status: "error", error: "CUSTOMER_CAMPAIGNS_LOOKUP_FAILED" }, 500);
+    // Page the owner-scoped query: a truncated sample is not an account total.
+    const campaigns: any[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data: page, error: campaignsError } = await supabase
+        .from("campaigns")
+        .select("id, user_id, title, city, service_type, quantity, total_amount, status, start_date, end_date, created_at, metadata, campaign_zones(id, zone_name, status)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(offset, offset + 499);
+      if (campaignsError) return json({ answer: null, status: "error", error: "CUSTOMER_CAMPAIGNS_LOOKUP_FAILED" }, 500);
+      campaigns.push(...(page || []));
+      if (!page?.length) break;
+    }
 
     const safeList = (campaigns || []).map((c: any) => ({
       id: c.id,
@@ -1111,7 +1117,7 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
       quantity: c.quantity ?? null,
       totalAmount: c.total_amount ?? null,
       status: c.status || "in_attesa",
-      paymentStatus: c.metadata?.payment_status || "non_pagato",
+      paymentStatus: c.metadata?.payment_status ?? c.metadata?.stato_pagamento ?? null,
       startDate: c.start_date ?? null,
       endDate: c.end_date ?? null,
       zones: (c.campaign_zones || []).map((z: any) => z.zone_name),
@@ -1123,8 +1129,8 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
       campaigns: safeList,
       counts: {
         total: safeList.length,
-        active: safeList.filter((c: any) => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.status)).length,
-        completed: safeList.filter((c: any) => ["completata", "report_pronto"].includes(c.status)).length,
+        active: safeList.filter((c: any) => ["draft", "pending_review", "approved", "scheduled", "in_progress", "confermata", "in_preparazione", "in_distribuzione"].includes(c.status)).length,
+        completed: safeList.filter((c: any) => ["completed", "completata", "report_pronto"].includes(c.status)).length,
       },
       view: (snapshot as any)?.view || "dashboard",
     };

@@ -4,12 +4,15 @@ import React, { useEffect, useRef, useState } from 'react';
 // lo storage access della CDN). Stesso import gia' usato da tutti gli altri
 // componenti mappa (GpsMonitor, CampaignReport, Driver, map-studio...).
 import L from 'leaflet';
+import { clusterPoiOnScreen } from '../lib/map/clusterPoiOnScreen.js';
+import { attachTileFallbackPolicy } from '../lib/map/tileFallbackPolicy.js';
 import 'leaflet/dist/leaflet.css';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
+import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
 const debugStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
@@ -18,9 +21,9 @@ const warnStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.warn(...args);
 };
 
-// CartoDB Voyager – leggibile, strade visibili, aspetto GIS operativo
-const CARTO_VOYAGER = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const CARTO_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+// Ripiego interattivo se Mapbox non e' configurato o rifiuta il dominio.
+const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 // ── POI categories: palette GIS professionale, toni desaturati ──────────────
 const CATEGORY_COLORS = {
@@ -96,6 +99,20 @@ const MAP_CSS = `
 }
 .leaflet-tile {
   filter: brightness(1.08) contrast(1.10) saturate(0.94);
+}
+.vp-osm-dark-tiles .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(.78) contrast(.9) saturate(.65);
+}
+.leaflet-popup.vp-poi-popup .leaflet-popup-content {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin: 14px;
+  line-height: 1.5;
+}
+.leaflet-popup.vp-poi-popup .leaflet-popup-content-wrapper,
+.leaflet-popup.vp-poi-popup .leaflet-popup-tip {
+  background: #101827;
+  color: #fff;
 }
 .gis-radius-glow {
   filter: drop-shadow(0 0 10px rgba(232,87,26,0.12));
@@ -608,12 +625,12 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
           const city     = z.city;
           // FASE 2: nome PV se impostato, modalita' reale (mai "3 km" per un PV Comune/NIL).
           const rad      = getPointOfSaleModeLabel(z);
-          const label    = sanitizeStoreName(z.store_name) || city?.label || city?.name || `Punto vendita ${idx + 1}`;
+          const label    = sanitizeStoreName(z.store_name) || `PV ${idx + 1} · ${city?.label || city?.name || "Zona"}`;
 
           if (isActive) {
             return (
               <div key={z.id} style={{
-                borderLeft: '3px solid rgba(196,133,42,0.85)',
+                borderLeft: `4px solid ${pointOfSaleMapColor(z.id, zones)}`,
                 background: 'rgba(196,133,42,0.07)',
                 padding: '6px 10px 7px 9px',
               }}>
@@ -646,7 +663,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
                 alignItems: 'center',
                 gap: 0,
                 cursor: 'pointer',
-                borderLeft: '3px solid transparent',
+                borderLeft: `3px solid ${pointOfSaleMapColor(z.id, zones)}`,
                 transition: 'background 0.12s',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
@@ -665,27 +682,6 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
       </div>
     </div>
   );
-}
-
-// ── Grid-clustering helper for POI markers ────────────────────────────────────
-// Groups nearby POI into clusters without a CDN plugin.
-// cellDeg ≈ 0.003° ≈ 250m at Italian latitudes.
-function gridCluster(pois, cellDeg = 0.003) {
-  const cells = {};
-  for (const p of pois) {
-    const cx = Math.floor(p.lng / cellDeg);
-    const cy = Math.floor(p.lat / cellDeg);
-    const k  = `${cx},${cy}`;
-    if (!cells[k]) cells[k] = [];
-    cells[k].push(p);
-  }
-  return Object.values(cells).map(group => {
-    if (group.length === 1) return { ...group[0], isCluster: false };
-    const lat = group.reduce((s, p) => s + p.lat, 0) / group.length;
-    const lng = group.reduce((s, p) => s + p.lng, 0) / group.length;
-    const rep = group.reduce((b, p) => p.priority > b.priority ? p : b, group[0]);
-    return { lat, lng, isCluster: true, count: group.length, color: rep.color, category: rep.category, pois: group };
-  });
 }
 
 // Quintile-based color scale for density choropleth (D2D families layer).
@@ -773,6 +769,8 @@ function Step2MapImpl({
   }, [onMapClick]);
   const mapRef = useRef(null);
   const layersRef = useRef({});
+  const campaignBoundsRef = useRef(null);
+  const campaignViewRef = useRef('');
   const viewRef = useRef({ lat: null, lng: null, radius: null });
   const autoFitRef = useRef({ operational: '', assignments: '' });
   // Leaflet e' bundlato (import L): sempre disponibile, nessun caricamento
@@ -869,9 +867,7 @@ function Step2MapImpl({
       const errEl = document.getElementById('vp-map-error-msg');
       if (errEl) errEl.style.display = 'none';
     };
-    const buildCartoLayer = () => simplifiedMilano
-      ? L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19 })
-      : L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, maxZoom: 19 });
+    const buildFallbackLayer = () => L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19, className: 'vp-osm-dark-tiles' });
 
     let tileLayer;
     if (mbToken) {
@@ -879,24 +875,21 @@ function Step2MapImpl({
         `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken}`,
         { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
       );
-      // Token presente ma rifiutato da Mapbox (401/403, tipicamente per
-      // restrizione di dominio su un token con URL allowlist): un solo
-      // fallback automatico a CARTO, mai un retry su Mapbox nella stessa
-      // sessione mappa. Il flag e' locale a questo effect (non stato React)
-      // perche' 'tileerror' scatta una volta per ogni tile fallita — senza
-      // guardia, lo swap verrebbe ripetuto per ciascuna di esse.
-      let fallbackTriggered = false;
-      tileLayer.on('tileerror', () => {
-        if (fallbackTriggered) return;
-        fallbackTriggered = true;
-        map.removeLayer(tileLayer);
-        const cartoFallback = buildCartoLayer();
-        cartoFallback.on('tileload', hideMapErrorMsg);
-        cartoFallback.on('tileerror', showMapErrorMsg);
-        cartoFallback.addTo(map);
+      // Switch only after a complete failed batch, never on one tile error.
+      attachTileFallbackPolicy(tileLayer, () => {
+        // Leaflet still accesses this layer's map after firing tile/load events.
+        // Let its callback finish before detaching the failed layer.
+        requestAnimationFrame(() => {
+          if (mapRef.current !== map || !map.hasLayer(tileLayer)) return;
+          map.removeLayer(tileLayer);
+          const fallback = buildFallbackLayer();
+          fallback.on('tileload', hideMapErrorMsg);
+          fallback.on('tileerror', showMapErrorMsg);
+          fallback.addTo(map);
+        });
       });
     } else {
-      tileLayer = buildCartoLayer();
+      tileLayer = buildFallbackLayer();
       tileLayer.on('tileerror', showMapErrorMsg);
     }
     tileLayer.addTo(map);
@@ -1361,7 +1354,7 @@ function Step2MapImpl({
           lineJoin: 'round',
         };
         if (simplifiedMilano && isNilZone) {
-          Object.assign(styleUnsel, { color: isContainingNil ? '#38BDF8' : '#7F9DB5', fillColor: '#38BDF8', fillOpacity: isContainingNil ? 0.08 : 0.025, weight: isContainingNil ? 2 : 1, opacity: 0.75, dashArray: isContainingNil ? '4 3' : null });
+          Object.assign(styleUnsel, { color: isContainingNil ? '#38BDF8' : '#7F9DB5', fillColor: isContainingNil ? '#38BDF8' : '#7F9DB5', fillOpacity: isContainingNil ? 0.08 : 0, weight: isContainingNil ? 2 : 1, opacity: 0.75, dashArray: isContainingNil ? '4 3' : null });
           Object.assign(styleSel, { color: '#22D99A', fillColor: '#22D99A', fillOpacity: 0.3, weight: 2.5, opacity: 1 });
         }
         const gisStyle = sel ? styleSel : styleUnsel;
@@ -1492,6 +1485,44 @@ function Step2MapImpl({
     // ── Cerchio raggio + marker centro — disegnati DOPO i poligoni comuni
     // (sopra nell'ordine dei layer) così il cerchio resta sempre visibile e
     // non finisce coperto dai fill dei comuni coinvolti. ───────────────────
+    const campaignBounds = L.latLngBounds([]);
+    const activeOverlayRows = nilMode
+      ? (zonesWithCoords || []).filter(row => selected?.includes(row.id))
+      : coveragePolygons?.length ? coveragePolygons : (zonesWithCoords || []).filter(row => selected?.includes(row.id));
+    const campaignOverlays = buildCampaignMapOverlays(campaignZones, activeZoneId, activeOverlayRows, zonesWithCoords || []);
+    // Inactive PVs first, active PV last. Exact polygons; no synthesized NIL geometry.
+    campaignOverlays.sort((a, b) => Number(a.active) - Number(b.active)).forEach(overlay => {
+      const geometry = parseAndValidateGeoJsonGeometry(overlay.geometry);
+      if (!geometry) return;
+      const layer = L.geoJSON(geometry, {
+        pane: 'nilPolygonsPane',
+        style: { color: overlay.color, fillColor: overlay.color,
+          weight: overlay.active ? 3 : 2, opacity: overlay.active ? 1 : 0.8,
+          fillOpacity: overlay.active ? 0.22 : 0.1, dashArray: overlay.active ? null : '6 3',
+          className: `vp-pv-territory ${overlay.active ? 'vp-pv-active' : 'vp-pv-inactive'}` },
+        interactive: !overlay.active,
+      });
+      layer.bindTooltip(`${esc(overlay.label)} · ${esc(overlay.name)}${overlay.active ? ' · Attivo' : ' · Clicca per attivare'}`);
+      if (!overlay.active) layer.on('click', () => onSelectZone?.(overlay.ownerId));
+      layer.addTo(group);
+      const bounds = layer.getBounds();
+      if (bounds.isValid()) campaignBounds.extend(bounds);
+    });
+    campaignBoundsRef.current = campaignBounds;
+    if (campaignBounds.isValid()) {
+      const signature = `${activeZoneId}:${campaignOverlays.map(row => row.key).sort().join('|')}:${campaignBounds.toBBoxString()}`;
+      if (viewChanged || campaignViewRef.current !== signature) {
+        campaignViewRef.current = signature;
+        const fitCampaign = () => {
+          if (mapRef.current !== map || !map.getContainer()?.isConnected) return;
+          map.fitBounds(campaignBounds, { padding: [45, 45], maxZoom: 15, animate: false });
+        };
+        fitCampaign();
+        requestAnimationFrame(fitCampaign);
+      }
+    } else campaignViewRef.current = '';
+
+
     zonesList.forEach(z => {
       const isActive = z.id === activeZoneId || z.id === 'active_zone';
       const zCity = isActive ? city : (z.city || null);
@@ -1506,7 +1537,8 @@ function Step2MapImpl({
       // ── 1. Raggio / Circle — sempre nascosto in modalità comune intero,
       // sempre verde tratteggiato (area attiva) quando la zona attiva è in
       // modalità raggio, coerente con lo stile del confine comunale. ──────
-      const showCircle = isRingOn && !isMunicipalityMode && (!isActive || hasConfirmedRadius);
+      const zoneIsRadius = isActive ? !isMunicipalityMode && !nilMode : z.searchMode === 'address' && !z.nilManualMode;
+      const showCircle = isRingOn && zoneIsRadius && (!isActive || hasConfirmedRadius);
       if (showCircle) {
         L.circle([zCity.lat, zCity.lng], {
           radius: zRadius * 1000,
@@ -1786,13 +1818,10 @@ function Step2MapImpl({
       const poiGroup = L.layerGroup().addTo(map);
       layersRef.current.poiGroup = poiGroup;
 
-      // Cell size scales with radius: bigger area → coarser clustering
-      const cellDeg = mapZoom >= 15 ? 0.00001 : effectiveMapRadius <= 2 ? 0.0015 : effectiveMapRadius <= 5 ? 0.003 : 0.005;
-      // Con pochi risultati mostriamo sempre ogni singolo punto: sono scelte operative,
-      // non semplici indicatori statistici. Il clustering resta utile solo su liste grandi.
+      // Cluster by visible pixel distance at the current zoom.
       const clusters = validPois.length <= 30
         ? validPois.map((poi) => ({ ...poi, isCluster: false }))
-        : gridCluster(validPois, cellDeg);
+        : clusterPoiOnScreen(validPois, poi => map.project([poi.lat, poi.lng], map.getZoom()));
 
       clusters.forEach(item => {
         if (item.isCluster) {
@@ -1848,7 +1877,7 @@ function Step2MapImpl({
                 ? `<br>${businessDetails ? `${businessDetails}<br>` : ''}<span style="color:#7DD3FC">Clicca per selezionare l'attività</span>`
                 : '<br><span style="color:#7DD3FC">Clicca per aggiungere e assegnare</span>');
           const contextLabel = svcType === 'd2d'
-            ? '<br><span style="color:#7DD3FC">Attività presente dentro il raggio selezionato</span>'
+            ? '<br><span style="color:#7DD3FC">Attività mostrata come riferimento sulla mappa</span>'
             : assignmentLabel;
           const tip = `${_buildPoiTip(item)}${contextLabel}`;
           const poiMarker = L.marker([item.lat, item.lng], {
@@ -1857,7 +1886,18 @@ function Step2MapImpl({
               : selectablePoiIcon(L, item.color || categoryColor(item.category), isSel, assignment?.operatorNumber, item.category),
             zIndexOffset: isSel ? 500 : 200,
             pane: 'poiSelectionPane',
-          }).bindTooltip(tip, { direction: 'top', offset: [0, -16], opacity: 1 });
+          });
+          if (map.getSize().x <= 640) {
+            poiMarker.bindPopup(tip, {
+              className: 'vp-poi-popup',
+              maxWidth: Math.max(140, Math.min(260, map.getSize().x - 80)),
+              autoPan: true,
+              autoPanPadding: [20, 20],
+              closeButton: true,
+            });
+          } else {
+            poiMarker.bindTooltip(tip, { direction: 'auto', offset: [0, -16], opacity: 1 });
+          }
           if (svcType !== 'd2d') poiMarker.on('click', () => onTogglePoi?.(item));
           poiMarker.addTo(poiGroup);
           if (item.id != null) poiMarkersByIdRef.current.set(item.id, poiMarker);
@@ -2166,6 +2206,13 @@ function Step2MapImpl({
           onSelectZone={onSelectZone}
         />
       )}
+      {leafletLoaded && campaignZones?.length > 1 && <button type="button" data-testid="map-show-all-pv" onClick={() => {
+        const bounds = campaignBoundsRef.current;
+        if (bounds?.isValid()) mapRef.current?.fitBounds(bounds, { padding: [45, 45], maxZoom: 15 });
+      }} style={{ position: 'absolute', bottom: 30, left: 12, zIndex: 950, padding: '10px 14px', minHeight: 44,
+        borderRadius: 8, border: '1px solid #64748B', background: '#0F172A', color: '#fff', cursor: 'pointer' }}>
+        Mostra tutte le zone
+      </button>}
 
       {/* Density legend – shown when density layer is active for D2D */}
       {leafletLoaded && city && activeLayers?.density && svcType === 'd2d' && (
