@@ -18,6 +18,7 @@ import { resolveTerritoryPoiScope } from "../../../lib/step2/territoryPoiScope.j
 import { resolvePoiQueryRadiusKm } from "../../../lib/step2/poiQueryRadius.js";
 import { MilanoTerritorySummary } from "./step2/MilanoTerritorySummary.jsx";
 import "./step2/milano-client.css";
+import "./step2/step2-zone-details.css";
 import { MilanoGuidance } from "./step2/MilanoGuidance.jsx";
 import { bizCategoryChart, businessRows, businessZoneScore, getComuneColor, getH2HMetrics, getTargetBizMeta, H2H_HOTSPOT_META, h2hHotspotRows, h2hHotspotStrength, residentialRows, residentialStrength } from "../../../lib/step2/businessZoneHelpers.js";
 import { buildOperationalAdvice, D2D_DAILY_CAPACITY, estimateOperationalDays, H2H_FLYERS_PER_PROMOTER_HOUR, resolveAssignedQuantity } from "../../../lib/step2/operationalMetrics.js";
