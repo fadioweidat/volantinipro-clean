@@ -92,14 +92,31 @@ test("WhatsApp: '+39 351 767 3737' -> wa.me/393517673737 + messaggio precompilat
 });
 
 // ── InlineHelpCta (richiamo Step) ────────────────────────────────────────
+// faa2b27: InlineHelpCta delegates to the shared VolantiniProAssistantTrigger
+// (same pill, labels and aria-controls; round icon-only button on mobile).
 test("InlineHelpCta: launcher fisso apre l'assistente contestuale senza logica Step", () => {
   const src = read("src/components/common/InlineHelpCta.jsx");
-  assert.match(src, /position: "fixed"/);
-  assert.match(src, /Hai bisogno di aiuto\?/);
-  assert.match(src, /Chiedi all’assistente VolantiniPro/);
-  assert.match(src, /aria-controls="quote-ai-panel"/);
+  assert.match(src, /<VolantiniProAssistantTrigger onAsk=\{onAsk\} expanded=\{expanded\} compactMobile \/>/);
   // non importa nulla dagli Step / calcoli preventivo
   assert.doesNotMatch(src, /configurator\/Step|quotePricing|pricing|territorialCampaignCalculator/);
+  const trigger = read("src/components/ai/global/VolantiniProAssistantTrigger.jsx");
+  assert.match(trigger, /position: "fixed"/);
+  assert.match(trigger, /label = "Hai bisogno di aiuto\?"/);
+  assert.match(trigger, /sublabel = "Chiedi all’assistente VolantiniPro"/);
+  assert.match(trigger, /ariaControls = "quote-ai-panel"/);
+  assert.match(trigger, /aria-controls=\{ariaControls\}/);
+  // on mobile the text is hidden but the button keeps an accessible name
+  assert.match(trigger, /aria-label=\{`\$\{label\} - \$\{sublabel\}`\}/);
+});
+
+test("assistente negli Step: WhatsApp ed email (contatto umano) restano nel pannello", () => {
+  const panel = read("src/components/ai/quote/QuoteAssistantPanel.jsx");
+  assert.match(panel, /showHumanContacts=\{true\}/);
+  assert.match(read("src/app/PublicRoutes.jsx"), /isConfiguratorStep && <QuoteAssistantPanel open=\{assistantOpen\}/);
+  const drawer = read("src/components/ai/global/VolantiniProAssistantDrawer.jsx");
+  assert.match(drawer, /\{showHumanContacts && <AssistantContactLinks \/>\}/);
+  assert.match(drawer, /const whatsappUrl = buildInfoWhatsAppUrl\(\) \|\| ASSISTANT_WHATSAPP_URL;/);
+  assert.match(drawer, /<a href=\{buildInfoMailtoUrl\(\)\}>/);
 });
 
 // ── Navbar (pagine non-home): voce "Contatti" desktop + mobile ─────────

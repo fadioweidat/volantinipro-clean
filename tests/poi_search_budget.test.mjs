@@ -128,7 +128,8 @@ const step2map = readFileSync(new URL('../src/components/Step2Map.jsx', import.m
 
 test('Step2.jsx: poiLoading NON gata gisLoading per residenziale/D2D (solo H2H/B2B)', () => {
   assert.match(step2, /const poiIsOperationalData = isBusinessStep2 \|\| isMovementStep2;/);
-  assert.match(step2, /const gisLoading = Boolean\(city && \(apiLoading \|\| sectorsLoading \|\| \(poiIsOperationalData && poiLoading\)\)\);/);
+  // 3ab325c: sectors are optional for D2D too; only H2H/B2B wait for sectors and POI.
+  assert.match(step2, /const gisLoading = Boolean\(city && \(apiLoading \|\| \(poiIsOperationalData && \(sectorsLoading \|\| poiLoading\)\)\)\);/);
   // il vecchio gate che includeva sempre poiLoading/civici/transport non c'e' piu'
   assert.doesNotMatch(step2, /apiLoading \|\| sectorsLoading \|\| poiLoading \|\| civiciLoading \|\| transportLoading/);
 });

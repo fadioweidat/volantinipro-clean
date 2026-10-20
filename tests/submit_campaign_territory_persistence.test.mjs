@@ -6,7 +6,7 @@ import ts from 'typescript';
 import { webcrypto } from 'node:crypto';
 
 const source = fs.readFileSync(process.env.PV_SUBMIT_SOURCE || new URL('../supabase/functions/submit-campaign-request/index.ts', import.meta.url), 'utf8');
-const js = ts.transpileModule(source.replace(/^import .*;\n/gm, ''), {
+const js = ts.transpileModule(source.replace(/^import .*;\r?\n/gm, ''), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
 }).outputText;
 

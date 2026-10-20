@@ -13,8 +13,9 @@ const appcss = readFileSync(new URL('../src/styles/app.css', import.meta.url), '
 test('Step2Map: il motore disegna raggio geodetico (L.circle in metri) e non inventa poligoni mancanti', () => {
   assert.match(step2map, /L\.circle\(\[zCity\.lat, zCity\.lng\], \{\s*\n\s*radius: zRadius \* 1000/);
   assert.match(step2map, /no_geometry|geometry_parse_error/);
-  // tile reali CartoDB Voyager
-  assert.match(step2map, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
+  // tile reali: Mapbox, con ripiego OSM (CARTO senza chiave non funziona più, vedi TODO piano B)
+  assert.match(step2map, /api\.mapbox\.com\/styles\/v1\/mapbox\/dark-v11\/tiles/);
+  assert.match(step2map, /tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png/);
 });
 
 test('Step2Map: prop opzionale centerLabel -> tooltip PERMANENTE ancorato al centro (no regressione default)', () => {

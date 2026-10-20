@@ -60,6 +60,9 @@ export const Step2Map = N;
 export default N;
 `;
 
+// Test-only placeholders so the URL can be built without a local .env file.
+process.env.VITE_SUPABASE_URL ||= "https://proj.supabase.co";
+process.env.VITE_SUPABASE_ANON_KEY ||= "anon-test-key";
 const vite = await createServer({
   server: { middlewareMode: true, watch: null },
   appType: "custom",

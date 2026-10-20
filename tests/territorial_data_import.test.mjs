@@ -18,13 +18,19 @@ test("official test pipeline includes territorial data import contracts", () => 
   assert.equal(fs.existsSync(new URL("../scripts/import_gtfs.mjs", import.meta.url)), true);
 });
 
-test("Step 2 map uses a real tokenless CARTO/OSM tile fallback, with automatic runtime fallback from Mapbox to CARTO on tile errors", () => {
-  assert.match(step2Map, /if \(mbToken\)[\s\S]+mapbox[\s\S]+else[\s\S]+buildCartoLayer/);
-  assert.match(step2Map, /attribution: CARTO_ATTR/);
-  // Fallback automatico Mapbox -> CARTO a runtime (401/403 su token con
+// 6c966b6: the keyless CARTO raster fallback stopped working (CARTO requires an
+// API key since 25/09/2026), so the fallback is OSM tiles for now. Plan B in
+// TODO.md replaces it with CARTO + key.
+test("Step 2 map uses a real tokenless OSM tile fallback, with automatic runtime fallback from Mapbox to OSM after a failed tile batch", () => {
+  assert.match(step2Map, /if \(mbToken\)[\s\S]+mapbox[\s\S]+else[\s\S]+buildFallbackLayer/);
+  assert.match(step2Map, /const OSM_TILES = 'https:\/\/tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png'/);
+  assert.match(step2Map, /attribution: OSM_ATTR/);
+  assert.match(step2Map, /OpenStreetMap<\/a> contributors/);
+  // Fallback automatico Mapbox -> OSM a runtime (401/403 su token con
   // restrizione di dominio): un solo swap per sessione mappa, mai un loop.
-  assert.match(step2Map, /fallbackTriggered/);
-  assert.match(step2Map, /cartoFallback\.on\('tileerror', showMapErrorMsg\)/);
+  assert.match(step2Map, /attachTileFallbackPolicy\(tileLayer, \(\) => \{/);
+  assert.match(step2Map, /fallback\.on\('tileerror', showMapErrorMsg\)/);
+  assert.doesNotMatch(step2Map, /basemaps\.cartocdn\.com/, "no keyless CARTO raster tiles");
 });
 
 test("POI provider reads real cached coordinates in radius without D2D substitution", () => {
