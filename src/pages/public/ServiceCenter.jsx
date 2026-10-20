@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
+import { buildConfiguratorHref, buildQuickQuoteHref, readComuneParam } from "../../lib/quote/quoteComuneParam.js";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C = {
@@ -368,7 +369,12 @@ function OutputCard({ out, svcCol, index }) {
 }
 
 /* ─── QUOTE SELECTION HEADER ─── */
-function QuoteSelectionHeader({ onNav }) {
+// A comune chosen in the homepage calculator arrives as /preventivo?comune=…:
+// both paths keep it (Guidato: configurator with the comune preselected;
+// Rapido: comune pre-filled). Without it the buttons behave exactly as before.
+function QuoteSelectionHeader({ onNav, comune }) {
+  const startGuided = () => (comune ? window.location.assign(buildConfiguratorHref(comune)) : onNav("step1", null, { newCampaign: true }));
+  const startQuick = () => (comune ? window.location.assign(buildQuickQuoteHref(comune)) : onNav("quick"));
   return (
     <div style={{ background: `linear-gradient(180deg, #0B1020 0%, ${C.navy} 100%)`, padding: "52px 28px 64px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -427,7 +433,7 @@ function QuoteSelectionHeader({ onNav }) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>3-5 minuti</div>
               </div>
               <button
-                onClick={() => onNav("step1", null, { newCampaign: true })}
+                onClick={startGuided}
                 style={{ background: C.indigo, color: C.white, border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 14px ${C.indigo}40` }}
               >
                 Inizia il percorso
@@ -474,7 +480,7 @@ function QuoteSelectionHeader({ onNav }) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>Meno di 1 minuto</div>
               </div>
               <button
-                onClick={() => onNav("quick")}
+                onClick={startQuick}
                 style={{ background: "transparent", color: C.white, border: "1px solid rgba(255,255,255,.2)", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer" }}
               >
                 Calcola subito
@@ -537,13 +543,14 @@ function QuoteSelectionHeader({ onNav }) {
 /* ─── MAIN PAGE ─── */
 export default function ServiceCenter({ onNav }) {
   const [active, setActive] = useState("d2d");
+  const comune = useMemo(() => (typeof window === "undefined" ? null : readComuneParam(window.location.search)), []);
 
   const svc = SERVICES.find(s => s.id === active);
 
   return (
     <div style={{ minHeight: "100vh", background: C.navy, paddingBottom: 80 }}>
 
-      <QuoteSelectionHeader onNav={onNav} />
+      <QuoteSelectionHeader onNav={onNav} comune={comune} />
 
       {/* HEADER - ORIGINAL (Service Center features) */}
       <div style={{ background: C.navy, padding: "52px 28px 44px", borderBottom: "1px solid rgba(255,255,255,.05)", borderTop: "1px solid rgba(255,255,255,.05)" }}>

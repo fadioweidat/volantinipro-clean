@@ -4,6 +4,7 @@ import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { useServiceAnalysis } from "../../hooks/useServiceAnalysis.js";
 import { canonicalizeItalianMunicipalityName } from "../../lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { searchItalianMunicipalities } from "../../lib/geocoding/searchItalianMunicipalities.js";
+import { readComuneParam } from "../../lib/quote/quoteComuneParam.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../../lib/extraServicesRegistry.js";
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
 import { printQuotePdf } from "../../lib/pdf/printQuotePdf.js";
@@ -198,6 +199,29 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     setComuni((prev) => prev.filter((c) => c.name !== name));
     setQuantityAcknowledged(false);
   };
+
+  // Comune passed from the homepage calculator via "Richiedi un Preventivo"
+  // (/preventivo-rapido?comune=…): resolved with the same shared search as the
+  // input below and added like a user pick. No exact match -> the name is left
+  // in the field (suggestions open) and the user chooses; never a guessed comune.
+  useEffect(() => {
+    const initial = typeof window === "undefined" ? null : readComuneParam(window.location.search);
+    if (!initial) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await searchItalianMunicipalities(initial);
+        if (cancelled) return;
+        const match = list.find((s) => canonicalizeItalianMunicipalityName(s.name, s).toLowerCase() === initial.toLowerCase());
+        if (match) addComune(match);
+        else { setComuneInput(initial); setDropOpen(true); }
+      } catch {
+        if (!cancelled) { setComuneInput(initial); setDropOpen(true); }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cambio servizio: la raccomandazione territoriale automatica esiste solo
   // per Door to Door (vedi territorialCampaignCalculator.js — nessuna fonte

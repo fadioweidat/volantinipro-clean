@@ -6,6 +6,10 @@ import { searchItalianMunicipalities } from '../../lib/geocoding/searchItalianMu
 import { apiToZones } from '../../lib/step2/zoneGeoHelpers.js';
 import { formatOperationalMarginNote, getOperationalMarginPct, getZoneFullCoverageFlyers } from '../../lib/doorToDoorCoverage.js';
 import { formatHeroMetric } from './homepageHeroData.js';
+import { buildQuoteSelectionHref } from '../../lib/quote/quoteComuneParam.js';
+
+// Kept exported for existing callers/tests; the link now lives in the shared module.
+export { buildConfiguratorHref } from '../../lib/quote/quoteComuneParam.js';
 
 // Same single-comune request as Preventivo Rapido (QuickQuotePage.jsx):
 // analysis-istat, 3 km technical radius, selectionScope "municipality".
@@ -20,11 +24,6 @@ export function uniqueByComune(list) {
     seen.add(key);
     return true;
   });
-}
-
-export function buildConfiguratorHref(comuneName) {
-  const params = new URLSearchParams({ service: 'd2d', comune: comuneName, source: 'homepage_calculator' });
-  return `/configuratore?${params.toString()}`;
 }
 
 export default function HomeQuoteCalculator({ onConfigure }) {
@@ -103,8 +102,11 @@ export default function HomeQuoteCalculator({ onConfigure }) {
     else if (event.key === 'Escape') setOpen(false);
   };
 
-  const goToConfigurator = () => {
-    if (comune) window.location.assign(buildConfiguratorHref(comune.name));
+  // Same destination as the navbar CTA: "Richiedi un Preventivo" (/preventivo).
+  // With a comune it travels in the URL and that page forwards it to
+  // Preventivo Guidato and Preventivo Rapido.
+  const goToQuoteSelection = () => {
+    if (comune) window.location.assign(buildQuoteSelectionHref(comune.name));
     else onConfigure?.();
   };
 
@@ -162,7 +164,7 @@ export default function HomeQuoteCalculator({ onConfigure }) {
     {status === 'unavailable' && <p className="vpq-calc-alert" role="alert">Non abbiamo dati ISTAT per {comune.name}. Puoi comunque calcolare il preventivo nel configuratore.</p>}
 
     <p className="vpq-info"><ProcessIcon name="info" /><span>Se la quantità supera la capacità stimata della zona, puoi ampliare il territorio o aggiungere altri Comuni.</span></p>
-    <button type="button" className="vpq-cta" onClick={goToConfigurator}>Calcola il preventivo online <span aria-hidden="true">→</span></button>
-    <p className="vpq-next">{comune ? `Apri il configuratore con ${comune.name} già selezionato.` : 'Scegli servizio e territorio e scopri il tuo preventivo.'}</p>
+    <button type="button" className="vpq-cta" onClick={goToQuoteSelection}>Calcola il preventivo online <span aria-hidden="true">→</span></button>
+    <p className="vpq-next">{comune ? `Scegli il percorso: ${comune.name} resterà selezionato.` : 'Scegli servizio e territorio e scopri il tuo preventivo.'}</p>
   </article>;
 }

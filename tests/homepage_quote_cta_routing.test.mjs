@@ -1,0 +1,94 @@
+// Homepage "Calcola il preventivo online" CTAs lead to "Richiedi un Preventivo"
+// (/preventivo), like the navbar "Calcola preventivo". A comune chosen in the
+// calculator travels as ?comune= and is forwarded to Preventivo Guidato
+// (configurator prefill) and Preventivo Rapido (pre-filled comune).
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import {
+  sanitizeComuneParam,
+  readComuneParam,
+  buildQuoteSelectionHref,
+  buildConfiguratorHref,
+  buildQuickQuoteHref,
+} from "../src/lib/quote/quoteComuneParam.js";
+
+const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+
+test("comune param: real Italian names pass, anything else is dropped", () => {
+  for (const name of ["Seveso", "Cormano", "Sesto San Giovanni", "Sant'Angelo Lodigiano", "Cassano d’Adda", "Cantù", "Reggio nell'Emilia"]) {
+    assert.equal(sanitizeComuneParam(name), name, name);
+  }
+  assert.equal(sanitizeComuneParam("  Seveso  "), "Seveso");
+  for (const bad of ["", "   ", null, undefined, "<script>alert(1)</script>", "Seveso?x=1", "a&b", "javascript:alert(1)", "123", "x".repeat(81)]) {
+    assert.equal(sanitizeComuneParam(bad), null, String(bad));
+  }
+  assert.equal(readComuneParam("?comune=Seveso"), "Seveso");
+  assert.equal(readComuneParam("?comune=Sesto%20San%20Giovanni&x=1"), "Sesto San Giovanni");
+  assert.equal(readComuneParam("?comune=%3Cb%3E"), null);
+  assert.equal(readComuneParam(""), null);
+});
+
+test("links: /preventivo carries the comune; Guidato keeps today's configurator prefill; Rapido gets it too", () => {
+  assert.equal(buildQuoteSelectionHref("Seveso"), "/preventivo?comune=Seveso");
+  assert.equal(buildQuoteSelectionHref("Sesto San Giovanni"), "/preventivo?comune=Sesto+San+Giovanni");
+  assert.equal(buildQuoteSelectionHref(null), "/preventivo");
+  assert.equal(buildQuoteSelectionHref("<x>"), "/preventivo");
+  assert.equal(buildConfiguratorHref("Seveso"), "/configuratore?service=d2d&comune=Seveso&source=homepage_calculator");
+  assert.equal(buildQuickQuoteHref("Seveso"), "/preventivo-rapido?comune=Seveso");
+  assert.equal(buildQuickQuoteHref(""), "/preventivo-rapido");
+});
+
+test("calculator CTA goes to Richiedi un Preventivo (with comune) and says the comune stays selected", () => {
+  const calc = read("src/components/home/HomeQuoteCalculator.jsx");
+  assert.match(calc, /if \(comune\) window\.location\.assign\(buildQuoteSelectionHref\(comune\.name\)\);\s*\n\s*else onConfigure\?\.\(\);/);
+  assert.match(calc, /onClick=\{goToQuoteSelection\}>Calcola il preventivo online/);
+  assert.match(calc, /`Scegli il percorso: \$\{comune\.name\} resterà selezionato\.`/);
+  assert.doesNotMatch(calc, /Apri il configuratore con/);
+  assert.doesNotMatch(calc, /window\.location\.assign\(buildConfiguratorHref/);
+});
+
+test("every homepage 'Calcola il preventivo online' button and the navbar CTA lead to the same 'preventivo' page", () => {
+  const home = read("src/pages/public/HomePage.jsx");
+  for (const section of ["VolantiniProHeroMap", "QuantityValueSection", "HowItWorksSection", "GpsLiveSection"]) {
+    const block = home.slice(home.indexOf(`_jsx(${section},`), home.indexOf("})", home.indexOf(`_jsx(${section},`)));
+    assert.match(block, /onConfigure: \(\) => n\("preventivo"\)/, section);
+  }
+  const hero = read("src/components/home/VolantiniProHeroMap.jsx");
+  assert.match(hero, /className="vph-button" onClick=\{configure\}>Calcola il preventivo online/);
+  assert.match(hero, /onClick=\{configure\} style=\{primaryButtonStyle\}>\s*Calcola preventivo/);
+  for (const file of ["HowItWorksSection.jsx", "GpsLiveSection.jsx"]) {
+    assert.match(read(`src/components/home/${file}`), /onClick=\{\(\) => onConfigure\?\.\(\)\}>Calcola il preventivo online/, file);
+  }
+  const routes = read("src/app/routeResolution.js");
+  assert.match(routes, /if \(p === '\/preventivo'\) return 'preventivo';/);
+  // /preventivo must win over the configurator prefill route even when ?comune= is present.
+  assert.ok(routes.indexOf("'/preventivo'") < routes.indexOf("prefillHas) return"));
+});
+
+test("Richiedi un Preventivo forwards the comune to Guidato and Rapido; other buttons untouched", () => {
+  const sc = read("src/pages/public/ServiceCenter.jsx");
+  assert.match(sc, /const startGuided = \(\) => \(comune \? window\.location\.assign\(buildConfiguratorHref\(comune\)\) : onNav\("step1", null, \{ newCampaign: true \}\)\);/);
+  assert.match(sc, /const startQuick = \(\) => \(comune \? window\.location\.assign\(buildQuickQuoteHref\(comune\)\) : onNav\("quick"\)\);/);
+  assert.match(sc, /readComuneParam\(window\.location\.search\)/);
+  assert.match(sc, /<QuoteSelectionHeader onNav=\{onNav\} comune=\{comune\} \/>/);
+  // "Configura {servizio} →" (service tab button) keeps its original behaviour.
+  assert.match(sc, /onClick=\{\(\) => onNav\("step1", null, \{ newCampaign: true \}\)\}[\s\S]{0,400}Configura \{svc\.name\} →/);
+  // Consulenza unchanged.
+  assert.match(sc, /onClick=\{\(\) => onNav\("consultant"\)\}/);
+});
+
+test("Preventivo Rapido pre-fills the comune from ?comune= through the shared search (exact match only)", () => {
+  const qq = read("src/pages/public/QuickQuotePage.jsx");
+  assert.match(qq, /readComuneParam\(window\.location\.search\)/);
+  assert.match(qq, /const list = await searchItalianMunicipalities\(initial\);/);
+  assert.match(qq, /canonicalizeItalianMunicipalityName\(s\.name, s\)\.toLowerCase\(\) === initial\.toLowerCase\(\)/);
+  assert.match(qq, /if \(match\) addComune\(match\);\s*\n\s*else \{ setComuneInput\(initial\); setDropOpen\(true\); \}/);
+});
+
+test("services cards and Business CTA are not rerouted", () => {
+  const services = read("src/components/home/ServicesSection.jsx");
+  assert.match(services, /cta: "Calcola Door to Door"/);
+  assert.match(services, /cta: "Richiedi progetto Business"/);
+  assert.doesNotMatch(services, /quoteComuneParam|buildQuoteSelectionHref/);
+});
