@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildHomeCalculatorAnalysisArgs, readHomeCalculatorAnalysis, isMilanoComune, MILANO_WHOLE_CITY_RADIUS_KM } from "../src/lib/quote/homeCalculatorAnalysis.js";
+import { buildHomeCalculatorAnalysisArgs, readHomeCalculatorAnalysis, isMilanoComune, MILANO_WHOLE_CITY_RADIUS_KM, splitQuickQuoteComuni, buildQuickQuoteAnchorAnalysisArgs } from "../src/lib/quote/homeCalculatorAnalysis.js";
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/home_calculator/${name}.json`, import.meta.url), "utf8"));
 const MILANO = { name: "Milano", lat: 45.4642, lng: 9.19 };
@@ -56,4 +56,27 @@ test("component: 'Non abbiamo dati ISTAT' only for missing data, Milano note und
   assert.match(calc, /: analysis\?\.missing \? 'unavailable'\s*\n\s*: 'error';/);
   assert.match(calc, /Nel configuratore puoi scegliere i singoli quartieri\./);
   assert.match(calc, /status === 'ready' && isMilano &&/);
+});
+
+test("Preventivo Rapido: Milano gets its own 'Milano intera' request, the other comuni keep the anchor request", () => {
+  const seveso = { name: "Seveso", lat: 45.64, lng: 9.14 };
+  const meda = { name: "Meda", lat: 45.66, lng: 9.15 };
+  assert.deepEqual(splitQuickQuoteComuni([MILANO]), { milano: MILANO, others: [] });
+  assert.deepEqual(splitQuickQuoteComuni([seveso, MILANO, meda]), { milano: MILANO, others: [seveso, meda] });
+  assert.equal(buildQuickQuoteAnchorAnalysisArgs([], "d2d", null)[4], null, "Milano alone: no anchor request");
+  assert.deepEqual(buildQuickQuoteAnchorAnalysisArgs([seveso], "d2d", 5000), [45.64, 9.14, 3, "d2d", "Seveso", 5000, "comune", null, "municipality", null]);
+  assert.deepEqual(buildQuickQuoteAnchorAnalysisArgs([seveso, meda], "d2d", null), [45.64, 9.14, 25, "d2d", "Seveso", null, "comune", null, "multi", null]);
+  assert.equal(buildQuickQuoteAnchorAnalysisArgs([seveso], "h2h", null)[4], null, "H2H/B2B use the per-comune POI requests");
+  const milano = readHomeCalculatorAnalysis(fixture("milano_intera").body, MILANO);
+  assert.ok(milano.population > 0, "population summed from the NILs");
+});
+
+test("Preventivo Rapido wiring: Milano row from the NIL sum, clear message instead of an endless 'In calcolo…'", () => {
+  const quick = readFileSync(new URL("../src/pages/public/QuickQuotePage.jsx", import.meta.url), "utf8");
+  assert.match(quick, /useServiceAnalysis\(\.\.\.buildQuickQuoteAnchorAnalysisArgs\(otherComuni, service, qty\)\)/);
+  assert.match(quick, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(service === "d2d" \? milanoComune : null\)\)/);
+  assert.match(quick, /if \(c === milanoComune\) \{/);
+  assert.match(quick, /recommendedFlyers: ok \? milano\.recommended : null, matched: Boolean\(ok\)/);
+  assert.match(quick, /Dati ISTAT non disponibili per \{d2dUnmatched\.join\(", "\)\} in questo momento\./);
+  assert.match(quick, /d2dUnmatched\.length \? "Da inserire" : \(hasComuni \? "In calcolo…" : "In attesa"\)/);
 });

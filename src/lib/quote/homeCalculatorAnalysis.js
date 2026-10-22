@@ -35,6 +35,23 @@ const finite = (value) => {
 };
 
 /**
+ * Preventivo Rapido: Milano gets its own "Milano intera" request (its answer is
+ * by NIL, never a "Milano" comune row); the other comuni keep the shared
+ * anchor request (single comune 3 km, several comuni 25 km "multi").
+ */
+export function splitQuickQuoteComuni(comuni) {
+  const list = Array.isArray(comuni) ? comuni : [];
+  return { milano: list.find(isMilanoComune) || null, others: list.filter((c) => !isMilanoComune(c)) };
+}
+
+export function buildQuickQuoteAnchorAnalysisArgs(others, service, quantity) {
+  const anchor = others[0] || null;
+  const radius = others.length > 1 ? 25 : SINGLE_COMUNE_RADIUS_KM;
+  const selectionScope = others.length > 1 ? 'multi' : (others.length === 1 ? 'municipality' : null);
+  return [anchor?.lat, anchor?.lng, radius, service, service === 'd2d' ? (anchor?.name || null) : null, quantity || null, 'comune', null, selectionScope, null];
+}
+
+/**
  * { kind: 'comune'|'milano', families, recommended, coverage, nilCount } when the
  * answer holds real figures for this comune; { kind, missing: true } otherwise.
  * `missing` means the answer really has no ISTAT rows for it; `incomplete`
@@ -52,10 +69,11 @@ export function readHomeCalculatorAnalysis(data, comune) {
     if (warnings.some((w) => String(w).startsWith('MILANO_NIL_COMPLETE_INCOMPLETE'))) return { kind: 'milano', incomplete: true };
     const families = nils.reduce((sum, z) => sum + (finite(z.families) || 0), 0);
     const recommended = nils.reduce((sum, z) => sum + getZoneFullCoverageFlyers(z), 0);
+    const population = nils.reduce((sum, z) => sum + (finite(z.pop) || 0), 0);
     const inRadius = rows.reduce((sum, r) => sum + (finite(r.households_in_radius) || 0), 0);
     const total = rows.reduce((sum, r) => sum + (finite(r.households_total) || 0), 0);
     if (!(families > 0) || !(recommended > 0)) return { kind: 'milano', incomplete: true };
-    return { kind: 'milano', families, recommended, coverage: total > 0 ? Math.min(100, Math.round((inRadius / total) * 100)) : null, nilCount: nils.length };
+    return { kind: 'milano', families, recommended, population: population > 0 ? population : null, coverage: total > 0 ? Math.min(100, Math.round((inRadius / total) * 100)) : null, nilCount: nils.length };
   }
   const zones = apiToZones(data, null) || [];
   const zone = zones.find((z) => !z.isNil && canonicalizeItalianMunicipalityName(z.name, z).toLowerCase() === comune.name.toLowerCase()) || null;

@@ -5,6 +5,7 @@ import { useServiceAnalysis } from "../../hooks/useServiceAnalysis.js";
 import { canonicalizeItalianMunicipalityName } from "../../lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { searchItalianMunicipalities } from "../../lib/geocoding/searchItalianMunicipalities.js";
 import { readComuneParam } from "../../lib/quote/quoteComuneParam.js";
+import { buildHomeCalculatorAnalysisArgs, buildQuickQuoteAnchorAnalysisArgs, readHomeCalculatorAnalysis, splitQuickQuoteComuni } from "../../lib/quote/homeCalculatorAnalysis.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../../lib/extraServicesRegistry.js";
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
 import { printQuotePdf } from "../../lib/pdf/printQuotePdf.js";
@@ -236,9 +237,11 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // (volantinipro-final.jsx, effectiveRadiusKm): singolo comune -> clamp
   // [3,8]; piu' comuni -> floor 25km per sweepare abbastanza comuni_breakdown
   // dal centroide del primo comune (l'ancora geocodificata).
-  const effectiveRadiusKm = comuni.length > 1 ? Math.max(25, 3) : Math.min(Math.max(3, 3), 8);
+  // Milano is analysed by NIL (no "Milano" comune row): it gets its own "Milano
+  // intera" request, as the homepage calculator and Step 2; the anchor request
+  // covers the other comuni.
   const anchor = comuni[0] || null;
-  const selectionScope = comuni.length > 1 ? "multi" : (comuni.length === 1 ? "municipality" : null);
+  const { milano: milanoComune, others: otherComuni } = useMemo(() => splitQuickQuoteComuni(comuni), [comuni]);
 
   // Il fetch anchor-based (fino a 25km per il multi-comune) resta valido solo
   // per D2D, dove analysis-istat restituisce comuni_breakdown e i singoli
@@ -248,10 +251,10 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // ad ampio raggio produrrebbe un numero impreciso, mescolando POI/attivita'
   // di zone estranee ai comuni scelti. Percio' questo fetch viene disabilitato
   // (municipality: null) per H2H/B2B, sostituito dai fetch per-comune sotto.
-  const { data: apiData, loading: territorialLoading, error: territorialError } = useServiceAnalysis(
-    anchor?.lat, anchor?.lng, effectiveRadiusKm, service,
-    service === "d2d" ? (anchor?.name || null) : null, qty || null, "comune", null, selectionScope, null
-  );
+  const { data: apiData, loading: anchorLoading, error: anchorError } = useServiceAnalysis(...buildQuickQuoteAnchorAnalysisArgs(otherComuni, service, qty));
+  const milanoAnalysis = useServiceAnalysis(...buildHomeCalculatorAnalysisArgs(service === "d2d" ? milanoComune : null));
+  const territorialLoading = anchorLoading || milanoAnalysis.loading;
+  const territorialError = anchorError || milanoAnalysis.error || null;
 
   // H2H/B2B — un fetch analysis-poi-search per ciascuno slot comune (fino a
   // MAX_COMUNI), sempre chiamati (regole degli hook) ma attivi solo quando
@@ -349,7 +352,13 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // affatto: niente stima precedente mostrata come valida (sez. 9 del ticket).
   const municipalityRows = useMemo(() => {
     const rows = Array.isArray(apiData?.comuni_breakdown) ? apiData.comuni_breakdown : [];
+    const milano = milanoComune && milanoAnalysis.data ? readHomeCalculatorAnalysis(milanoAnalysis.data, milanoComune) : null;
     return comuni.map((c) => {
+      if (c === milanoComune) {
+        // Sum of the 88 NILs, same quantity rule as Step 2 "Milano intera".
+        const ok = milano?.families > 0 && milano?.recommended > 0;
+        return { municipality: c.name, households: ok ? milano.families : null, population: ok ? milano.population : null, recommendedFlyers: ok ? milano.recommended : null, matched: Boolean(ok) };
+      }
       const match = rows.find((row) => {
         const rowName = row.comune_name || row.municipality_name || row.comune || row.name || "";
         return canonicalizeItalianMunicipalityName(rowName, row).toLowerCase() === c.name.toLowerCase();
@@ -357,7 +366,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
       const { households, population, recommendedFlyers } = extractMunicipalityTerritorialData(match);
       return { municipality: c.name, households, population, recommendedFlyers, matched: Boolean(match) && households != null };
     });
-  }, [comuni, apiData]);
+  }, [comuni, apiData, milanoComune, milanoAnalysis.data]);
 
   const campaign = useMemo(
     () => computeTerritorialCampaign({ municipalityRows, requestedQuantity: qty, service }),
@@ -366,6 +375,9 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
 
   const hasComuni = comuni.length > 0;
   const territorialReady = hasComuni && !territorialLoading && !territorialError;
+  // D2D answer arrived but some comune has no usable ISTAT row: say so instead
+  // of an endless "In calcolo…".
+  const d2dUnmatched = service === "d2d" && territorialReady && campaign.supported && campaign.hasData && !campaign.allMatched ? (campaign.unmatchedMunicipalities || []) : [];
   // recommendedQty generalizzato: D2D invariato (stessa condizione di prima).
   // B2B usa la STIMA parziale-consentita (sez. 5: "NON presentare 154 come
   // totale dei tre comuni" ma comunque USABILE come stima su quelli
@@ -1039,6 +1051,11 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                   Dati territoriali momentaneamente non disponibili.
                 </div>
               )}
+              {d2dUnmatched.length > 0 && (
+                <div role="status" style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", fontSize: 12, color: "#FDE68A", lineHeight: 1.45 }}>
+                  Dati ISTAT non disponibili per {d2dUnmatched.join(", ")} in questo momento. Inserisci la quantità qui sotto oppure continua nel percorso guidato.
+                </div>
+              )}
               {service === "d2d" && territorialReady && campaign.breakdown.length > 0 && campaign.allMatched && (
                 <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.3)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -1423,7 +1440,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
                 <span>Quantità:</span>
                 <span style={{ color: "#F8FAFC", fontWeight: 700 }}>
-                  {effectiveQuantity ? `${n(effectiveQuantity)} pz` : (hasComuni ? "In calcolo…" : "In attesa")}
+                  {effectiveQuantity ? `${n(effectiveQuantity)} pz` : d2dUnmatched.length ? "Da inserire" : (hasComuni ? "In calcolo…" : "In attesa")}
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
