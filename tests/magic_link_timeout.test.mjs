@@ -34,16 +34,18 @@ test("esiste un withTimeout riusabile con lo stesso pattern di AdminGuard (Promi
 test("signInWithOtp e' avvolta da withTimeout con un limite finito (MAGIC_LINK_REQUEST_TIMEOUT_MS)", () => {
   assert.match(SRC, /const MAGIC_LINK_REQUEST_TIMEOUT_MS = \d+;/);
   const value = Number(SRC.match(/const MAGIC_LINK_REQUEST_TIMEOUT_MS = (\d+);/)[1]);
-  assert.ok(value >= 5000 && value <= 30000, "il timeout deve essere ragionevole: non troppo aggressivo, non infinito");
+  // 45 s (2026-10-22): GoTrue can still be sending after 15 s; finite, never infinite.
+  assert.ok(value >= 30000 && value <= 60000, "il timeout deve coprire un invio lento ma restare finito");
   assert.match(loginPageFn, /await withTimeout\(\s*authSupabase\.auth\.signInWithOtp\(\{/);
   assert.match(loginPageFn, /MAGIC_LINK_REQUEST_TIMEOUT_MS,\s*\n\s*"magic_link_timeout"/);
 });
 
-test("il timeout produce un messaggio italiano parlabile, distinto dall'errore SDK generico", () => {
+test("allo scadere non dice 'errore/Riprova': spiega che il link sta arrivando e blocca il pulsante", () => {
   const catchBlock = loginPageFn.match(/\} catch \(err\) \{[\s\S]*?\} finally \{/);
   assert.ok(catchBlock);
-  assert.match(catchBlock[0], /if \(err\.message === "magic_link_timeout"\) \{/);
-  assert.match(catchBlock[0], /La richiesta al server ha impiegato troppo tempo\. Riprova\./);
+  assert.match(catchBlock[0], /if \(err\.message === "magic_link_timeout"\) \{\s*\n\s*\/\/[^\n]*\n\s*lockMagicLinkButton\(\);\s*\n\s*setStatus\(MAGIC_LINK_PENDING_MESSAGE\);/);
+  assert.doesNotMatch(catchBlock[0], /La richiesta al server ha impiegato troppo tempo\. Riprova\./);
+  assert.match(SRC, /const MAGIC_LINK_PENDING_MESSAGE = "Ti stiamo inviando il link: controlla la posta tra qualche istante \(anche nella cartella spam\)\./);
 });
 
 test("finally continua a ripulire SEMPRE busy e otpRequestInFlight, anche sul ramo timeout (nessun click bloccato per sempre)", () => {

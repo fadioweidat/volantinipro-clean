@@ -4,7 +4,7 @@ import { NavButton } from "../../../../components/NavButton.jsx";
 import { C, F } from "../../../../lib/constants.js";
 import { Step4SendQuoteEmail } from "./Step4SendQuoteEmail.jsx";
 
-export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, returnFromLogin, setReturnFromLogin, showLoginRequired, handleLoginRequiredNavigation, campaignSaveError, isQuick, handleDownloadPdf, pdfBusy, col, quotePdfData, canConfirm, savingCampaign, handleConfirmCampaign, confirmSyncStatus, clientForm, setClientForm, confirmProblem, pdfError, onBack, data, handleOpenSavedCampaign }) {
+export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, returnFromLogin, setReturnFromLogin, showLoginRequired, handleLoginRequiredNavigation, campaignSaveError, isQuick, handleDownloadPdf, pdfBusy, col, quotePdfData, canConfirm, savingCampaign, handleConfirmCampaign, confirmSyncStatus, saveSlowNotice = null, clientForm, setClientForm, confirmProblem, pdfError, onBack, data, handleOpenSavedCampaign }) {
   return (
     <>
       {/* Dashboard ed esecuzione / Modificabile badge */}
@@ -311,6 +311,18 @@ export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, 
           }}>
                 {savingCampaign ? "Salvataggio in corso..." : sent ? "✓ Campagna confermata" : "Conferma e avvia la campagna →"}
               </button>}
+
+            {savingCampaign && saveSlowNotice && <div role="status" aria-live="polite" style={{
+            marginBottom: 10,
+            padding: "10px 12px",
+            borderRadius: 10,
+            background: "rgba(251,191,36,.08)",
+            border: "1px solid rgba(251,191,36,.25)",
+            fontFamily: F.sans,
+            fontSize: 12,
+            color: "#FDE68A",
+            lineHeight: 1.45
+          }}>{saveSlowNotice}</div>}
 
             {sent && <div style={{
             marginBottom: 10,

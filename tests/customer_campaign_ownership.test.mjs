@@ -34,7 +34,7 @@ test('campaign confirmation has a synchronous in-flight guard against duplicate 
 // triggered on next authenticated Dashboard load, never a bulk email claim.
 
 test('Step4 stores a pending claim for the specific new campaign id + email after a successful submit, not before', () => {
-  const submitIdx = step4.indexOf('const res = await submitPublicCampaign(payload);');
+  const submitIdx = step4.indexOf('res = await withCampaignSaveTimeout(submitPublicCampaign(payload));');
   const pendingClaimIdx = step4.indexOf("localStorage.setItem(\"volantinipro_pending_campaign_claim\"");
   assert.ok(submitIdx >= 0 && pendingClaimIdx > submitIdx, 'pending claim must be stored only after submit resolves');
   assert.match(step4, /localStorage\.setItem\("volantinipro_pending_campaign_claim",\s*JSON\.stringify\(\{\s*campaignId:\s*id,\s*clientEmail:\s*clientForm\.email,?\s*\}\)\)/);
