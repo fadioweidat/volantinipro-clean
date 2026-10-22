@@ -3,17 +3,13 @@ import ProcessIcon from './ProcessIcon.jsx';
 import { useServiceAnalysis } from '../../hooks/useServiceAnalysis.js';
 import { canonicalizeItalianMunicipalityName } from '../../lib/geocoding/canonicalizeItalianMunicipalityName.js';
 import { searchItalianMunicipalities } from '../../lib/geocoding/searchItalianMunicipalities.js';
-import { apiToZones } from '../../lib/step2/zoneGeoHelpers.js';
-import { formatOperationalMarginNote, getOperationalMarginPct, getZoneFullCoverageFlyers } from '../../lib/doorToDoorCoverage.js';
+import { formatOperationalMarginNote, getOperationalMarginPct } from '../../lib/doorToDoorCoverage.js';
+import { buildHomeCalculatorAnalysisArgs, readHomeCalculatorAnalysis } from '../../lib/quote/homeCalculatorAnalysis.js';
 import { formatHeroMetric } from './homepageHeroData.js';
 import { buildQuoteSelectionHref } from '../../lib/quote/quoteComuneParam.js';
 
 // Kept exported for existing callers/tests; the link now lives in the shared module.
 export { buildConfiguratorHref } from '../../lib/quote/quoteComuneParam.js';
-
-// Same single-comune request as Preventivo Rapido (QuickQuotePage.jsx):
-// analysis-istat, 3 km technical radius, selectionScope "municipality".
-const SINGLE_COMUNE_RADIUS_KM = 3;
 
 // Nominatim can return the same comune more than once (boundary + place node).
 export function uniqueByComune(list) {
@@ -61,30 +57,24 @@ export default function HomeQuoteCalculator({ onConfigure }) {
 
   useEffect(() => () => clearTimeout(blurTimer.current), []);
 
-  const { data, loading, error } = useServiceAnalysis(
-    comune?.lat, comune?.lng, SINGLE_COMUNE_RADIUS_KM, 'd2d', comune?.name || null, null, 'comune', null, comune ? 'municipality' : null, null
-  );
-
-  // Same conversion and quantity rule as Step 2 (apiToZones -> zone ->
-  // getZoneFullCoverageFlyers): the homepage shows exactly what the
-  // configurator will recommend for the same comune.
-  const zone = useMemo(() => {
-    if (!comune || !data || error) return null;
-    const zones = apiToZones(data, null) || [];
-    return zones.find((z) => !z.isNil && canonicalizeItalianMunicipalityName(z.name, z).toLowerCase() === comune.name.toLowerCase()) || null;
-  }, [comune, data, error]);
-  const families = zone && zone.families > 0 ? zone.families : null;
-  const recommended = zone ? getZoneFullCoverageFlyers(zone) || null : null;
+  // Same request and quantity rule as Step 2 (Milano: "Milano intera", sum of the NILs).
+  const { data, loading, error } = useServiceAnalysis(...buildHomeCalculatorAnalysisArgs(comune));
+  const analysis = useMemo(() => (error ? null : readHomeCalculatorAnalysis(data, comune)), [comune, data, error]);
+  const families = analysis?.families ?? null;
+  const recommended = analysis?.recommended ?? null;
   const marginNote = formatOperationalMarginNote(getOperationalMarginPct(families, recommended));
-  const coverage = zone && Number.isFinite(zone.coverage) ? Math.min(100, Math.round(zone.coverage)) : null;
+  const coverage = analysis?.coverage ?? null;
+  const isMilano = analysis?.kind === 'milano';
 
+  // "unavailable" (no ISTAT data) only when the answer really has none for this
+  // comune; rows that cannot be read as a whole comune are a temporary error.
   const status = !comune ? 'idle'
     : loading || (!data && !error) ? 'loading'
-      // analysis-istat answers this for comuni outside the ISTAT dataset: no data, not an outage.
       : error === 'TERRITORIAL_DATA_NOT_AVAILABLE' ? 'unavailable'
       : error ? 'error'
         : families !== null && recommended !== null ? 'ready'
-          : 'unavailable';
+          : analysis?.missing ? 'unavailable'
+            : 'error';
 
   const choose = (suggestion) => {
     const name = canonicalizeItalianMunicipalityName(suggestion.name, suggestion);
@@ -162,6 +152,7 @@ export default function HomeQuoteCalculator({ onConfigure }) {
     {status === 'loading' && <p className="vpq-example-note" role="status">Analisi dei dati ISTAT per {comune.name} in corso…</p>}
     {status === 'error' && <p className="vpq-calc-alert" role="alert">Dati territoriali non disponibili per {comune.name} in questo momento. Puoi comunque calcolare il preventivo nel configuratore.</p>}
     {status === 'unavailable' && <p className="vpq-calc-alert" role="alert">Non abbiamo dati ISTAT per {comune.name}. Puoi comunque calcolare il preventivo nel configuratore.</p>}
+    {status === 'ready' && isMilano && <p className="vpq-example-note">Milano intera: {formatHeroMetric(analysis.nilCount)} quartieri (NIL). Nel configuratore puoi scegliere i singoli quartieri.</p>}
 
     <p className="vpq-info"><ProcessIcon name="info" /><span>Se la quantità supera la capacità stimata della zona, puoi ampliare il territorio o aggiungere altri Comuni.</span></p>
     <button type="button" className="vpq-cta" onClick={goToQuoteSelection}>Calcola il preventivo online <span aria-hidden="true">→</span></button>
