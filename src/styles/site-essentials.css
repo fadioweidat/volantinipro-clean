@@ -22,11 +22,13 @@
 /* Numeri allineati (Step 2, report territoriale) */
 .vp-data-number { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* Dashboard campagna cliente: spazio sotto la barra fissa e griglia a 2 colonne */
+/* Dashboard campagna cliente: margini laterali (il contenuto era attaccato al bordo)
+ * e griglia a 2 colonne. Top padding 32/20 px, not app.css's 105/85: the navbar on
+ * this page is in the normal flow (not fixed), so 105 px left an empty band. */
 .vp-campaign-dashboard-shell {
   min-height: 100vh;
   background: #0D1B2A;
-  padding: 105px 24px 80px;
+  padding: 32px 24px 80px;
   box-sizing: border-box;
 }
 
@@ -44,6 +46,6 @@
 
 @media (max-width: 480px) {
   .vp-campaign-dashboard-shell {
-    padding: 85px 14px 60px !important;
+    padding: 20px 14px 60px !important;
   }
 }

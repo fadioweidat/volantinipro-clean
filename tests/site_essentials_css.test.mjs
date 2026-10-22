@@ -18,12 +18,12 @@ test("keyboard focus, comune row hover, tabular numbers, campaign dashboard layo
   assert.doesNotMatch(css, /focus-visible[^}]*!important/, 'never override focus styles that elements already define');
   assert.match(css, /\.town-list-item:hover \{/);
   assert.match(css, /\.vp-data-number \{ font-variant-numeric: tabular-nums; white-space: nowrap; \}/);
-  assert.match(css, /\.vp-campaign-dashboard-shell \{[\s\S]*?padding: 105px 24px 80px;/);
+  assert.match(css, /\.vp-campaign-dashboard-shell \{[\s\S]*?padding: 32px 24px 80px;/);
   assert.match(css, /\.vp-campaign-dashboard-grid \{[\s\S]*?grid-template-columns: minmax\(0, 1\.25fr\) minmax\(280px, 0\.75fr\);/);
   assert.match(css, /@media \(max-width: 900px\) \{\s*\.vp-campaign-dashboard-grid \{\s*grid-template-columns: 1fr !important;/);
 });
 
-test("only the agreed selectors are moved (layout rules copied unchanged from app.css)", () => {
+test("only the agreed selectors are moved (grid and number rules copied unchanged from app.css)", () => {
   const selectors = [...css.matchAll(/^\s*([^@/\n{}][^{}\n]*)\{/gm)].map((m) => m[1].trim());
   assert.deepEqual([...new Set(selectors)].sort(), [
     ".town-list-item:hover",
@@ -33,7 +33,7 @@ test("only the agreed selectors are moved (layout rules copied unchanged from ap
     ":where(a, button, input, select, textarea):focus-visible",
   ]);
   const app = read("src/styles/app.css").replace(/\r\n/g, "\n");
-  for (const block of [".vp-data-number { font-variant-numeric: tabular-nums; white-space: nowrap; }", ".vp-campaign-dashboard-shell {\n  min-height: 100vh;\n  background: #0D1B2A;\n  padding: 105px 24px 80px;\n  box-sizing: border-box;\n}"]) {
+  for (const block of [".vp-data-number { font-variant-numeric: tabular-nums; white-space: nowrap; }", ".vp-campaign-dashboard-grid {\n  display: grid;\n  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);\n  gap: 14px;\n}"]) {
     assert.ok(app.includes(block), block);
   }
 });

@@ -13,6 +13,7 @@ import {
   MODIFICATION_TYPES,
 } from "../../lib/services/hub-api.js";
 import { mergeMessages, countUnreadMessages, subscribeToCustomerMessages } from "../../lib/services/messaging-realtime.js";
+import { areaModeLabel, extraServiceLabel, formatEuroIT, formatIntIT, formatLabel, graphicStatusLabel, printSpecsLabel, serviceLabel, variantLabel, zonesCountLabel } from "../../lib/customerDisplay.js";
 
 // TICKET — CUSTOMER CONTROL CENTER + ADMIN HUB + DRIVER MESSAGING.
 // Due sezioni pensate per la Dashboard Cliente (CampaignDashboardPage in
@@ -65,29 +66,29 @@ export function CampaignConfigSection({ campagna }) {
       </div>
 
       <StepBlock title="Step 1 — Servizio">
-        <Field label="Servizio" value={campagna?.servizio} />
-        <Field label="Quantità" value={campagna?.quantita?.toLocaleString("it-IT")} />
+        <Field label="Servizio" value={serviceLabel(campagna?.servizio)} />
+        <Field label="Quantità" value={formatIntIT(campagna?.quantita)} />
         <Field label="Materiale" value={meta.materiale} />
       </StepBlock>
 
       <StepBlock title="Step 2 — Zona">
         <Field label="Comune" value={meta.comune || campagna?.zona} />
         <Field label="Raggio" value={quote.area?.radiusKm != null ? `${quote.area.radiusKm} km` : null} />
-        <Field label="Modalità area" value={quote.area?.areaMode} />
-        <Field label="Zone/NIL selezionate" value={zones.length ? `${zones.length} zone` : (campagna?.comuni || []).join(", ")} />
+        <Field label="Modalità area" value={areaModeLabel(quote.area?.areaMode)} />
+        <Field label="Zone/NIL selezionate" value={zones.length ? zonesCountLabel(zones.length) : (campagna?.comuni || []).join(", ")} />
       </StepBlock>
 
       <StepBlock title="Step 3 — Distribuzione">
-        <Field label="Tipo" value={quote.campaign?.variant} />
+        <Field label="Tipo" value={variantLabel(quote.campaign?.variant)} />
         <Field label="Piano" value={meta.piano} />
-        <Field label="Formato" value={meta.formato} />
+        <Field label="Formato" value={formatLabel(meta.formato)} />
       </StepBlock>
 
       <StepBlock title="Step 4 — Riepilogo">
-        <Field label="Stampa" value={step4.format ? `${String(step4.format).toUpperCase()} · ${step4.sides || ""} · ${step4.color || ""}` : (meta.printing?.enabled ? "Richiesta" : "Non richiesta")} />
-        <Field label="Grafica" value={quote.campaign?.graphicStatus} />
-        <Field label="Servizi extra" value={(meta.extra_services || meta.servizi_extra || []).length ? (meta.extra_services || meta.servizi_extra).join(", ") : "Nessuno"} />
-        <Field label="Totale confermato" value={campagna?.totale_euro != null ? `€ ${Number(campagna.totale_euro).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : null} />
+        <Field label="Stampa" value={step4.format ? printSpecsLabel(step4) : (meta.printing?.enabled ? "Richiesta" : "Non richiesta")} />
+        <Field label="Grafica" value={graphicStatusLabel(quote.campaign?.graphicStatus)} />
+        <Field label="Servizi extra" value={(meta.extra_services || meta.servizi_extra || []).length ? (meta.extra_services || meta.servizi_extra).map((s) => (s && typeof s === "object" ? s.label || extraServiceLabel(s.id) : extraServiceLabel(s))).filter(Boolean).join(", ") : "Nessuno"} />
+        <Field label="Totale confermato" value={formatEuroIT(campagna?.totale_euro)} />
       </StepBlock>
 
       <CampaignSettlementSummary settlement={campagna?.settlement} />

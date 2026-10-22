@@ -33,6 +33,7 @@ import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContac
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
 import { buildAuthCallbackPath } from "./src/auth/loginIntent.js";
 import { useMagicLinkCooldown } from "./src/auth/useMagicLinkCooldown.js";
+import { DISTRIBUTION_STATS_PENDING, NO_SMART_PAIRING_DISCOUNT, campaignStatusLabel, formatEuroIT, formatIntIT, isCampaignPaid, isDistributionStarted, serviceLabel, smartPairingLabel } from "./src/lib/customerDisplay.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
@@ -5483,6 +5484,8 @@ export function DashboardPage({
     in_preparazione: ["In preparazione", C.orange],
     in_distribuzione: ["In distribuzione", C.green],
     completata: ["Completata", C.blue],
+    annullata: [campaignStatusLabel("annullata"), "rgba(255,255,255,.6)"],
+    problema: [campaignStatusLabel("problema"), C.yellow],
     // Stati Marketplace (campaigns.status grezzo, non mappato in legacy):
     // etichette italiane professionali, mai "stato sconosciuto".
     requested: [MARKETPLACE_STATUS_LABELS.requested, C.yellow],
@@ -5491,9 +5494,9 @@ export function DashboardPage({
     assigned: [MARKETPLACE_STATUS_LABELS.assigned, C.green]
   };
   const svcCfg = {
-    d2d: ["D2D", C.orange],
-    h2h: ["H2H", C.blue],
-    b2b: ["B2B", C.purple]
+    d2d: [serviceLabel("d2d"), C.orange],
+    h2h: [serviceLabel("h2h"), C.blue],
+    b2b: [serviceLabel("b2b"), C.purple]
   };
   const { activeCount, waitingPaymentCount, totalSpent, flyersDone } = buildCustomerDashboardMetrics(campagne, { loading, error });
   const metricNotes = buildCustomerDashboardNotes(campagne, { loading, error });
@@ -5579,9 +5582,7 @@ export function DashboardPage({
         gap: 10,
         marginBottom: 16
       }}>
-          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow, metricNotes.payment], ["Totale speso", totalSpent == null ? null : `€${totalSpent.toLocaleString("it-IT", {
-          minimumFractionDigits: 2
-          })}`, C.orange, metricNotes.amount], ["Volantini distribuiti", flyersDone == null ? null : flyersDone.toLocaleString("it-IT"), C.blue, metricNotes.flyers]].map(([l, v, c, note]) => <div key={l} style={{
+          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow, metricNotes.payment], ["Totale speso", formatEuroIT(totalSpent), C.orange, metricNotes.amount], ["Volantini distribuiti", formatIntIT(flyersDone), C.blue, metricNotes.flyers]].map(([l, v, c, note]) => <div key={l} style={{
           padding: 16,
           borderRadius: 13,
           background: "rgba(255,255,255,.045)",
@@ -5666,8 +5667,8 @@ export function DashboardPage({
           gap: 10
         }}>
               {campagne.map(campagna => {
-            const [svcLabel, svcColor] = svcCfg[campagna.service_type] || [campagna.servizio, C.orange];
-            const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato, C.white];
+            const [svcLabel, svcColor] = svcCfg[campagna.service_type] || [serviceLabel(campagna.servizio), C.orange];
+            const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campaignStatusLabel(campagna.stato), C.white];
             const paymentState = getCustomerPaymentState(campagna.stato_pagamento);
             const paymentLabel = campagna.settlement?.settlement_status === "settled_by_credit" ? "Saldo coperto da credito" : campagna.settlement?.settlement_status === "settled_by_verified_receipt" ? "Residuo verificato" : paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "Pagato" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "In attesa pagamento" : CUSTOMER_DATA_UNAVAILABLE;
             const paymentColor = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? C.green : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? C.yellow : "rgba(255,255,255,.42)";
@@ -5728,7 +5729,7 @@ export function DashboardPage({
                   fontSize: 12,
                   color: "rgba(255,255,255,.45)",
                   marginTop: 5
-                }}>{(campagna.comuni || []).length > 1 ? `Comuni: ${campagna.comuni.join(", ")}` : (campagna.comuni || [])[0] || customerValue(campagna.zona)}  {campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}  {customerValue(campagna.data_inizio)}  {customerValue(campagna.data_fine)}</div>
+                }}>{(campagna.comuni || []).length > 1 ? `Comuni: ${campagna.comuni.join(", ")}` : (campagna.comuni || [])[0] || customerValue(campagna.zona)}  {campagna.quantita == null ? customerValue(null) : `${formatIntIT(campagna.quantita)} volantini`}  {customerValue(campagna.data_inizio)}  {customerValue(campagna.data_fine)}</div>
                     </div>
                     <div style={{
                 textAlign: "right"
@@ -5737,9 +5738,7 @@ export function DashboardPage({
                   fontFamily: F.serif,
                   fontSize: 24,
                   color: C.green
-                }}>{`€${Number(campagna.totale_euro).toLocaleString("it-IT", {
-                    minimumFractionDigits: 2
-                  })}`}</div>}
+                }}>{formatEuroIT(campagna.totale_euro)}</div>}
                       <button onClick={() => onNav("campaign", {
                   campaignId: campagna.id
                 })} style={{
@@ -5876,13 +5875,13 @@ export function CampaignDashboardPage({
               fontSize: 34,
               color: C.white,
               letterSpacing: "-1px"
-            }}>Campagna {campagna.servizio}  {campagna.zona}</h1>
+            }}>Campagna {serviceLabel(campagna.servizio) || ""} · {campagna.zona}</h1>
               <div style={{
               fontFamily: F.sans,
               fontSize: 13,
               color: "rgba(255,255,255,.45)",
               marginTop: 6
-            }}>{campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}  Smart Pairing {campagna.smart_pairing_sconto == null ? customerValue(null) : `${campagna.smart_pairing_sconto}%`}</div>
+            }}>{campagna.quantita == null ? customerValue(null) : `${formatIntIT(campagna.quantita)} volantini`} · {Number(campagna.smart_pairing_sconto) > 0 ? `Smart Pairing ${smartPairingLabel(campagna.smart_pairing_sconto)}` : NO_SMART_PAIRING_DISCOUNT}</div>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <button onClick={() => onNav("dashboard")} style={{
@@ -5983,7 +5982,7 @@ export function CampaignDashboardPage({
               fontFamily: F.sans,
               fontSize: 13,
               color: C.white
-            }}><span>{z.zone_name || customerValue(null)}</span><span style={{ color: "rgba(255,255,255,.6)" }}>{z.quantity_assigned == null ? customerValue(null) : `${Number(z.quantity_assigned).toLocaleString("it-IT")} volantini`}</span></div>)}
+            }}><span>{z.zone_name || customerValue(null)}</span><span style={{ color: "rgba(255,255,255,.6)" }}>{z.quantity_assigned == null ? customerValue(null) : `${formatIntIT(z.quantity_assigned)} volantini`}</span></div>)}
               <div style={{
               display: "flex",
               justifyContent: "space-between",
@@ -5994,7 +5993,7 @@ export function CampaignDashboardPage({
               marginTop: 6,
               paddingTop: 8,
               borderTop: "1px solid rgba(255,255,255,.08)"
-            }}><span>Totale</span><span>{campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}</span></div>
+            }}><span>Totale</span><span>{campagna.quantita == null ? customerValue(null) : `${formatIntIT(campagna.quantita)} volantini`}</span></div>
             </div>}
           </div>
 
@@ -6049,9 +6048,9 @@ export function CampaignDashboardPage({
               <div style={{
               padding: 14,
               borderRadius: 12,
-              background: campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.08)" : "rgba(251,191,36,.08)",
-              border: `1px solid ${campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.22)" : "rgba(251,191,36,.22)"}`,
-              color: campagna.stato_pagamento === "pagato" ? C.green : C.yellow,
+              background: isCampaignPaid(campagna) ? "rgba(46,204,138,.08)" : "rgba(251,191,36,.08)",
+              border: `1px solid ${isCampaignPaid(campagna) ? "rgba(46,204,138,.22)" : "rgba(251,191,36,.22)"}`,
+              color: isCampaignPaid(campagna) ? C.green : C.yellow,
               fontFamily: F.sans,
               fontSize: 13,
               fontWeight: 800
@@ -6089,18 +6088,22 @@ export function CampaignDashboardPage({
                 textTransform: "uppercase",
                 marginBottom: 12
               }}>Statistiche distribuzione</div>
-                {[["Volantini distribuiti", campagna.volantini_distribuiti == null || campagna.quantita == null ? customerValue(null) : `${campagna.volantini_distribuiti.toLocaleString("it-IT")} / ${campagna.quantita.toLocaleString("it-IT")}`, distributedPct, C.green], ["Copertura raggiunta", campagna.copertura_pct == null ? customerValue(null) : `${campagna.copertura_pct}%`, campagna.copertura_pct, C.orange], ["Comuni completati", distributedPct == null ? customerValue(null) : `${Math.max(1, Math.round((campagna.comuni?.length || 1) * distributedPct / 100))}/${campagna.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", campagna.data_fine ? String(daysRemaining) : customerValue(null), campagna.data_fine ? Math.max(0, 100 - daysRemaining * 20) : null, C.purple]].map(([l, v, pct, c]) => <div key={l} style={{
+                {(isDistributionStarted(campagna) ? [["Volantini distribuiti", campagna.volantini_distribuiti == null || campagna.quantita == null ? customerValue(null) : `${formatIntIT(campagna.volantini_distribuiti)} / ${formatIntIT(campagna.quantita)}`, distributedPct, C.green], ["Copertura raggiunta", campagna.copertura_pct == null ? customerValue(null) : `${campagna.copertura_pct}%`, campagna.copertura_pct, C.orange], ["Comuni completati", distributedPct == null ? customerValue(null) : `${Math.max(1, Math.round((campagna.comuni?.length || 1) * distributedPct / 100))}/${campagna.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", campagna.data_fine ? String(daysRemaining) : customerValue(null), campagna.data_fine ? Math.max(0, 100 - daysRemaining * 20) : null, C.purple]]
+                  // Before the distribution there is nothing to measure yet: say when it appears.
+                  : ["Volantini distribuiti", "Copertura raggiunta", "Comuni completati", "Giorni rimanenti"].map((l) => [l, DISTRIBUTION_STATS_PENDING, null, C.white])).map(([l, v, pct, c]) => <div key={l} style={{
                 marginBottom: 10
               }}><div style={{
                   display: "flex",
                   justifyContent: "space-between",
+                  gap: 12,
                   fontFamily: F.sans,
                   fontSize: 12,
                   color: C.white,
                   marginBottom: 5
                 }}><span>{l}</span><b style={{
-                    color: v === CUSTOMER_DATA_UNAVAILABLE ? "rgba(255,255,255,.4)" : c,
-                    fontWeight: v === CUSTOMER_DATA_UNAVAILABLE ? 700 : 900
+                    textAlign: "right",
+                    color: v === CUSTOMER_DATA_UNAVAILABLE || v === DISTRIBUTION_STATS_PENDING ? "rgba(255,255,255,.55)" : c,
+                    fontWeight: v === CUSTOMER_DATA_UNAVAILABLE || v === DISTRIBUTION_STATS_PENDING ? 700 : 900
                   }}>{v}</b></div><div style={{
                   height: 6,
                   borderRadius: 999,
@@ -6205,18 +6208,23 @@ export function CampaignDashboardPage({
                 letterSpacing: ".12em",
                 textTransform: "uppercase",
                 marginBottom: 12
-              }}>Smart Pairing</div>{campagna.smart_pairing_sconto == null ? <MissingValueBadge /> : <div style={{
+              }}>Smart Pairing</div>{!(Number(campagna.smart_pairing_sconto) > 0) ? <div style={{
+                fontFamily: F.sans,
+                fontSize: 13,
+                fontWeight: 700,
+                color: "rgba(255,255,255,.75)"
+              }}>{NO_SMART_PAIRING_DISCOUNT}</div> : <div style={{
                 fontFamily: F.serif,
                 fontSize: 30,
                 color: C.green,
                 letterSpacing: "-.8px"
-              }}>{`${campagna.smart_pairing_sconto}%`}</div>}<div style={{
+              }}>{smartPairingLabel(campagna.smart_pairing_sconto)}</div>}{Number(campagna.smart_pairing_sconto) > 0 && <div style={{
                 fontFamily: F.sans,
                 fontSize: 12,
                 color: "rgba(255,255,255,.48)",
                 lineHeight: 1.55,
                 marginTop: 6
-              }}>{(campagna.selected_dates || []).join("  ") || "Date da confermare"}  sconto applicato al preventivo.</div></div>
+              }}>{(campagna.selected_dates || []).join(" · ") || "Date da confermare"} · sconto applicato al preventivo.</div>}</div>
               <div style={{
               background: "rgba(255,255,255,.045)",
               border: "1px solid rgba(255,255,255,.09)",
@@ -6230,7 +6238,7 @@ export function CampaignDashboardPage({
                 letterSpacing: ".12em",
                 textTransform: "uppercase",
                 marginBottom: 12
-              }}>Riepilogo economico</div>{[["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], ["Totale pagato", total]].map(([l, v]) => <div key={l} style={{
+              }}>Riepilogo economico</div>{[["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], [isCampaignPaid(campagna) ? "Totale pagato" : "Totale da pagare", total]].map(([l, v]) => <div key={l} style={{
                 display: "flex",
                 justifyContent: "space-between",
                 padding: "9px 0",
@@ -6240,9 +6248,7 @@ export function CampaignDashboardPage({
                 color: "rgba(255,255,255,.58)"
               }}><span>{l}</span><b style={{
                   color: v < 0 ? C.green : C.white
-                }}>€{Number(v || 0).toLocaleString("it-IT", {
-                    minimumFractionDigits: 2
-                  })}</b></div>)}</div>
+                }}>{formatEuroIT(Number(v || 0))}</b></div>)}</div>
               <div style={{
               background: "rgba(255,255,255,.045)",
               border: "1px solid rgba(255,255,255,.09)",

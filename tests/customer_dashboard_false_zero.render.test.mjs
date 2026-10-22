@@ -10,7 +10,7 @@ import { createServer, transformWithEsbuild } from 'vite';
 const source = readFileSync('volantinipro-final.jsx', 'utf8');
 const start = source.indexOf('export function DashboardPage');
 const body = source.slice(start, source.indexOf('export function CampaignDashboardPage', start));
-const imports = source.split('\n').filter(line => line.startsWith('import ') && /customerCampaigns|customerDashboardMetrics/.test(line)).join('\n').replaceAll('"./src/', '"/src/');
+const imports = source.split('\n').filter(line => line.startsWith('import ') && /customerCampaigns|customerDashboardMetrics|customerDisplay/.test(line)).join('\n').replaceAll('"./src/', '"/src/');
 const vite = await createServer({ configFile: false, server: { middlewareMode: true, watch: null }, appType: 'custom', logLevel: 'silent', plugins: [{
   name: 'dashboard-render-fixture',
   resolveId(id) { if (id === 'virtual:customer-dashboard') return '\0customer-dashboard.jsx'; },
