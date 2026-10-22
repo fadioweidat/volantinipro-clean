@@ -25,6 +25,7 @@ const isCustomerAiDashboardEnabled = false;
 const SkeletonCard = () => <div data-testid="campaign-skeleton" />;
 const MissingValueBadge = () => <span>Dato non disponibile</span>;
 const CampaignSettlementSummary = () => null;
+const getFinalCoverage = async () => null;
 ${body}`;
     return (await transformWithEsbuild(code, "fixture.jsx", {loader:"jsx", jsx:"transform"})).code;
   },
@@ -50,36 +51,34 @@ test('request failure renders unavailable KPIs and an actionable error, never em
   const html = render({campagne:[],loading:false,error:'Network failure'});
   assert.doesNotMatch(html, /Nessuna campagna ancora/);
   assert.match(html, /Riprova/);
-  for (const label of ['Campagne attive','In attesa pagamento','Totale speso','Volantini distribuiti']) assert.match(kpi(html,label), /Dato non disponibile/);
+  for (const label of ['Campagne attive','In attesa pagamento','Totale speso','Avanzamento distribuzione']) assert.match(kpi(html,label), /Dato non disponibile/);
 });
 test('successful empty response is a real zero with the empty state', () => {
   const html = render({campagne:[],loading:false,error:null});
   assert.match(html, /Nessuna campagna ancora/);
   assert.match(kpi(html,'Totale speso'), /€0,00/);
-  assert.doesNotMatch(kpi(html,'Volantini distribuiti'), /Dato non disponibile/);
+  assert.match(kpi(html,'Avanzamento distribuzione'), /Disponibile durante la distribuzione/);
 });
 test('explicit zero remains zero', () => {
   const html = render({campagne:[campaign],loading:false,error:null});
   assert.match(kpi(html,'Totale speso'), /€0,00/);
-  assert.doesNotMatch(kpi(html,'Volantini distribuiti'), /Dato non disponibile/);
+  assert.match(kpi(html,'Avanzamento distribuzione'), /Disponibile durante la distribuzione/);
 });
 // 2026-10-22 (Fadi): amounts known for some campaigns are summed with a note naming
 // how many have none; unavailable only when no campaign has the amount. Flyers keep
-// the all-or-nothing rule (the distributed count is not recorded, see TODO).
-test('amount: unavailable only when no campaign has it, otherwise known sum + note; flyers stay all-or-nothing', () => {
+// 2026-10-22 option A: the flyers KPI is replaced by "Avanzamento distribuzione" (%).
+test('amount: unavailable only when no campaign has it, otherwise known sum + note', () => {
   const none = render({campagne:[{...campaign,totale_euro:null,volantini_distribuiti:null}],loading:false,error:null});
   assert.match(kpi(none,'Totale speso'), /Dato non disponibile/);
   assert.match(none, /1 campagna senza importo/);
-  assert.match(kpi(none,'Volantini distribuiti'), /Dato non disponibile/);
   const partial = render({campagne:[{...campaign,totale_euro:1524.44},{...campaign,id:'c2',totale_euro:null,volantini_distribuiti:null}],loading:false,error:null});
   assert.match(kpi(partial,'Totale speso'), /€1\.524,44/);
   assert.match(partial, /1 campagna senza importo/);
-  assert.match(kpi(partial,'Volantini distribuiti'), /Dato non disponibile/);
 });
 test('known positive totals are summed exactly', () => {
   const html = render({campagne:[{...campaign,totale_euro:120.5,volantini_distribuiti:300}, {...campaign,id:'c2',totale_euro:10,volantini_distribuiti:200}],loading:false,error:null});
   assert.match(kpi(html,'Totale speso'), /€130,50/);
-  assert.match(kpi(html,'Volantini distribuiti'), />500</);
+  assert.doesNotMatch(html, /Volantini distribuiti/, 'no flyer count KPI (field never recorded)');
 });
 test('unknown status and payment state do not become zero counts', () => {
   const html = render({campagne:[{...campaign,stato:null,stato_pagamento:null}],loading:false,error:null});
@@ -89,7 +88,11 @@ test('unknown status and payment state do not become zero counts', () => {
 test('non-finite totals are unavailable', () => {
   const html = render({campagne:[{...campaign,totale_euro:NaN,volantini_distribuiti:Infinity}],loading:false,error:null});
   assert.match(kpi(html,'Totale speso'), /Dato non disponibile/);
-  assert.match(kpi(html,'Volantini distribuiti'), /Dato non disponibile/);
+});
+test('distribution started: progress waits for the real coverage (skeleton), never a flyer estimate', () => {
+  const html = render({campagne:[{...campaign,stato:'in_distribuzione',quantita:5000}],loading:false,error:null});
+  assert.doesNotMatch(kpi(html,'Avanzamento distribuzione'), /Disponibile durante la distribuzione|Dato non disponibile|\d%</);
+  assert.match(kpi(html,'Avanzamento distribuzione'), /admin-shimmer/);
 });
 
 test('partial observations: known sums with notes naming the missing field', () => {

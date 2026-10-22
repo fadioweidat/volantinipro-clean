@@ -54,3 +54,24 @@ export function buildCustomerDashboardNotes(campaigns, { loading = false, error 
   }
   return notes;
 }
+
+// "Avanzamento distribuzione": real final coverage (calculate_campaign_final_coverage,
+// final_operational_coverage_pct) of the campaigns already in distribution or
+// completed, averaged by flyer quantity. No flyer estimate. `coverageById` maps
+// campaign id -> percent (number), null when unavailable, undefined while loading.
+export function buildDistributionProgress(campaigns, coverageById = {}, { loading = false, error = null } = {}) {
+  if (loading || error || !Array.isArray(campaigns)) return { status: 'unavailable', pct: null, note: null };
+  const started = campaigns.filter((row) => ['in_distribuzione', 'completata'].includes(row.stato));
+  if (!started.length) return { status: 'not_started', pct: null, note: null };
+  if (started.some((row) => coverageById[row.id] === undefined)) return { status: 'loading', pct: null, note: null };
+  const known = started.filter((row) => isKnownNumber(coverageById[row.id]));
+  const missing = started.length - known.length;
+  const missingNote = missing ? plural(missing, 'campagna senza dato di copertura', 'campagne senza dato di copertura') : null;
+  if (!known.length) return { status: 'unavailable', pct: null, note: missingNote };
+  const weighted = known.every((row) => isKnownNumber(row.quantita) && Number(row.quantita) > 0);
+  const weightOf = (row) => (weighted ? Number(row.quantita) : 1);
+  const totalWeight = known.reduce((sum, row) => sum + weightOf(row), 0);
+  const pct = Math.round(known.reduce((sum, row) => sum + Number(coverageById[row.id]) * weightOf(row), 0) / totalWeight);
+  const scope = known.length === 1 ? '1 campagna in distribuzione o completata' : `${known.length} campagne in distribuzione o completate`;
+  return { status: 'ready', pct: Math.min(100, Math.max(0, pct)), note: [`Copertura verificata su ${scope}`, missingNote].filter(Boolean).join(' · ') };
+}

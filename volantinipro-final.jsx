@@ -23,7 +23,8 @@ import {
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
-import { buildCustomerDashboardMetrics, buildCustomerDashboardNotes } from "./src/lib/customerDashboardMetrics.js";
+import { buildCustomerDashboardMetrics, buildCustomerDashboardNotes, buildDistributionProgress } from "./src/lib/customerDashboardMetrics.js";
+import { getFinalCoverage } from "./src/lib/services/coverage-adjustments-api.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState, MARKETPLACE_STATUS_LABELS } from "./src/lib/customerCampaigns.js";
 import { CustomerQuotesView } from "./src/pages/customer/CustomerQuotesView.jsx";
 import { CampaignConfigSection, CustomerMessagesPanel } from "./src/components/customer/CampaignHubPanels.jsx";
@@ -5498,12 +5499,30 @@ export function DashboardPage({
     h2h: [serviceLabel("h2h"), C.blue],
     b2b: [serviceLabel("b2b"), C.purple]
   };
-  const { activeCount, waitingPaymentCount, totalSpent, flyersDone } = buildCustomerDashboardMetrics(campagne, { loading, error });
+  const startedIds = Array.isArray(campagne) ? campagne.filter(isDistributionStarted).map((row) => row.id).filter(Boolean).join(",") : "";
+  const [coverageById, setCoverageById] = useState({});
+  useEffect(() => {
+    if (!startedIds) return undefined;
+    let cancelled = false;
+    const ids = startedIds.split(",");
+    Promise.allSettled(ids.map((id) => getFinalCoverage(id))).then((results) => {
+      if (cancelled) return;
+      const next = {};
+      results.forEach((r, i) => {
+        const pct = r.status === "fulfilled" ? r.value?.final_operational_coverage_pct : null;
+        next[ids[i]] = pct == null || !Number.isFinite(Number(pct)) ? null : Number(pct);
+      });
+      setCoverageById(next);
+    });
+    return () => { cancelled = true; };
+  }, [startedIds]);
+  const { activeCount, waitingPaymentCount, totalSpent } = buildCustomerDashboardMetrics(campagne, { loading, error });
   const metricNotes = buildCustomerDashboardNotes(campagne, { loading, error });
-  return <div style={{
+  const progress = buildDistributionProgress(campagne, coverageById, { loading, error });
+  const progressValue = progress.status === "ready" ? `${progress.pct}%` : progress.status === "not_started" ? DISTRIBUTION_STATS_PENDING : null;
+  return <div className="vp-campaign-dashboard-shell" style={{
     minHeight: "100vh",
-    background: C.navyMid,
-    padding: "105px 24px 80px"
+    background: C.navyMid
   }}>
       <div style={{
       maxWidth: 1040,
@@ -5583,13 +5602,13 @@ export function DashboardPage({
         gap: 10,
         marginBottom: 16
       }}>
-          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow, metricNotes.payment], ["Totale speso", formatEuroIT(totalSpent), C.orange, metricNotes.amount], ["Volantini distribuiti", formatIntIT(flyersDone), C.blue, metricNotes.flyers]].map(([l, v, c, note]) => <div key={l} style={{
+          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow, metricNotes.payment], ["Totale speso", formatEuroIT(totalSpent), C.orange, metricNotes.amount], ["Avanzamento distribuzione", progressValue, C.blue, progress.note, progress.status === "loading"]].map(([l, v, c, note, pending]) => <div key={l} style={{
           padding: 16,
           borderRadius: 13,
           background: "rgba(255,255,255,.045)",
           border: "1px solid rgba(255,255,255,.08)"
         }}>
-              {loading ? (
+              {loading || pending ? (
                 <div style={{
                   height: 30,
                   width: 60,
@@ -5599,7 +5618,13 @@ export function DashboardPage({
                   animation: "admin-shimmer 1.3s infinite",
                   marginBottom: 4
                 }} />
-              ) : v == null ? <MissingValueBadge /> : <div style={{
+              ) : v == null ? <MissingValueBadge /> : v === DISTRIBUTION_STATS_PENDING ? <div style={{
+            fontFamily: F.sans,
+            fontSize: 15,
+            fontWeight: 600,
+            color: "rgba(255,255,255,.85)",
+            lineHeight: 1.35
+          }}>{v}</div> : <div style={{
             fontFamily: F.serif,
             fontSize: 28,
             color: c,

@@ -30,6 +30,8 @@
 
 - Rigenerare snapshot Milano ("Milano intera", calcolatore homepage e Preventivo Rapido) quando ISTAT pubblica nuovi dati o cambia analysis-istat: npm run snapshot:milano, poi commit di src/lib/quote/milanoWholeCitySnapshot.json (la data visibile si aggiorna da sola). Lo Step 2 resta live.
 
+- Valutare opzione C: il driver inserisce dall'app i volantini distribuiti a fine giornata (oggi il numero non viene registrato da nessuna parte; la lista campagne del cliente mostra "Avanzamento distribuzione" in % dalla copertura verificata).
+
 - Regola: le Edge Functions si distribuiscono solo da integration/rc2-full-site, mai da branch di lavoro.
 
 - Piano B tessere: chiave CARTO commerciale (la crea Fadi), config tessere centralizzata, CARTO come fallback dello Step 2 al posto di quello senza chiave.

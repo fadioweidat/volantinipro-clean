@@ -111,3 +111,27 @@ test("campaign list card: no bare 'Dato non disponibile' (fields named or hidden
   assert.match(list, />Importo da definire</);
   assert.match(list, /\{campaignAreaTitle\(campagna\) \|\| "Zona da definire"\}/);
 });
+test("list KPI 'Avanzamento distribuzione': real final coverage of started campaigns, weighted by quantity", async () => {
+  const { buildDistributionProgress } = await import("../src/lib/customerDashboardMetrics.js");
+  const a = { id: "a", stato: "in_distribuzione", quantita: 3000 };
+  const b = { id: "b", stato: "completata", quantita: 1000 };
+  const c = { id: "c", stato: "confermata", quantita: 9000 };
+  assert.deepEqual(buildDistributionProgress([c], {}), { status: "not_started", pct: null, note: null });
+  assert.equal(buildDistributionProgress([a, c], {}).status, "loading");
+  const one = buildDistributionProgress([a, c], { a: 42.5 });
+  assert.equal(one.pct, 43);
+  assert.equal(one.note, "Copertura verificata su 1 campagna in distribuzione o completata");
+  assert.equal(buildDistributionProgress([a, b], { a: 40, b: 100 }).pct, 55, "(40*3000 + 100*1000) / 4000");
+  const partial = buildDistributionProgress([a, b], { a: 40, b: null });
+  assert.equal(partial.pct, 40);
+  assert.match(partial.note, /1 campagna senza dato di copertura/);
+  assert.equal(buildDistributionProgress([a], { a: null }).status, "unavailable");
+  assert.equal(buildDistributionProgress([a], { a: 10 }, { error: "x" }).pct, null);
+  const src = read("volantinipro-final.jsx");
+  const list = src.slice(src.indexOf("export function DashboardPage("), src.indexOf("export function CampaignDashboardPage("));
+  assert.match(list, /\["Avanzamento distribuzione", progressValue, C\.blue, progress\.note, progress\.status === "loading"\]/);
+  assert.match(list, /getFinalCoverage\(id\)/);
+  assert.doesNotMatch(list, /\["Volantini distribuiti"/);
+  assert.match(list, /return <div className="vp-campaign-dashboard-shell" style=\{\{\s*minHeight: "100vh",\s*background: C\.navyMid\s*\}\}>/, "list top spacing 32/20 like the campaign page");
+  assert.doesNotMatch(list, /padding: "105px 24px 80px"/);
+});
