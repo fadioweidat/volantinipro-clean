@@ -63,12 +63,18 @@ test('explicit zero remains zero', () => {
   assert.match(kpi(html,'Totale speso'), /€0,00/);
   assert.doesNotMatch(kpi(html,'Volantini distribuiti'), /Dato non disponibile/);
 });
-test('missing or partially known amounts are unavailable, not partial totals', () => {
-  for (const rows of [[{...campaign,totale_euro:null,volantini_distribuiti:null}], [campaign,{...campaign,id:'c2',totale_euro:null,volantini_distribuiti:null}]]) {
-    const html = render({campagne:rows,loading:false,error:null});
-    assert.match(kpi(html,'Totale speso'), /Dato non disponibile/);
-    assert.match(kpi(html,'Volantini distribuiti'), /Dato non disponibile/);
-  }
+// 2026-10-22 (Fadi): amounts known for some campaigns are summed with a note naming
+// how many have none; unavailable only when no campaign has the amount. Flyers keep
+// the all-or-nothing rule (the distributed count is not recorded, see TODO).
+test('amount: unavailable only when no campaign has it, otherwise known sum + note; flyers stay all-or-nothing', () => {
+  const none = render({campagne:[{...campaign,totale_euro:null,volantini_distribuiti:null}],loading:false,error:null});
+  assert.match(kpi(none,'Totale speso'), /Dato non disponibile/);
+  assert.match(none, /1 campagna senza importo/);
+  assert.match(kpi(none,'Volantini distribuiti'), /Dato non disponibile/);
+  const partial = render({campagne:[{...campaign,totale_euro:1524.44},{...campaign,id:'c2',totale_euro:null,volantini_distribuiti:null}],loading:false,error:null});
+  assert.match(kpi(partial,'Totale speso'), /€1\.524,44/);
+  assert.match(partial, /1 campagna senza importo/);
+  assert.match(kpi(partial,'Volantini distribuiti'), /Dato non disponibile/);
 });
 test('known positive totals are summed exactly', () => {
   const html = render({campagne:[{...campaign,totale_euro:120.5,volantini_distribuiti:300}, {...campaign,id:'c2',totale_euro:10,volantini_distribuiti:200}],loading:false,error:null});
@@ -86,11 +92,12 @@ test('non-finite totals are unavailable', () => {
   assert.match(kpi(html,'Volantini distribuiti'), /Dato non disponibile/);
 });
 
-test('partial observations explain missing records without replacing authoritative totals', () => {
+test('partial observations: known sums with notes naming the missing field', () => {
   const html = render({campagne:[{...campaign,totale_euro:120.5,stato_pagamento:'in_attesa_pagamento'}, {...campaign,id:'c2',totale_euro:null,stato_pagamento:null,volantini_distribuiti:null}],loading:false,error:null});
-  assert.match(html, /1 in attesa confermati · 1 stato mancante/);
-  assert.match(html, /Somma parziale: €120,50 · 1 campagna senza dato/);
-  assert.match(kpi(html,'Totale speso'), /Dato non disponibile/);
+  assert.match(html, /1 campagna senza stato di pagamento/);
+  assert.match(html, /1 campagna senza importo/);
+  assert.match(kpi(html,'Totale speso'), /€120,50/);
+  assert.match(kpi(html,'In attesa pagamento'), />1</);
 });
 test('unavailable request never presents partial observations as real data', () => {
   const html = render({campagne:[{...campaign,totale_euro:null}],loading:false,error:'Network failure'});

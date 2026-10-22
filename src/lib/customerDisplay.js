@@ -106,3 +106,43 @@ export function smartPairingLabel(discountPct) {
   const n = Number(discountPct);
   return discountPct != null && Number.isFinite(n) && n > 0 ? `${formatIntIT(n)}%` : NO_SMART_PAIRING_DISCOUNT;
 }
+
+// Italian small words kept lowercase inside place names ("Cassina de' Pecchi").
+const PLACE_SMALL_WORDS = new Set(['di', 'del', 'della', 'dei', 'delle', 'degli', 'dello', 'da', 'de', "de'", 'e', 'sul', 'sulla', 'al', 'alla', 'in']);
+/** NIL names come in capitals (COMASINA): same style as comuni (Comasina). Mixed-case names are kept. */
+export function formatPlaceName(name) {
+  const text = fallback(name);
+  if (!text || /[a-zà-ÿ]/.test(text)) return text;
+  return text.toLowerCase().replace(/[\p{L}']+/gu, (word, offset) => {
+    if (offset > 0 && PLACE_SMALL_WORDS.has(word)) return word;
+    if (word.length <= 2 && !PLACE_SMALL_WORDS.has(word)) return word.toUpperCase(); // acronyms such as "QT 8"
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  });
+}
+
+/** "Abbiategrasso + 2 comuni" / "Comasina + 1 quartiere" from the campaign zones; single zone -> its name. */
+export function campaignAreaTitle(campagna) {
+  const names = [...new Set((campagna?.comuni || []).map(formatPlaceName).filter(Boolean))];
+  if (names.length <= 1) return names[0] || formatPlaceName(campagna?.zona);
+  const saved = Array.isArray(campagna?.metadata?.campaign_zones) ? campagna.metadata.campaign_zones : [];
+  const allNil = saved.length > 0 && saved.every((z) => z?.territory_type === 'nil');
+  const others = names.length - 1;
+  const noun = allNil ? (others === 1 ? 'quartiere' : 'quartieri') : (others === 1 ? 'comune' : 'comuni');
+  return `${names[0]} + ${others} ${noun}`;
+}
+
+/** "2026-11-12" -> "12/11/2026"; invalid -> null. */
+export function formatDateIT(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : null;
+}
+
+/** Campaign period in words; says what is missing instead of a bare placeholder. */
+export function campaignDatesLabel(start, end) {
+  const a = formatDateIT(start);
+  const b = formatDateIT(end);
+  if (a && b) return a === b ? `Il ${a}` : `Dal ${a} al ${b}`;
+  if (a) return `Dal ${a}`;
+  if (b) return `Entro il ${b}`;
+  return 'Date da definire';
+}

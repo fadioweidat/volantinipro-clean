@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   DISTRIBUTION_STATS_PENDING, NO_SMART_PAIRING_DISCOUNT, areaModeLabel, campaignStatusLabel, extraServiceLabel, formatEuroIT, formatIntIT,
+  campaignAreaTitle, campaignDatesLabel, formatDateIT, formatPlaceName,
   formatLabel, graphicStatusLabel, isCampaignPaid, isDistributionStarted, printSpecsLabel, serviceLabel, smartPairingLabel, variantLabel, zonesCountLabel,
 } from "../src/lib/customerDisplay.js";
 
@@ -64,8 +65,10 @@ test("paid only when the payment is recorded; statistics only once distribution 
 
 test("campaign page and list use the helpers (no raw codes, no toLocaleString money)", () => {
   const src = read("volantinipro-final.jsx");
-  const page = src.slice(src.indexOf("export function DashboardPage("), src.indexOf('const steps = [["confermata", "Confermata"]'));
-  assert.match(page, /\}\}>Campagna \{serviceLabel\(campagna\.servizio\) \|\| ""\} · \{campagna\.zona\}<\/h1>/);
+  const start = src.indexOf("export function DashboardPage(");
+  const page = src.slice(start, src.indexOf("export function PagamentoBonificoPage(", start));
+  assert.doesNotMatch(page, /"7\.420"|VP-12052026-001/, "unreachable demo values removed");
+  assert.match(page, /\}\}>Campagna \{serviceLabel\(campagna\.servizio\) \|\| ""\} · \{campaignAreaTitle\(campagna\)\}<\/h1>/);
   assert.match(page, /\[isCampaignPaid\(campagna\) \? "Totale pagato" : "Totale da pagare", total\]/);
   assert.match(page, /isDistributionStarted\(campagna\) \?/);
   assert.match(page, /\.map\(\(l\) => \[l, DISTRIBUTION_STATS_PENDING, null, C\.white\]\)/);
@@ -80,4 +83,31 @@ test("campaign page and list use the helpers (no raw codes, no toLocaleString mo
   const summary = read("src/components/customer/CampaignSettlementSummary.jsx");
   assert.match(summary, /formatEuroIT/);
   assert.match(summary, /color: 'rgba\(255,255,255,\.85\)'/);
+});
+
+test("campaign list: place names like comuni, area title with names, dates in words", () => {
+  assert.equal(formatPlaceName("COMASINA"), "Comasina");
+  assert.equal(formatPlaceName("MAGGIORE - MUSOCCO - CERTOSA"), "Maggiore - Musocco - Certosa");
+  assert.equal(formatPlaceName("PARCO DEI NAVIGLI"), "Parco dei Navigli");
+  assert.equal(formatPlaceName("QT 8"), "QT 8");
+  assert.equal(formatPlaceName("Cassina de' Pecchi"), "Cassina de' Pecchi", "mixed case kept");
+  assert.equal(campaignAreaTitle({ comuni: ["Abbiategrasso", "Albairate", "Cisliano"], zona: "3 comuni completi" }), "Abbiategrasso + 2 comuni");
+  assert.equal(campaignAreaTitle({ comuni: ["Abbiategrasso", "Albairate"], zona: "2 comuni completi" }), "Abbiategrasso + 1 comune");
+  assert.equal(campaignAreaTitle({ comuni: ["COMASINA", "BRUZZANO"], metadata: { campaign_zones: [{ territory_type: "nil" }, { territory_type: "nil" }] } }), "Comasina + 1 quartiere");
+  assert.equal(campaignAreaTitle({ comuni: [], zona: "BRUZZANO" }), "Bruzzano");
+  assert.equal(formatDateIT("2026-11-12"), "12/11/2026");
+  assert.equal(campaignDatesLabel("2026-11-12", "2026-11-15"), "Dal 12/11/2026 al 15/11/2026");
+  assert.equal(campaignDatesLabel(null, null), "Date da definire");
+});
+
+test("campaign list card: no bare 'Dato non disponibile' (fields named or hidden)", () => {
+  const src = read("volantinipro-final.jsx");
+  const start = src.indexOf("export function DashboardPage(");
+  const list = src.slice(start, src.indexOf("export function CampaignDashboardPage(", start));
+  assert.match(list, /campaignDatesLabel\(campagna\.data_inizio, campagna\.data_fine\)\]\.filter\(Boolean\)\.join\(" · "\)/);
+  assert.doesNotMatch(list, /customerValue\(campagna\.data_inizio\)|customerValue\(campagna\.data_fine\)/);
+  assert.match(list, /: paymentState === CUSTOMER_PAYMENT_STATE\.PENDING \? "In attesa pagamento" : null;/);
+  assert.match(list, /\{paymentLabel && <span/);
+  assert.match(list, />Importo da definire</);
+  assert.match(list, /\{campaignAreaTitle\(campagna\) \|\| "Zona da definire"\}/);
 });

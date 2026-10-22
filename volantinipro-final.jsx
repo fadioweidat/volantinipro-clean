@@ -33,7 +33,7 @@ import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContac
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
 import { buildAuthCallbackPath } from "./src/auth/loginIntent.js";
 import { useMagicLinkCooldown } from "./src/auth/useMagicLinkCooldown.js";
-import { DISTRIBUTION_STATS_PENDING, NO_SMART_PAIRING_DISCOUNT, campaignStatusLabel, formatEuroIT, formatIntIT, isCampaignPaid, isDistributionStarted, serviceLabel, smartPairingLabel } from "./src/lib/customerDisplay.js";
+import { DISTRIBUTION_STATS_PENDING, NO_SMART_PAIRING_DISCOUNT, campaignAreaTitle, campaignDatesLabel, campaignStatusLabel, formatEuroIT, formatIntIT, formatPlaceName, isCampaignPaid, isDistributionStarted, serviceLabel, smartPairingLabel } from "./src/lib/customerDisplay.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
@@ -5531,7 +5531,8 @@ export function DashboardPage({
             fontFamily: F.serif,
             fontSize: 34,
             color: C.white,
-            letterSpacing: "-1px"
+            letterSpacing: "-1px",
+            overflowWrap: "anywhere"
           }}>Ciao {cliente?.nome || cliente?.email || (clienteLoading ? "..." : "Cliente")}</h1>
             <div style={{
             marginTop: 7,
@@ -5670,7 +5671,7 @@ export function DashboardPage({
             const [svcLabel, svcColor] = svcCfg[campagna.service_type] || [serviceLabel(campagna.servizio), C.orange];
             const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campaignStatusLabel(campagna.stato), C.white];
             const paymentState = getCustomerPaymentState(campagna.stato_pagamento);
-            const paymentLabel = campagna.settlement?.settlement_status === "settled_by_credit" ? "Saldo coperto da credito" : campagna.settlement?.settlement_status === "settled_by_verified_receipt" ? "Residuo verificato" : paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "Pagato" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "In attesa pagamento" : CUSTOMER_DATA_UNAVAILABLE;
+            const paymentLabel = campagna.settlement?.settlement_status === "settled_by_credit" ? "Saldo coperto da credito" : campagna.settlement?.settlement_status === "settled_by_verified_receipt" ? "Residuo verificato" : paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "Pagato" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "In attesa pagamento" : null;
             const paymentColor = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? C.green : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? C.yellow : "rgba(255,255,255,.42)";
             const paymentBackground = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "rgba(46,204,138,.14)" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "rgba(251,191,36,.14)" : "rgba(255,255,255,.06)";
             return <div key={campagna.id} style={{
@@ -5709,7 +5710,7 @@ export function DashboardPage({
                     fontSize: 10,
                     fontWeight: 900
                   }}>{statusLabel}</span>
-                        <span style={{
+                        {paymentLabel && <span style={{
                     padding: "3px 8px",
                     borderRadius: 999,
                     background: paymentBackground,
@@ -5717,24 +5718,24 @@ export function DashboardPage({
                     fontFamily: F.sans,
                     fontSize: 10,
                     fontWeight: 900
-                  }}>{paymentLabel}</span>
+                  }}>{paymentLabel}</span>}
                       </div>
                       <div style={{
                   fontFamily: F.serif,
                   fontSize: 22,
                   color: C.white
-                }}>{campagna.zona}</div>
+                }}>{campaignAreaTitle(campagna) || "Zona da definire"}</div>
                       <div style={{
                   fontFamily: F.sans,
                   fontSize: 12,
                   color: "rgba(255,255,255,.45)",
                   marginTop: 5
-                }}>{(campagna.comuni || []).length > 1 ? `Comuni: ${campagna.comuni.join(", ")}` : (campagna.comuni || [])[0] || customerValue(campagna.zona)}  {campagna.quantita == null ? customerValue(null) : `${formatIntIT(campagna.quantita)} volantini`}  {customerValue(campagna.data_inizio)}  {customerValue(campagna.data_fine)}</div>
+                }}>{[(campagna.comuni || []).length > 1 ? (campagna.comuni || []).map(formatPlaceName).join(", ") : null, campagna.quantita == null ? null : `${formatIntIT(campagna.quantita)} volantini`, campaignDatesLabel(campagna.data_inizio, campagna.data_fine)].filter(Boolean).join(" · ")}</div>
                     </div>
                     <div style={{
                 textAlign: "right"
               }}>
-                      {campagna.settlement && campagna.settlement.settlement_status !== "not_applicable" ? <CampaignSettlementSummary settlement={campagna.settlement}/> : campagna.totale_euro == null ? <MissingValueBadge /> : <div style={{
+                      {campagna.settlement && campagna.settlement.settlement_status !== "not_applicable" ? <CampaignSettlementSummary settlement={campagna.settlement}/> : campagna.totale_euro == null ? <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>Importo da definire</div> : <div style={{
                   fontFamily: F.serif,
                   fontSize: 24,
                   color: C.green
@@ -5875,7 +5876,7 @@ export function CampaignDashboardPage({
               fontSize: 34,
               color: C.white,
               letterSpacing: "-1px"
-            }}>Campagna {serviceLabel(campagna.servizio) || ""} · {campagna.zona}</h1>
+            }}>Campagna {serviceLabel(campagna.servizio) || ""} · {campaignAreaTitle(campagna)}</h1>
               <div style={{
               fontFamily: F.sans,
               fontSize: 13,
@@ -5982,7 +5983,7 @@ export function CampaignDashboardPage({
               fontFamily: F.sans,
               fontSize: 13,
               color: C.white
-            }}><span>{z.zone_name || customerValue(null)}</span><span style={{ color: "rgba(255,255,255,.6)" }}>{z.quantity_assigned == null ? customerValue(null) : `${formatIntIT(z.quantity_assigned)} volantini`}</span></div>)}
+            }}><span>{formatPlaceName(z.zone_name) || "Zona senza nome"}</span><span style={{ color: "rgba(255,255,255,.6)" }}>{z.quantity_assigned == null ? customerValue(null) : `${formatIntIT(z.quantity_assigned)} volantini`}</span></div>)}
               <div style={{
               display: "flex",
               justifyContent: "space-between",
@@ -6321,354 +6322,6 @@ export function CampaignDashboardPage({
         fontWeight: 800,
         cursor: "pointer"
       }}>Torna dashboard</button>
-      </div>
-    </div>;
-  const steps = [["confermata", "Confermata"], ["preparazione", "In preparazione"], ["distribuzione", "Distribuzione"], ["completata", "Completata"]];
-  const activeIdx = 2;
-  const gpsPoints = [[18, 68], [28, 58], [38, 62], [48, 45], [58, 50], [70, 36], [82, 42]];
-  const stats = [["Volantini distribuiti", "7.420", C.green], ["Copertura stimata", "74%", C.orange], ["Zone completate", "3/5", C.blue], ["Proof foto", "12", C.purple]];
-  const history = [["VP-12052026-001", "Door to Door", "Cormano", "Completata", "386"], ["VP-18042026-002", "Business Distribution", "Bresso", "Completata", "420"]];
-  return <div className="vp-campaign-dashboard-shell" style={{
-    minHeight: "100vh",
-    background: C.navyMid
-  }}>
-      <div style={{
-      maxWidth: 1180,
-      margin: "0 auto"
-    }}>
-        <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        gap: 16,
-        alignItems: "center",
-        flexWrap: "wrap",
-        marginBottom: 22
-      }}>
-          <div>
-            <div style={{
-            fontFamily: F.sans,
-            fontSize: 10,
-            fontWeight: 800,
-            color: C.orange,
-            letterSpacing: ".14em",
-            textTransform: "uppercase",
-            marginBottom: 9
-          }}>Campagna VP-12052026-001</div>
-            <h1 style={{
-            fontFamily: F.serif,
-            fontSize: 34,
-            color: C.white,
-            letterSpacing: "-1px"
-          }}>Dashboard campagna</h1>
-            <div style={{
-            fontFamily: F.sans,
-            fontSize: 13,
-            color: "rgba(255,255,255,.45)",
-            marginTop: 6
-          }}>Dettaglio campagna non disponibile</div>
-          </div>
-          <button onClick={() => onNav("dashboard")} style={{
-          minHeight: 44,
-          padding: "0 16px",
-          borderRadius: 10,
-          border: "1px solid rgba(255,255,255,.12)",
-          background: "rgba(255,255,255,.05)",
-          color: C.white,
-          fontFamily: F.sans,
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: "pointer"
-        }}>Torna dashboard</button>
-        </div>
-
-        <div style={{
-        background: "rgba(255,255,255,.045)",
-        border: "1px solid rgba(255,255,255,.09)",
-        borderRadius: 14,
-        padding: 18,
-        marginBottom: 14
-      }}>
-          <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))",
-          gap: 10
-        }}>
-            {steps.map(([id, label], i) => {
-            const done = i <= activeIdx;
-            return <div key={id} style={{
-              padding: 12,
-              borderRadius: 11,
-              background: done ? "rgba(46,204,138,.08)" : "rgba(255,255,255,.035)",
-              border: `1px solid ${done ? "rgba(46,204,138,.24)" : "rgba(255,255,255,.06)"}`
-            }}>
-                  <div style={{
-                width: 24,
-                height: 24,
-                borderRadius: "50%",
-                background: done ? C.green : "rgba(255,255,255,.1)",
-                color: C.white,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontFamily: F.sans,
-                fontSize: 12,
-                fontWeight: 800,
-                marginBottom: 8
-              }}>{i + 1}</div>
-                  <div style={{
-                fontFamily: F.sans,
-                fontSize: 12,
-                fontWeight: 800,
-                color: done ? C.white : "rgba(255,255,255,.42)"
-              }}>{label}</div>
-                </div>;
-          })}
-          </div>
-        </div>
-
-        <div className="vp-campaign-dashboard-grid">
-          <div style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 14
-        }}>
-            <div style={{
-            background: "rgba(255,255,255,.045)",
-            border: "1px solid rgba(255,255,255,.09)",
-            borderRadius: 14,
-            padding: 18
-          }}>
-              <div style={{
-              fontFamily: F.sans,
-              fontSize: 10,
-              fontWeight: 800,
-              color: C.blue,
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-              marginBottom: 12
-            }}>Percorso GPS live</div>
-              <div style={{
-              height: 300,
-              borderRadius: 12,
-              background: "linear-gradient(135deg,#173225,#182b42 52%,#2b2648)",
-              border: "1px solid rgba(255,255,255,.08)",
-              position: "relative",
-              overflow: "hidden"
-            }}>
-                <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{
-                position: "absolute",
-                inset: 0
-              }}>
-                  <defs><pattern id="vp-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="rgba(255,255,255,.05)" strokeWidth=".35" /></pattern></defs>
-                  <rect width="100" height="100" fill="url(#vp-grid)" />
-                  <polyline points={gpsPoints.map(p => p.join(",")).join(" ")} fill="none" stroke={C.green} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                  {gpsPoints.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === gpsPoints.length - 1 ? 2.3 : 1.3} fill={i === gpsPoints.length - 1 ? C.orange : C.green} />)}
-                </svg>
-                <div style={{
-                position: "absolute",
-                left: 12,
-                top: 12,
-                padding: "7px 10px",
-                borderRadius: 8,
-                background: "rgba(15,26,48,.86)",
-                fontFamily: F.sans,
-                fontSize: 11,
-                color: "rgba(255,255,255,.72)",
-                border: "1px solid rgba(255,255,255,.08)"
-              }}>Ultimo ping: 14:32  Bresso</div>
-              </div>
-            </div>
-
-            <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
-            gap: 10
-          }}>
-              {stats.map(([l, v, c]) => <div key={l} style={{
-              padding: 15,
-              borderRadius: 13,
-              background: "rgba(255,255,255,.045)",
-              border: "1px solid rgba(255,255,255,.08)"
-            }}>
-                  <div style={{
-                fontFamily: F.serif,
-                fontSize: 28,
-                color: c,
-                letterSpacing: "-.5px"
-              }}>{v}</div>
-                  <div style={{
-                fontFamily: F.sans,
-                fontSize: 11,
-                color: "rgba(255,255,255,.42)",
-                marginTop: 4
-              }}>{l}</div>
-                </div>)}
-            </div>
-
-            <div style={{
-            background: "rgba(255,255,255,.045)",
-            border: "1px solid rgba(255,255,255,.09)",
-            borderRadius: 14,
-            padding: 18
-          }}>
-              <div style={{
-              fontFamily: F.sans,
-              fontSize: 10,
-              fontWeight: 800,
-              color: C.purple,
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-              marginBottom: 12
-            }}>Foto proof geolocalizzate</div>
-              <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
-              gap: 10
-            }}>
-                {["Cormano centro", "Bresso nord", "Via Roma", "Zona scuole"].map((label, i) => <div key={label} style={{
-                aspectRatio: "4/3",
-                borderRadius: 11,
-                background: `linear-gradient(135deg,rgba(232,87,26,${.16 + i * .03}),rgba(96,165,250,.16))`,
-                border: "1px solid rgba(255,255,255,.08)",
-                padding: 10,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "flex-end"
-              }}>
-                    <div style={{
-                  fontFamily: F.sans,
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: C.white
-                }}>{label}</div>
-                    <div style={{
-                  fontFamily: F.sans,
-                  fontSize: 9,
-                  color: "rgba(255,255,255,.45)"
-                }}>GPS  oggi</div>
-                  </div>)}
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 14
-        }}>
-            <div style={{
-            background: "rgba(255,255,255,.045)",
-            border: "1px solid rgba(255,255,255,.09)",
-            borderRadius: 14,
-            padding: 18
-          }}>
-              <div style={{
-              fontFamily: F.sans,
-              fontSize: 10,
-              fontWeight: 800,
-              color: C.green,
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-              marginBottom: 12
-            }}>Smart Pairing</div>
-              <div style={{
-              fontFamily: F.serif,
-              fontSize: 30,
-              color: C.green,
-              letterSpacing: "-.8px"
-            }}>-20%</div>
-              <div style={{
-              fontFamily: F.sans,
-              fontSize: 12,
-              color: "rgba(255,255,255,.48)",
-              lineHeight: 1.55,
-              marginTop: 6
-            }}>Slot 13 Mag  zona compatibile Bresso  sconto applicato al preventivo.</div>
-            </div>
-
-            <div style={{
-            background: "rgba(255,255,255,.045)",
-            border: "1px solid rgba(255,255,255,.09)",
-            borderRadius: 14,
-            padding: 18
-          }}>
-              <div style={{
-              fontFamily: F.sans,
-              fontSize: 10,
-              fontWeight: 800,
-              color: C.orange,
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-              marginBottom: 12
-            }}>Report finale</div>
-              <button className="btn" style={{
-              width: "100%",
-              minHeight: 44,
-              borderRadius: 10,
-              border: "none",
-              background: C.orange,
-              color: C.white,
-              fontFamily: F.sans,
-              fontSize: 13,
-              fontWeight: 800,
-              cursor: "pointer"
-            }}>Download PDF report</button>
-              <div style={{
-              fontFamily: F.sans,
-              fontSize: 11,
-              color: "rgba(255,255,255,.34)",
-              marginTop: 10,
-              lineHeight: 1.45
-            }}>Il report reale verra generato dai dati `tracking_gps` e proof foto.</div>
-            </div>
-
-            <div style={{
-            background: "rgba(255,255,255,.045)",
-            border: "1px solid rgba(255,255,255,.09)",
-            borderRadius: 14,
-            padding: 18
-          }}>
-              <div style={{
-              fontFamily: F.sans,
-              fontSize: 10,
-              fontWeight: 800,
-              color: C.blue,
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-              marginBottom: 10
-            }}>Storico campagne</div>
-              {history.map(([id, service, zone, status, total]) => <div key={id} style={{
-              padding: "10px 0",
-              borderBottom: "1px solid rgba(255,255,255,.06)"
-            }}>
-                  <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 8
-              }}>
-                    <div style={{
-                  fontFamily: F.sans,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  color: C.white
-                }}>{id}</div>
-                    <div style={{
-                  fontFamily: F.sans,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  color: C.green
-                }}>{total}</div>
-                  </div>
-                  <div style={{
-                fontFamily: F.sans,
-                fontSize: 10,
-                color: "rgba(255,255,255,.42)",
-                marginTop: 3
-              }}>{service}  {zone}  {status}</div>
-                </div>)}
-            </div>
-          </div>
-        </div>
       </div>
     </div>;
 }
