@@ -41,3 +41,11 @@
   - in totale circa 2,5 h in 36 giorni: carico costante e scritture continue, non da solo la causa dei picchi (query banali fino a 6,4 s il 2026-10-22).
   Proposte: eseguire il dispatch solo quando l'outbox ha righe (o a ogni 30-60 s), housekeeping 1 volta all'ora/giorno,
   pulizia periodica di cron.job_run_details (es. tenere 7 giorni). Verificare prima con chi ha sviluppato la chat se 10 s è un requisito.
+
+- Step 4, possibile doppione se il cliente riprova mentre la prima richiesta e' ancora in lavorazione (da valutare dopo).
+  Oggi: dopo 60 s il sito smette di aspettare e invita a premere di nuovo "Conferma" (src/lib/campaignSaveTimeout.js).
+  submit-campaign-request riconosce la stessa richiesta (impronta: email, comune, quantita', importo, zone) solo se la prima
+  e' gia' stata salvata (ricerca su campaigns.metadata.submission_fingerprint negli ultimi 10 minuti, poi insert): due richieste
+  in contemporanea possono passare entrambe il controllo e creare due campagne.
+  Possibili soluzioni: vincolo unico sull'impronta (indice univoco) o chiave di idempotenza generata dal sito e riusata nel nuovo
+  tentativo (tabella edge_idempotency_keys gia' esistente); la funzione in produzione (v12) va prima riallineata al repo.
