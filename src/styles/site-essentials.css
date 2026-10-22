@@ -1,0 +1,49 @@
+/* Rules that lived only in src/styles/app.css, which no module imports, so they
+ * never reached the site. Only these are moved (app.css is NOT loaded):
+ * keyboard focus, campaign dashboard layout, tabular numbers, Step 2 comune row
+ * hover. Copied from app.css (focus rule made a fallback, see below). */
+
+/* Accessibilità: focus visibile per la navigazione da tastiera.
+ * Fallback only (low specificity, no !important): elements that already define
+ * their own focus style (e.g. homepage nav .vp-navbtn, light orange for contrast)
+ * keep it. app.css had !important, which would override them. */
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid #E8571A;
+  outline-offset: 2px;
+}
+
+/* Step 2: hover delle righe comuni */
+.town-list-item:hover {
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  transform: translateY(-1px);
+}
+
+/* Numeri allineati (Step 2, report territoriale) */
+.vp-data-number { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Dashboard campagna cliente: spazio sotto la barra fissa e griglia a 2 colonne */
+.vp-campaign-dashboard-shell {
+  min-height: 100vh;
+  background: #0D1B2A;
+  padding: 105px 24px 80px;
+  box-sizing: border-box;
+}
+
+.vp-campaign-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .vp-campaign-dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .vp-campaign-dashboard-shell {
+    padding: 85px 14px 60px !important;
+  }
+}

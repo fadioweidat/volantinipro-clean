@@ -6,6 +6,7 @@ import { RouteErrorBoundary } from "./bootstrap/RouteErrorBoundary.jsx";
 import { clearRetryFlag } from "./bootstrap/chunkRetry.js";
 import { warnIfMojibake } from "./lib/mojibakeGuard.js";
 import { DriverDiagnosticsPanel } from "./components/driver/DriverDiagnosticsPanel.jsx";
+import "./styles/site-essentials.css";
 
 // Segnale per il fallback statico in index.html (script inline, non-module):
 // raggiungere questa riga prova che l'INTERO grafo di import statici di
