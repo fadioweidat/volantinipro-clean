@@ -74,7 +74,7 @@ test("Preventivo Rapido: Milano gets its own 'Milano intera' request, the other 
 test("Preventivo Rapido wiring: Milano row from the NIL sum, clear message instead of an endless 'In calcolo…'", () => {
   const quick = readFileSync(new URL("../src/pages/public/QuickQuotePage.jsx", import.meta.url), "utf8");
   assert.match(quick, /useServiceAnalysis\(\.\.\.buildQuickQuoteAnchorAnalysisArgs\(otherComuni, service, qty\)\)/);
-  assert.match(quick, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(service === "d2d" \? milanoComune : null\)\)/);
+  assert.match(quick, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(service === "d2d" && !milanoSnapshot \? milanoComune : null\)\)/);
   assert.match(quick, /if \(c === milanoComune\) \{/);
   assert.match(quick, /recommendedFlyers: ok \? milano\.recommended : null, matched: Boolean\(ok\)/);
   assert.match(quick, /Dati ISTAT non disponibili per \{d2dUnmatched\.join\(", "\)\} in questo momento\./);

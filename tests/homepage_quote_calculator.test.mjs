@@ -17,7 +17,7 @@ test("homepage calculator shows no hardcoded territorial figures", () => {
 
 test("calculator reuses the configurator pipeline (same request as Quick Quote, same quantity rule as Step 2)", () => {
   // Request and reading live in homeCalculatorAnalysis.js (Milano = "Milano intera" by NIL).
-  assert.match(CALC, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(comune\)\)/);
+  assert.match(CALC, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(milanoSnapshot \? null : comune\)\)/);
   assert.match(CALC, /readHomeCalculatorAnalysis\(data, comune\)/);
   const LOGIC = read("src/lib/quote/homeCalculatorAnalysis.js");
   assert.match(LOGIC, /return \[comune\.lat, comune\.lng, SINGLE_COMUNE_RADIUS_KM, 'd2d', comune\.name, null, 'comune', null, 'municipality', null\];/);

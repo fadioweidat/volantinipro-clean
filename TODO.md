@@ -28,6 +28,8 @@
 
 - Rigenerare snapshot hero quando ISTAT pubblica nuovi dati (npm run snapshot:hero, poi commit di src/components/home/heroScenarioSnapshot.json; la data visibile si aggiorna da sola).
 
+- Rigenerare snapshot Milano ("Milano intera", calcolatore homepage e Preventivo Rapido) quando ISTAT pubblica nuovi dati o cambia analysis-istat: npm run snapshot:milano, poi commit di src/lib/quote/milanoWholeCitySnapshot.json (la data visibile si aggiorna da sola). Lo Step 2 resta live.
+
 - Regola: le Edge Functions si distribuiscono solo da integration/rc2-full-site, mai da branch di lavoro.
 
 - Piano B tessere: chiave CARTO commerciale (la crea Fadi), config tessere centralizzata, CARTO come fallback dello Step 2 al posto di quello senza chiave.

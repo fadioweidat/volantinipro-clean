@@ -4,7 +4,8 @@ import { useServiceAnalysis } from '../../hooks/useServiceAnalysis.js';
 import { canonicalizeItalianMunicipalityName } from '../../lib/geocoding/canonicalizeItalianMunicipalityName.js';
 import { searchItalianMunicipalities } from '../../lib/geocoding/searchItalianMunicipalities.js';
 import { formatOperationalMarginNote, getOperationalMarginPct } from '../../lib/doorToDoorCoverage.js';
-import { buildHomeCalculatorAnalysisArgs, readHomeCalculatorAnalysis } from '../../lib/quote/homeCalculatorAnalysis.js';
+import { buildHomeCalculatorAnalysisArgs, isMilanoComune, readHomeCalculatorAnalysis } from '../../lib/quote/homeCalculatorAnalysis.js';
+import { MILANO_SNAPSHOT } from '../../lib/quote/milanoSnapshotSource.js';
 import { formatHeroMetric } from './homepageHeroData.js';
 import { buildQuoteSelectionHref } from '../../lib/quote/quoteComuneParam.js';
 
@@ -58,8 +59,11 @@ export default function HomeQuoteCalculator({ onConfigure }) {
   useEffect(() => () => clearTimeout(blurTimer.current), []);
 
   // Same request and quantity rule as Step 2 (Milano: "Milano intera", sum of the NILs).
-  const { data, loading, error } = useServiceAnalysis(...buildHomeCalculatorAnalysisArgs(comune));
-  const analysis = useMemo(() => (error ? null : readHomeCalculatorAnalysis(data, comune)), [comune, data, error]);
+  // Milano intera from the bundled snapshot (immediate, no database wait);
+  // live request only when the snapshot is missing or invalid.
+  const milanoSnapshot = isMilanoComune(comune) ? MILANO_SNAPSHOT : null;
+  const { data, loading, error } = useServiceAnalysis(...buildHomeCalculatorAnalysisArgs(milanoSnapshot ? null : comune));
+  const analysis = useMemo(() => (milanoSnapshot ? milanoSnapshot.analysis : error ? null : readHomeCalculatorAnalysis(data, comune)), [milanoSnapshot, comune, data, error]);
   const families = analysis?.families ?? null;
   const recommended = analysis?.recommended ?? null;
   const marginNote = formatOperationalMarginNote(getOperationalMarginPct(families, recommended));
@@ -69,6 +73,7 @@ export default function HomeQuoteCalculator({ onConfigure }) {
   // "unavailable" (no ISTAT data) only when the answer really has none for this
   // comune; rows that cannot be read as a whole comune are a temporary error.
   const status = !comune ? 'idle'
+    : milanoSnapshot ? 'ready'
     : loading || (!data && !error) ? 'loading'
       : error === 'TERRITORIAL_DATA_NOT_AVAILABLE' ? 'unavailable'
       : error ? 'error'
@@ -152,7 +157,7 @@ export default function HomeQuoteCalculator({ onConfigure }) {
     {status === 'loading' && <p className="vpq-example-note" role="status">Analisi dei dati ISTAT per {comune.name} in corso…</p>}
     {status === 'error' && <p className="vpq-calc-alert" role="alert">Dati territoriali non disponibili per {comune.name} in questo momento. Puoi comunque calcolare il preventivo nel configuratore.</p>}
     {status === 'unavailable' && <p className="vpq-calc-alert" role="alert">Non abbiamo dati ISTAT per {comune.name}. Puoi comunque calcolare il preventivo nel configuratore.</p>}
-    {status === 'ready' && isMilano && <p className="vpq-example-note">Milano intera: {formatHeroMetric(analysis.nilCount)} quartieri (NIL). Nel configuratore puoi scegliere i singoli quartieri.</p>}
+    {status === 'ready' && isMilano && <p className="vpq-example-note">Milano intera: {formatHeroMetric(analysis.nilCount)} quartieri (NIL). Nel configuratore puoi scegliere i singoli quartieri.{milanoSnapshot && <> Dati ISTAT aggiornati al {milanoSnapshot.dateLabel}.</>}</p>}
 
     <p className="vpq-info"><ProcessIcon name="info" /><span>Se la quantità supera la capacità stimata della zona, puoi ampliare il territorio o aggiungere altri Comuni.</span></p>
     <button type="button" className="vpq-cta" onClick={goToQuoteSelection}>Calcola il preventivo online <span aria-hidden="true">→</span></button>

@@ -6,6 +6,7 @@ import { canonicalizeItalianMunicipalityName } from "../../lib/geocoding/canonic
 import { searchItalianMunicipalities } from "../../lib/geocoding/searchItalianMunicipalities.js";
 import { readComuneParam } from "../../lib/quote/quoteComuneParam.js";
 import { buildHomeCalculatorAnalysisArgs, buildQuickQuoteAnchorAnalysisArgs, readHomeCalculatorAnalysis, splitQuickQuoteComuni } from "../../lib/quote/homeCalculatorAnalysis.js";
+import { MILANO_SNAPSHOT } from "../../lib/quote/milanoSnapshotSource.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../../lib/extraServicesRegistry.js";
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
 import { printQuotePdf } from "../../lib/pdf/printQuotePdf.js";
@@ -252,7 +253,9 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // di zone estranee ai comuni scelti. Percio' questo fetch viene disabilitato
   // (municipality: null) per H2H/B2B, sostituito dai fetch per-comune sotto.
   const { data: apiData, loading: anchorLoading, error: anchorError } = useServiceAnalysis(...buildQuickQuoteAnchorAnalysisArgs(otherComuni, service, qty));
-  const milanoAnalysis = useServiceAnalysis(...buildHomeCalculatorAnalysisArgs(service === "d2d" ? milanoComune : null));
+  // Milano intera from the bundled snapshot when valid (immediate); live otherwise.
+  const milanoSnapshot = service === "d2d" && milanoComune ? MILANO_SNAPSHOT : null;
+  const milanoAnalysis = useServiceAnalysis(...buildHomeCalculatorAnalysisArgs(service === "d2d" && !milanoSnapshot ? milanoComune : null));
   const territorialLoading = anchorLoading || milanoAnalysis.loading;
   const territorialError = anchorError || milanoAnalysis.error || null;
 
@@ -352,7 +355,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // affatto: niente stima precedente mostrata come valida (sez. 9 del ticket).
   const municipalityRows = useMemo(() => {
     const rows = Array.isArray(apiData?.comuni_breakdown) ? apiData.comuni_breakdown : [];
-    const milano = milanoComune && milanoAnalysis.data ? readHomeCalculatorAnalysis(milanoAnalysis.data, milanoComune) : null;
+    const milano = milanoSnapshot ? milanoSnapshot.analysis : milanoComune && milanoAnalysis.data ? readHomeCalculatorAnalysis(milanoAnalysis.data, milanoComune) : null;
     return comuni.map((c) => {
       if (c === milanoComune) {
         // Sum of the 88 NILs, same quantity rule as Step 2 "Milano intera".
@@ -366,7 +369,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
       const { households, population, recommendedFlyers } = extractMunicipalityTerritorialData(match);
       return { municipality: c.name, households, population, recommendedFlyers, matched: Boolean(match) && households != null };
     });
-  }, [comuni, apiData, milanoComune, milanoAnalysis.data]);
+  }, [comuni, apiData, milanoComune, milanoSnapshot, milanoAnalysis.data]);
 
   const campaign = useMemo(
     () => computeTerritorialCampaign({ municipalityRows, requestedQuantity: qty, service }),
@@ -1079,6 +1082,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                       </div>
                     ))}
                   </div>
+                  {milanoSnapshot && <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)" }}>Milano intera (88 quartieri): dati ISTAT aggiornati al {milanoSnapshot.dateLabel}.</div>}
                 </div>
               )}
 
