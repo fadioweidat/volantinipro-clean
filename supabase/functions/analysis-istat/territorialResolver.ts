@@ -22,6 +22,30 @@ export interface TerritorialResolverOutput {
 
 const VALID_SCOPES: Set<string> = new Set(["municipality", "radius", "address", "cap", "multi"]);
 
+/**
+ * A comune (or a Milano NIL) chosen as a whole territory: the radius sent by
+ * the client is only a technical sweep to find it, so the row counts all its
+ * ISTAT households. The RPC estimates in-radius households as
+ * households_total x intersected-area share; with a 3 km sweep a large comune
+ * was cut (Monza 66%) and the result depended on the search point.
+ */
+export function asWholeTerritory(row: Record<string, unknown>): Record<string, unknown> {
+  const households = Number(row.households_total || 0);
+  const population = Number(row.population_total || 0);
+  const whole: Record<string, unknown> = { ...row, pct_copertura: 100 };
+  delete whole.households_in_radius;
+  delete whole.famiglie_nel_raggio;
+  delete whole.population_in_radius;
+  delete whole.popolazione_nel_raggio;
+  delete whole.volantini_nel_raggio;
+  if (Number.isFinite(households) && households > 0) {
+    whole.households_in_radius = households;
+    whole.volantini_nel_raggio = Math.round(households * 1.1);
+  }
+  if (Number.isFinite(population) && population > 0) whole.population_in_radius = population;
+  return whole;
+}
+
 export function resolveTerritorialBreakdown(input: TerritorialResolverInput): TerritorialResolverOutput {
   const warnings = input.warnings || [];
   const isMilanoName = (name?: string | null) => {
@@ -96,11 +120,12 @@ export function resolveTerritorialBreakdown(input: TerritorialResolverInput): Te
       }
 
       const includeMilanoNils = selectedCodesSet.has("015146");
-      const filteredNils = includeMilanoNils ? deduplicatedMilanoNils : [];
+      // Selected comuni (and Milano, as all its NILs) are whole territories.
+      const filteredNils = includeMilanoNils ? deduplicatedMilanoNils.map(asWholeTerritory) : [];
       const filteredExternal = deduplicatedExternalMunicipalities.filter(c => {
         const code = String(c.municipality_code ?? c.comune_code ?? c.istat_code ?? "").trim();
         return selectedCodesSet.has(code);
-      });
+      }).map(asWholeTerritory);
 
       territorialRows = [...filteredNils, ...filteredExternal];
       if (filteredNils.length > 0 && filteredExternal.length > 0) {
@@ -167,7 +192,7 @@ export function resolveTerritorialBreakdown(input: TerritorialResolverInput): Te
     if (deduplicatedMilanoNils.length !== 88) {
       warnings.push(`MILANO_NIL_COMPLETE_INCOMPLETE_OR_DUPLICATED: expected 88 unique NILs, found ${deduplicatedMilanoNils.length}. Note: radius=15 is a temporary technical workaround.`);
     }
-    territorialRows = deduplicatedMilanoNils;
+    territorialRows = deduplicatedMilanoNils.map(asWholeTerritory);
     analysisLevel = "nil";
   } else if (isSingleNonMilanoMunicipalityScope) {
     const normalizeName = (name?: string | null) =>
@@ -190,7 +215,7 @@ export function resolveTerritorialBreakdown(input: TerritorialResolverInput): Te
       warnings.push(`MUNICIPALITY_SCOPE_REQUESTED_COMUNE_NOT_IN_SWEEP: "${input.specificMunicipality}" not found among ${comuni.length} comuni returned by the radius sweep; any Milano NILs/external comuni picked up incidentally were discarded, not merged in.`);
     }
 
-    territorialRows = matched;
+    territorialRows = matched.map(asWholeTerritory);
     analysisLevel = "comune";
   } else if (deduplicatedMilanoNils.length > 0 && deduplicatedExternalMunicipalities.length > 0) {
     // Raggio o Address che interseca sia NIL di Milano che comuni esterni

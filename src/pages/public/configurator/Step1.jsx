@@ -1855,7 +1855,8 @@ export function Step1({
               {[5000, 10000, 25000, 50000, 100000].map(q => {
               const active = data.qty === q;
               return <button key={q} type="button" onClick={() => updateData({
-                qty: q
+                qty: q,
+                quantitySource: "customer"
               })} className="vp-s1-btn-hover" style={{
                 flex: "1 1 120px",
                 padding: "12px 14px",
@@ -1874,7 +1875,8 @@ export function Step1({
             </div>
 
             <input type="range" aria-label="Quantità volantini" min={1000} max={100000} step={1000} value={Math.max(1000, Math.min(100000, data.qty || 10000))} onChange={e => updateData({
-            qty: Number(e.target.value)
+            qty: Number(e.target.value),
+            quantitySource: "customer"
           })} className="vp-s1-slider" />
 
             <div style={{
@@ -1901,12 +1903,14 @@ export function Step1({
               }).format(data.qty) : ""} onChange={e => {
                 const v = e.target.value.replace(/\D/g, "");
                 updateData({
-                  qty: v ? parseInt(v, 10) : ""
+                  qty: v ? parseInt(v, 10) : "",
+                  quantitySource: "customer"
                 });
               }} onBlur={e => {
                 const v = e.target.value.replace(/\D/g, "");
                 updateData({
-                  qty: Math.max(1000, Math.min(100000, v ? parseInt(v, 10) : 10000))
+                  qty: Math.max(1000, Math.min(100000, v ? parseInt(v, 10) : 10000)),
+                  quantitySource: "customer"
                 });
               }} className="vp-s1-input-modern" style={{
                 width: 130,

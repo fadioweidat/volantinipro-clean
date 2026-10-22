@@ -5,6 +5,7 @@ import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import { AnimatePresence, motion } from "framer-motion";
 import { submitPublicCampaign, AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, ensureRestSessionFromSdk, getStoredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveCampaign } from "../../../lib/supabaseClient.js";
+import { CAMPAIGN_SAVE_SLOW_MESSAGE, CAMPAIGN_SAVE_SLOW_NOTICE_MS, isCampaignSaveTimeout, withCampaignSaveTimeout } from "../../../lib/campaignSaveTimeout.js";
 import { buildExtraServicesById, buildExtraServicesRegistry, buildOptionalExtras, buildSvcCommercial, normalizeSelectedExtras } from "../../../lib/extraServicesRegistry.js";
 import { calculatePrintPrice } from "../../../lib/pricing/printPricing.js";
 import { BUSINESS_DELIVERY_METHODS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECTIVES, BUSINESS_PROOF_OPTIONS, BUSINESS_RECIPIENTS, businessCategoryLabel, businessOptionLabel, calculateBusinessMaterials, calculateBusinessOperationalPlan } from "../../../lib/business/business-config.js";
@@ -69,6 +70,7 @@ export function Step4({
     [key]: !p[key]
   }));
   const [confirmSyncStatus, setConfirmSyncStatus] = useState("");
+  const [saveSlowNotice, setSaveSlowNotice] = useState(null);
   const [returnFromLogin, setReturnFromLogin] = useState(() => localStorage.getItem("volantinipro_return_to") === "step4" && localStorage.getItem("volantinipro_pending_action") === "confirm_campaign");
   const svcType = data.type || "d2d";
   const isQuick = data.quickSource === "quick_quote";
@@ -1484,7 +1486,14 @@ export function Step4({
         return;
       }
 
-      const res = await submitPublicCampaign(payload);
+      const slowTimer = setTimeout(() => setSaveSlowNotice(CAMPAIGN_SAVE_SLOW_MESSAGE), CAMPAIGN_SAVE_SLOW_NOTICE_MS);
+      let res;
+      try {
+        res = await withCampaignSaveTimeout(submitPublicCampaign(payload));
+      } finally {
+        clearTimeout(slowTimer);
+        setSaveSlowNotice(null);
+      }
       
       if (res.error) throw new Error(res.error.message || "Errore API Edge Function");
 
@@ -1525,7 +1534,7 @@ export function Step4({
       if (onCampaignSaved) onCampaignSaved(id, "payment");
     } catch (err) {
       console.warn("Campaign Supabase save failed", err);
-      setCampaignSaveError("Errore durante il salvataggio della campagna: " + (err?.message || "Riprova più tardi."));
+      setCampaignSaveError(isCampaignSaveTimeout(err) ? err.message : "Errore durante il salvataggio della campagna: " + (err?.message || "Riprova più tardi."));
       setConfirmSyncStatus("Campagna non salvata.");
       logError({
         category: ERROR_CATEGORIES.SUBMIT_CAMPAIGN,
@@ -3055,6 +3064,7 @@ export function Step4({
               savingCampaign={savingCampaign}
               handleConfirmCampaign={handleConfirmCampaign}
               confirmSyncStatus={confirmSyncStatus}
+              saveSlowNotice={saveSlowNotice}
               clientForm={clientForm}
               setClientForm={setClientForm}
               confirmProblem={confirmProblem}

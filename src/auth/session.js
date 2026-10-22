@@ -359,7 +359,9 @@ export function parseSupabaseAuthHashError() {
     error,
     errorCode: hash.get("error_code") || "",
     description: hash.get("error_description") || "",
-    message: "Il magic link è scaduto o non è più valido."
+    // Each new request invalidates the previous link: the most common case is a
+    // customer clicking an older email after asking again.
+    message: "Il magic link è scaduto o non è più valido. Usa il link dell'email più recente: ogni nuova richiesta annulla quelle precedenti. Se non lo trovi, richiedine uno nuovo qui sotto."
   };
 }
 

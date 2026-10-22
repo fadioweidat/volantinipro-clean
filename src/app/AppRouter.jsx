@@ -74,7 +74,9 @@ const SupplierDashboard = lazy(() => import("../pages/supplier/SupplierDashboard
 // per riferimento tra una campagna e l'altra.
 function createEmptyConfiguratorData() {
   return {
-    type: null, activityType: "", activityNote: "", qty: 10000,
+    // quantitySource "default": 10.000 is a placeholder the customer never chose;
+    // Step 2 (D2D) replaces it with the recommended quantity of the territory.
+    type: null, activityType: "", activityNote: "", qty: 10000, quantitySource: "default",
     hasFlyers: "yes", flyerFormat: "a5", flyerWeight: "130", extraServices: [], printGramm: "130", printSide: "fronte", printColor: "cmyk",
     // STAMPA e GRAFICA sono scelte separate e persistite separatamente:
     //   selected        -> [Aggiungi stampa al preventivo] / [No, solo distribuzione]  (alias di `enabled`)
@@ -122,6 +124,15 @@ export function hasConfiguredPointOfSaleDraft(draft) {
 export function resolveDraftPrefillPatch(draft, patch) {
   if (!patch || !hasConfiguredPointOfSaleDraft(draft)) return patch || {};
   return Object.fromEntries(Object.entries(patch).filter(([key]) => !POINT_OF_SALE_OWNED_PREFILL_KEYS.includes(key)));
+}
+
+/**
+ * Drafts saved before quantitySource existed may hold a quantity the customer
+ * chose: treat any such quantity as chosen, never overwrite it.
+ */
+export function resolveDraftQuantitySource(draft) {
+  if (draft?.quantitySource === "customer" || draft?.quantitySource === "default") return draft.quantitySource;
+  return Number(draft?.qty || draft?.flyerQuantity || 0) > 0 ? "customer" : "default";
 }
 
 export function AppRouter() {
@@ -190,7 +201,8 @@ export function AppRouter() {
       ...createEmptyConfiguratorData(),
       ...persistedDraft,
       ...draft,
-      ...resolveDraftPrefillPatch({ ...persistedDraft, ...draft }, prefill.patch)
+      ...resolveDraftPrefillPatch({ ...persistedDraft, ...draft }, prefill.patch),
+      quantitySource: resolveDraftQuantitySource({ ...persistedDraft, ...draft })
     };
   });
 

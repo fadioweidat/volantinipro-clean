@@ -32,6 +32,7 @@ import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from "./src
 import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContactMailtoUrl } from "./src/lib/paymentMode.js";
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
 import { buildAuthCallbackPath } from "./src/auth/loginIntent.js";
+import { useMagicLinkCooldown } from "./src/auth/useMagicLinkCooldown.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
@@ -5005,7 +5006,10 @@ function getSupabaseEnv() {
 // pulsante mostra "Invio in corso..." per sempre — nessun errore, nessun
 // modo di riprovare. Non cambia la logica di autenticazione: limita solo
 // quanto la UI aspetta prima di trattarla come un errore riprovabile.
-const MAGIC_LINK_REQUEST_TIMEOUT_MS = 15000;
+// 45 s, not 15: in slow moments GoTrue still sends the email after 15 s, and the
+// old "Riprova" made customers request a second link that invalidated the first.
+const MAGIC_LINK_REQUEST_TIMEOUT_MS = 45000;
+const MAGIC_LINK_PENDING_MESSAGE = "Ti stiamo inviando il link: controlla la posta tra qualche istante (anche nella cartella spam). Usa sempre il link dell'email più recente.";
 function withTimeout(promise, ms, timeoutMessage) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -5022,6 +5026,9 @@ export function LoginPage({
   const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState(() => parseSupabaseAuthHashError());
   const otpRequestInFlight = useRef(false);
+  // 60 s lock after a request (sent, slow or 429): a new request would
+  // invalidate the link of the email that may still be arriving.
+  const { cooldownSeconds, isLocked: isMagicLinkLocked, lock: lockMagicLinkButton } = useMagicLinkCooldown();
   const {
     url,
     anonKey
@@ -5187,6 +5194,9 @@ export function LoginPage({
     // tra due eventi nello stesso tick. Il ref e' un lock sincrono e impedisce
     // la seconda POST anche sotto double click o submit ravvicinati.
     if (otpRequestInFlight.current) return;
+    // A request in the last 60 s may still be delivering its email: a new one
+    // would invalidate it.
+    if (isMagicLinkLocked()) return;
     if (!email.includes("@")) {
       setStatus("Inserisci una email valida.");
       return;
@@ -5257,14 +5267,18 @@ export function LoginPage({
       );
       if (otpError) {
         if (otpError.status === 429) {
+          lockMagicLinkButton();
           throw new Error("Hai richiesto troppi link di accesso. Usa l'ultimo link ricevuto oppure attendi qualche minuto.");
         }
         throw new Error(otpError.message || "magic_link_failed");
       }
+      lockMagicLinkButton();
       setStatus(isAdminContext ? "Magic link inviato. Controlla la tua email per entrare nella dashboard admin." : "Magic link inviato. Controlla la tua email per entrare nella dashboard.");
     } catch (err) {
       if (err.message === "magic_link_timeout") {
-        setStatus("La richiesta al server ha impiegato troppo tempo. Riprova.");
+        // Not an error for the customer: the server is usually still sending.
+        lockMagicLinkButton();
+        setStatus(MAGIC_LINK_PENDING_MESSAGE);
       } else if (err.message !== "magic_link_failed" && err.message !== "Failed to fetch") {
         setStatus(err.message);
       } else {
@@ -5354,7 +5368,7 @@ export function LoginPage({
           fontFamily: F.sans,
           fontSize: 14
         }} />
-          <button className="btn" disabled={busy} style={{
+          <button className="btn" disabled={busy || cooldownSeconds > 0} style={{
           minHeight: 46,
           borderRadius: 10,
           border: "none",
@@ -5363,8 +5377,9 @@ export function LoginPage({
           fontFamily: F.sans,
           fontSize: 14,
           fontWeight: 800,
-          cursor: busy ? "wait" : "pointer"
-        }}>{busy ? "Invio in corso..." : authError ? "Invia un nuovo magic link" : "Invia magic link"}</button>
+          cursor: busy ? "wait" : cooldownSeconds > 0 ? "not-allowed" : "pointer",
+          opacity: cooldownSeconds > 0 ? 0.6 : 1
+        }}>{busy ? "Invio in corso..." : cooldownSeconds > 0 ? `Puoi richiedere un altro link tra ${cooldownSeconds} s` : authError ? "Invia un nuovo magic link" : "Invia magic link"}</button>
         </form>
         {status && <div style={{
         marginTop: 14,
