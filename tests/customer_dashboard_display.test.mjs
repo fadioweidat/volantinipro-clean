@@ -135,3 +135,12 @@ test("list KPI 'Avanzamento distribuzione': real final coverage of started campa
   assert.match(list, /return <div className="vp-campaign-dashboard-shell" style=\{\{\s*minHeight: "100vh",\s*background: C\.navyMid\s*\}\}>/, "list top spacing 32/20 like the campaign page");
   assert.doesNotMatch(list, /padding: "105px 24px 80px"/);
 });
+
+test("campaign page: 'Avanzamento distribuzione' in % like the list (no flyer count, never estimated)", () => {
+  const src = read("volantinipro-final.jsx");
+  const page = src.slice(src.indexOf("export function CampaignDashboardPage("), src.indexOf("export function PagamentoBonificoPage("));
+  assert.match(page, /const progressPct = campagna\.copertura_pct == null \|\| !Number\.isFinite\(Number\(campagna\.copertura_pct\)\) \? null : Math\.min\(100, Math\.max\(0, Math\.round\(Number\(campagna\.copertura_pct\)\)\)\);/);
+  assert.match(page, /\["Avanzamento distribuzione", progressPct == null \? customerValue\(null\) : `\$\{progressPct\}%`, progressPct, C\.green\]/);
+  assert.match(page, /: \["Avanzamento distribuzione", "Copertura raggiunta", "Comuni completati", "Giorni rimanenti"\]\.map\(/);
+  assert.doesNotMatch(page, /\["Volantini distribuiti"|"Volantini distribuiti", "Copertura raggiunta"/);
+});

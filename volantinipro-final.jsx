@@ -5830,6 +5830,9 @@ export function CampaignDashboardPage({
     const distributedPct = campagna.quantita && campagna.volantini_distribuiti != null ? Math.min(100, Math.round(campagna.volantini_distribuiti / campagna.quantita * 100)) : null;
     const gpsPoints = campagna.gps_punti?.length ? campagna.gps_punti.map((_, i) => [18 + i * 10, 68 - i * 5]) : [];
     const proof = campagna.foto_proof || [];
+    // "Avanzamento distribuzione": same real figure as the campaign list (final verified
+    // coverage, injected as copertura_pct by useCampagnaDetail), never a flyer estimate.
+    const progressPct = campagna.copertura_pct == null || !Number.isFinite(Number(campagna.copertura_pct)) ? null : Math.min(100, Math.max(0, Math.round(Number(campagna.copertura_pct))));
     const daysRemaining = campagna.data_fine ? Math.max(0, Math.ceil((new Date(`${campagna.data_fine}T00:00:00`) - new Date()) / 86400000)) : 0;
     const pricing = campagna.pricing || {};
     const extras = (pricing.extras || []).reduce((a, x) => a + Number(x.amount || 0), 0);
@@ -6114,9 +6117,9 @@ export function CampaignDashboardPage({
                 textTransform: "uppercase",
                 marginBottom: 12
               }}>Statistiche distribuzione</div>
-                {(isDistributionStarted(campagna) ? [["Volantini distribuiti", campagna.volantini_distribuiti == null || campagna.quantita == null ? customerValue(null) : `${formatIntIT(campagna.volantini_distribuiti)} / ${formatIntIT(campagna.quantita)}`, distributedPct, C.green], ["Copertura raggiunta", campagna.copertura_pct == null ? customerValue(null) : `${campagna.copertura_pct}%`, campagna.copertura_pct, C.orange], ["Comuni completati", distributedPct == null ? customerValue(null) : `${Math.max(1, Math.round((campagna.comuni?.length || 1) * distributedPct / 100))}/${campagna.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", campagna.data_fine ? String(daysRemaining) : customerValue(null), campagna.data_fine ? Math.max(0, 100 - daysRemaining * 20) : null, C.purple]]
+                {(isDistributionStarted(campagna) ? [["Avanzamento distribuzione", progressPct == null ? customerValue(null) : `${progressPct}%`, progressPct, C.green], ["Copertura raggiunta", campagna.copertura_pct == null ? customerValue(null) : `${campagna.copertura_pct}%`, campagna.copertura_pct, C.orange], ["Comuni completati", distributedPct == null ? customerValue(null) : `${Math.max(1, Math.round((campagna.comuni?.length || 1) * distributedPct / 100))}/${campagna.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", campagna.data_fine ? String(daysRemaining) : customerValue(null), campagna.data_fine ? Math.max(0, 100 - daysRemaining * 20) : null, C.purple]]
                   // Before the distribution there is nothing to measure yet: say when it appears.
-                  : ["Volantini distribuiti", "Copertura raggiunta", "Comuni completati", "Giorni rimanenti"].map((l) => [l, DISTRIBUTION_STATS_PENDING, null, C.white])).map(([l, v, pct, c]) => <div key={l} style={{
+                  : ["Avanzamento distribuzione", "Copertura raggiunta", "Comuni completati", "Giorni rimanenti"].map((l) => [l, DISTRIBUTION_STATS_PENDING, null, C.white])).map(([l, v, pct, c]) => <div key={l} style={{
                 marginBottom: 10
               }}><div style={{
                   display: "flex",
