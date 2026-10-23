@@ -177,7 +177,6 @@ async function loadOmiZones(
   comuni: Array<Record<string, unknown>>,
   warnings: string[],
   specificMunicipality: string | null = null,
-  prefetchedRadius: PromiseLike<{ data: unknown; error: { message?: string } | null }> | null = null,
 ): Promise<OmiZone[]> {
   if (!supabase) return [];
 
@@ -202,7 +201,7 @@ async function loadOmiZones(
     return [...zones.values()];
   }
 
-  const radiusResult = prefetchedRadius ? await prefetchedRadius : await supabase.rpc("get_omi_zones_in_radius", {
+  const radiusResult = await supabase.rpc("get_omi_zones_in_radius", {
     p_lat: lat,
     p_lng: lng,
     p_radius_km: radiusKm,
@@ -324,12 +323,9 @@ serve(async (req: Request) => {
       ? measurePhase("omi", () => loadOmiZones(territorialClient, lat, lng, radiusKm, [], omiPrefetchWarnings, specificMunicipality))
           .then(value => ({ value, error: null }), error => ({ value: null, error }))
       : null;
-    // Radius mode: the OMI radius lookup does not depend on the territorial rows, so it runs
-    // alongside the pipeline (its result is used only if the analysis is not by NIL).
-    const pendingOmiRadius = !specificMunicipality && !skipOmi
-      ? Promise.resolve(territorialClient.rpc("get_omi_zones_in_radius", { p_lat: lat, p_lng: lng, p_radius_km: radiusKm }))
-          .then((res: any) => ({ data: res?.data ?? null, error: res?.error ?? null }), (error: any) => ({ data: null, error: { message: error?.message || String(error) } }))
-      : null;
+    // No OMI radius lookup in parallel with the pipeline (tried 2026-10-23 and rolled back): on the
+    // Free-tier database it competed with the territorial queries, was wasted for NIL analyses
+    // (Milano uses the municipality lookup) and returns 0 rows outside Milano (fallback anyway).
 
     const pipelineResult = await measurePhase("territorial_pipeline", () => runTerritorialPipeline({
       params: {
@@ -398,7 +394,7 @@ serve(async (req: Request) => {
     const omiLookupRows = analysisLevel === "nil" ? [{ comune_name: "Milano", municipality_name: "Milano", municipality_code: "015146" }] : territorialRows;
     const prefetchedOmi = pendingOmi ? await pendingOmi : null;
     if (prefetchedOmi?.error) throw prefetchedOmi.error;
-    const omiZones: OmiZone[] = skipOmi ? [] : prefetchedOmi?.value ?? await measurePhase("omi", () => loadOmiZones(territorialClient, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality, omiMunicipality ? null : pendingOmiRadius));
+    const omiZones: OmiZone[] = skipOmi ? [] : prefetchedOmi?.value ?? await measurePhase("omi", () => loadOmiZones(territorialClient, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality));
     if (pendingOmi) warnings.push(...omiPrefetchWarnings);
     if (omiZones.length > 0) sources.add(sourceLabel("omi"));
     const omiMinValues = omiZones.map((row: OmiZone) => Number(row.min_value)).filter(Number.isFinite);
