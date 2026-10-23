@@ -58,7 +58,7 @@ test("robots.txt: /distribuzione-volantini-milano non è bloccato (nessun Disall
 test("SeoMeta.jsx: title/description esatti dal ticket per 'milano-landing'", () => {
   const src = read("src/lib/seo/routePolicy.js");
   assert.match(src, /"milano-landing":\s*\[/);
-  assert.match(src, /Distribuzione Volantini Milano con GPS e Report \| VolantiniPro/);
+  assert.match(src, /Volantinaggio Milano e distribuzione volantini \| VolantiniPro/);
   assert.match(src, /Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business\. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online\./);
 });
 
