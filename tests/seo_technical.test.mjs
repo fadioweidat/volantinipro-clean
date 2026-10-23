@@ -46,7 +46,7 @@ test("index.html: title/description/canonical/OG/Twitter/JSON-LD statici present
   const src = read("index.html");
   assert.match(src, /<html lang="it">/);
   assert.match(src, /<title>Volantinaggio e distribuzione volantini \| VolantiniPro<\/title>/);
-  assert.match(src, /<meta name="description" content="Distribuzione volantini: configura il preventivo online e scarica il PDF, scegli il preventivo rapido oppure richiedi un ricontatto telefonico\." \/>/);
+  assert.match(src, /<meta name="description" content="Distribuzione volantini: calcola subito il preventivo online e scarica il PDF\. Scegli anche il preventivo rapido o il ricontatto telefonico\." \/>/);
   assert.match(src, /<link rel="canonical" href="https:\/\/www\.volantinipro\.it\/" \/>/);
   assert.match(src, /<meta property="og:title" content="Volantinaggio e distribuzione volantini \| VolantiniPro" \/>/);
   assert.match(src, /<meta property="og:description"/);
