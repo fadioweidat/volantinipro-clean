@@ -180,3 +180,49 @@ test('visitor id: TTL 90 giorni — scaduto ⇒ rigenerato', async () => {
     assert.equal(m.getAnonymousSessionId(), id2, 'alias di compatibilità');
   } finally { env.restore(); }
 });
+
+test('test link excludes first page and funnel, persists on subsequent pages and reload', async () => {
+  const env = install({ origin: 'https://www.volantinipro.it' });
+  try {
+    window.location.search = '?analytics=off';
+    const mod = await fresh();
+    mod.trackPageView('/');
+    mod.trackQuoteStepReached(2);
+    await wait();
+    assert.equal(env.calls.length, 0);
+    assert.equal(window.localStorage.getItem('vp_analytics_optout'), '1');
+    assert.equal(window.localStorage.getItem('vp_anon_visitor'), null);
+    window.location.search = '';
+    const reloaded = await fresh();
+    reloaded.trackPageView('/servizi/door-to-door');
+    await wait();
+    assert.equal(env.calls.length, 0);
+  } finally { env.restore(); }
+});
+
+test('test link still blocks tracking when browser storage is unavailable', async () => {
+  const env = install();
+  try {
+    window.location.search = '?analytics=off';
+    window.localStorage = { getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } };
+    const mod = await fresh();
+    mod.trackPageView('/');
+    window.location.search = '';
+    mod.trackConsultationRequested();
+    await wait();
+    assert.equal(mod.isAnalyticsOptedOut(), true);
+    assert.equal(env.calls.length, 0);
+  } finally { env.restore(); }
+});
+
+test('ordinary visitor remains tracked with unrelated query parameters', async () => {
+  const env = install();
+  try {
+    window.location.search = '?utm_source=google&analytics=on';
+    const mod = await fresh();
+    mod.trackPageView('/');
+    await wait();
+    assert.equal(env.calls.filter(c => body(c).event_name === 'page_view').length, 1);
+    assert.equal(mod.isAnalyticsOptedOut(), false);
+  } finally { env.restore(); }
+});

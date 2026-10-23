@@ -13,7 +13,7 @@ import {
 } from './sections.jsx';
 
 const RANGES = [
-  { days: 1, label: 'Oggi' },
+  { days: 1, label: '24 ore' },
   { days: 7, label: '7 giorni' },
   { days: 30, label: '30 giorni' },
 ];
@@ -46,7 +46,11 @@ export function AnalyticsPage({ onNav }) {
   const [tab, setTab] = useState('overview');
   const [trafficClass, setTrafficClass] = useState(TRAFFIC_FILTERS.PUBLIC);
   const [state, setState] = useState({ loading: true, error: null, rows: [], available: false });
-  const [optedOut, setOptedOut] = useState(() => isAnalyticsOptedOut());
+  const [optedOut, setOptedOut] = useState(false);
+  useEffect(() => {
+    setAnalyticsOptOut(true);
+    setOptedOut(isAnalyticsOptedOut());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,9 +90,16 @@ export function AnalyticsPage({ onNav }) {
             checked={optedOut}
             onChange={(e) => { setAnalyticsOptOut(e.target.checked); setOptedOut(e.target.checked); }}
           />
-          Escludi questo browser dal tracking (opt-out)
+          Escludi questo browser dalle visite future
         </label>
       </div>
+
+      <aside style={{ padding: 14, marginBottom: 14, border: '1px solid rgba(255,255,255,.16)', borderRadius: 10 }}>
+        <p style={{ marginTop: 0 }}>{optedOut ? 'Questo browser è escluso dalle visite future.' : 'Questo browser può essere conteggiato.'}</p>
+        <p>Per le tue prove su telefono, tablet o in incognito, apri prima questo collegamento su ogni browser:</p>
+        <a href="https://www.volantinipro.it/?analytics=off">Apri il sito per le mie prove (escludi questo browser)</a>
+        <p style={{ marginBottom: 0 }}>Conserva il link per te. L’esclusione resta nel browser finché non cancelli i dati del sito; in incognito va ripetuta a ogni nuova sessione. “Pubblico” comprende visite non riconosciute come bot o interne, non clienti confermati. I visitatori sono identificativi di browser, non persone. Le prove precedenti restano nello storico.</p>
+      </aside>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
         <span style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,.5)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Traffico</span>
@@ -104,7 +115,7 @@ export function AnalyticsPage({ onNav }) {
       </div>
       {trafficClass !== TRAFFIC_FILTERS.PUBLIC && (
         <p style={{ margin: '0 0 10px', fontSize: 11.5, color: '#fde68a' }}>
-          Vista non commerciale: i KPI qui sotto includono traffico {trafficClass === TRAFFIC_FILTERS.ALL ? 'di ogni tipo (bot, test, admin, internal, non classificato)' : trafficClass === TRAFFIC_FILTERS.BOT_TEST ? 'bot / test / preview' : 'admin / internal'}. Torna a “Pubblico” per i numeri di business.
+          Vista non commerciale: i KPI qui sotto includono traffico {trafficClass === TRAFFIC_FILTERS.ALL ? 'di ogni tipo (bot, test, admin, internal, non classificato)' : trafficClass === TRAFFIC_FILTERS.BOT_TEST ? 'bot / test / preview' : 'admin / internal'}. Torna a “Pubblico” per il traffico pubblico non escluso.
         </p>
       )}
 

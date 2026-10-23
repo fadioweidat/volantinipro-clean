@@ -393,6 +393,11 @@ export function AppRouter() {
 
   return (
     <div style={{ fontFamily: F.sans, minHeight: "100vh", background: C.navyMid }}>
+      {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("analytics") === "off" && (
+        <aside role="status" style={{ padding: 12, background: "#133d31", color: "#fff", textAlign: "center" }}>
+          Modalità prova: questa visita è esclusa dal conteggio Analytics. Usa questo link solo per le tue prove.
+        </aside>
+      )}
       <Bootstrap />
       <SeoMeta page={page} />
       {!isConfiguratorPage && page !== "home" && <Navbar onNav={goTo} page={page} />}
