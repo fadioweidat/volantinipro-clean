@@ -3,6 +3,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { C, F, x, w, j, T, z, R } from "../../lib/constants.js";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { Logo } from "../../components/common/Logo.jsx";
+import PublicServicesMenu from "../../components/common/PublicServicesMenu.jsx";
 import PlatformFeasibilityEntry from "../../components/common/PlatformFeasibilityEntry.jsx";
 
 export function Navbar({
@@ -100,11 +101,12 @@ export function Navbar({
 
         {!isMobile && <div style={{
         display: "flex",
-        gap: 24,
+        gap: 12,
         alignItems: "center",
         position: "relative"
       }}>
-            <button onClick={() => scrollToSection("come-funziona")} style={{
+            <PublicServicesMenu onNavigate={go} />
+          <button onClick={() => scrollToSection("come-funziona")} style={{
           background: "transparent",
           border: "none",
           color: "rgba(255, 255, 255, 0.82)",
@@ -391,6 +393,8 @@ export function Navbar({
 
       {isMobile && menuOpen && <div style={{
       padding: "12px 16px 20px",
+      maxHeight: "calc(100dvh - 72px)",
+      overflowY: "auto",
       borderTop: "1px solid rgba(255, 255, 255, 0.08)",
       background: "rgba(10, 18, 34, 0.98)",
       display: "grid",
@@ -499,6 +503,7 @@ export function Navbar({
         background: "rgba(255,255,255,0.08)",
         margin: "6px 0"
       }} />
+          <PublicServicesMenu mobile onNavigate={go} />
           <button onClick={() => scrollToSection("come-funziona")} style={{
         minHeight: 44,
         display: "flex",

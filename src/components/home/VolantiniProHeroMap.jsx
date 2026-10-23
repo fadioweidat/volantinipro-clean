@@ -14,6 +14,7 @@ import { Logo } from '../common/Logo.jsx';
 import Button from '../ui/Button.jsx';
 import './homepage-hero.css';
 import HomepageRadiusPreview from './HomepageRadiusPreview.jsx';
+import PublicServicesMenu from '../common/PublicServicesMenu.jsx';
 import PlatformFeasibilityEntry from '../common/PlatformFeasibilityEntry.jsx';
 
 const C = {
@@ -263,7 +264,8 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
         </button>
 
         {!compact && (
-          <div style={{ display: "flex", gap: 24, alignItems: "center", position: "relative" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", position: "relative" }}>
+            <PublicServicesMenu />
             <button onClick={() => scrollToSection("come-funziona")} style={navButtonStyle}>Come funziona</button>
             <button onClick={() => scrollToSection("prezzi")} style={navButtonStyle}>Prezzi</button>
             <div
@@ -383,6 +385,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
 
       {compact && menuOpen && (
         <div style={mobileMenuStyle}>
+          <PublicServicesMenu mobile />
           <button onClick={() => { setMenuOpen(false); configure?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange, fontWeight: 800 }}>Configura la tua campagna</button>
           <button onClick={() => { setMenuOpen(false); onLogin?.(); }} style={mobileMenuItemStyle}>Area Cliente</button>
           <button onClick={() => { setMenuOpen(false); scrollToSection("contatti"); }} style={mobileMenuItemStyle}>Contatti</button>
