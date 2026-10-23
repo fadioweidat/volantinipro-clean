@@ -45,10 +45,10 @@ test("sitemap.xml: dominio di produzione, solo URL pubbliche, nessuna route priv
 test("index.html: title/description/canonical/OG/Twitter/JSON-LD statici presenti, coerenti con la homepage", () => {
   const src = read("index.html");
   assert.match(src, /<html lang="it">/);
-  assert.match(src, /<title>Distribuzione Volantini con GPS e Report \| VolantiniPro<\/title>/);
-  assert.match(src, /<meta name="description" content="Distribuzione volantini Door to Door, Hand to Hand e Business con analisi territoriale, tracking GPS, prove fotografiche e preventivo online\." \/>/);
+  assert.match(src, /<title>Volantinaggio e distribuzione volantini \| VolantiniPro<\/title>/);
+  assert.match(src, /<meta name="description" content="Distribuzione volantini: configura il preventivo online e scarica il PDF, scegli il preventivo rapido oppure richiedi un ricontatto telefonico\." \/>/);
   assert.match(src, /<link rel="canonical" href="https:\/\/www\.volantinipro\.it\/" \/>/);
-  assert.match(src, /<meta property="og:title" content="Distribuzione Volantini con GPS e Report \| VolantiniPro" \/>/);
+  assert.match(src, /<meta property="og:title" content="Volantinaggio e distribuzione volantini \| VolantiniPro" \/>/);
   assert.match(src, /<meta property="og:description"/);
   assert.match(src, /<meta property="og:url" content="https:\/\/www\.volantinipro\.it\/" \/>/);
   assert.match(src, /<meta name="twitter:card" content="summary" \/>/);
