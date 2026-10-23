@@ -100,6 +100,32 @@ export function isDistributionStarted(campagna) {
 }
 export const DISTRIBUTION_STATS_PENDING = 'Disponibile durante la distribuzione';
 
+/** Italian percent with one decimal and a comma: 42.57 -> "42,6%", 100 -> "100%"; invalid -> null. */
+export function formatPercentIT(value) {
+  if (value == null || value === '' || !Number.isFinite(Number(value))) return null;
+  const rounded = Math.round(Math.min(100, Math.max(0, Number(value))) * 10) / 10;
+  return `${String(rounded).replace('.', ',')}%`;
+}
+
+/**
+ * Completed zones from campaign_zone_progress (get_campaign_zone_progress): a zone is
+ * complete only when its own effective_percent is 100. Zones without data are not
+ * counted as complete; null when no zone has data (row hidden, never invented).
+ */
+export function completedZonesSummary(zones) {
+  const list = Array.isArray(zones) ? zones : [];
+  const known = list.filter((z) => z?.effective_percent != null && Number.isFinite(Number(z.effective_percent)));
+  if (!list.length || !known.length) return null;
+  const done = known.filter((z) => Number(z.effective_percent) >= 100).length;
+  return { done, total: list.length, pct: Math.round((done / list.length) * 100) };
+}
+
+/** "Quartieri completati" for NIL campaigns, "Comuni completati" otherwise. */
+export function completedZonesLabel(campagna) {
+  const saved = Array.isArray(campagna?.metadata?.campaign_zones) ? campagna.metadata.campaign_zones : [];
+  return saved.length > 0 && saved.every((z) => z?.territory_type === 'nil') ? 'Quartieri completati' : 'Comuni completati';
+}
+
 export const NO_SMART_PAIRING_DISCOUNT = 'Nessuno sconto Smart Pairing per questa campagna';
 /** "20%" when a discount applies; the no-discount sentence otherwise. */
 export function smartPairingLabel(discountPct) {

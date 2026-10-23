@@ -71,7 +71,7 @@ export function buildDistributionProgress(campaigns, coverageById = {}, { loadin
   const weighted = known.every((row) => isKnownNumber(row.quantita) && Number(row.quantita) > 0);
   const weightOf = (row) => (weighted ? Number(row.quantita) : 1);
   const totalWeight = known.reduce((sum, row) => sum + weightOf(row), 0);
-  const pct = Math.round(known.reduce((sum, row) => sum + Number(coverageById[row.id]) * weightOf(row), 0) / totalWeight);
+  const pct = Math.round((known.reduce((sum, row) => sum + Number(coverageById[row.id]) * weightOf(row), 0) / totalWeight) * 10) / 10;
   const scope = known.length === 1 ? '1 campagna in distribuzione o completata' : `${known.length} campagne in distribuzione o completate`;
   return { status: 'ready', pct: Math.min(100, Math.max(0, pct)), note: [`Copertura verificata su ${scope}`, missingNote].filter(Boolean).join(' · ') };
 }

@@ -119,7 +119,7 @@ test("list KPI 'Avanzamento distribuzione': real final coverage of started campa
   assert.deepEqual(buildDistributionProgress([c], {}), { status: "not_started", pct: null, note: null });
   assert.equal(buildDistributionProgress([a, c], {}).status, "loading");
   const one = buildDistributionProgress([a, c], { a: 42.5 });
-  assert.equal(one.pct, 43);
+  assert.equal(one.pct, 42.5);
   assert.equal(one.note, "Copertura verificata su 1 campagna in distribuzione o completata");
   assert.equal(buildDistributionProgress([a, b], { a: 40, b: 100 }).pct, 55, "(40*3000 + 100*1000) / 4000");
   const partial = buildDistributionProgress([a, b], { a: 40, b: null });
@@ -136,11 +136,34 @@ test("list KPI 'Avanzamento distribuzione': real final coverage of started campa
   assert.doesNotMatch(list, /padding: "105px 24px 80px"/);
 });
 
-test("campaign page: 'Avanzamento distribuzione' in % like the list (no flyer count, never estimated)", () => {
+test("campaign page: 'Avanzamento distribuzione' in Italian %, no duplicate coverage row, completed zones from zone progress", async () => {
+  const { formatPercentIT, completedZonesSummary, completedZonesLabel } = await import("../src/lib/customerDisplay.js");
+  assert.equal(formatPercentIT(42.57), "42,6%");
+  assert.equal(formatPercentIT(42.6), "42,6%");
+  assert.equal(formatPercentIT(100), "100%");
+  assert.equal(formatPercentIT(0), "0%");
+  for (const bad of [null, undefined, "", "abc"]) assert.equal(formatPercentIT(bad), null);
+  // zone progress rows as normalised by zoneProgressClient (null = zone without data)
+  assert.equal(completedZonesSummary([]), null);
+  assert.equal(completedZonesSummary([{ effective_percent: null }, { effective_percent: null }]), null, "no data -> row hidden");
+  assert.deepEqual(completedZonesSummary([{ effective_percent: 100 }, { effective_percent: 64.2 }, { effective_percent: null }]), { done: 1, total: 3, pct: 33 });
+  assert.deepEqual(completedZonesSummary([{ effective_percent: 100 }, { effective_percent: 100 }]), { done: 2, total: 2, pct: 100 });
+  assert.equal(completedZonesLabel({ metadata: { campaign_zones: [{ territory_type: "nil" }] } }), "Quartieri completati");
+  assert.equal(completedZonesLabel({ comuni: ["Abbiategrasso"] }), "Comuni completati");
+
   const src = read("volantinipro-final.jsx");
   const page = src.slice(src.indexOf("export function CampaignDashboardPage("), src.indexOf("export function PagamentoBonificoPage("));
-  assert.match(page, /const progressPct = campagna\.copertura_pct == null \|\| !Number\.isFinite\(Number\(campagna\.copertura_pct\)\) \? null : Math\.min\(100, Math\.max\(0, Math\.round\(Number\(campagna\.copertura_pct\)\)\)\);/);
-  assert.match(page, /\["Avanzamento distribuzione", progressPct == null \? customerValue\(null\) : `\$\{progressPct\}%`, progressPct, C\.green\]/);
-  assert.match(page, /: \["Avanzamento distribuzione", "Copertura raggiunta", "Comuni completati", "Giorni rimanenti"\]\.map\(/);
-  assert.doesNotMatch(page, /\["Volantini distribuiti"|"Volantini distribuiti", "Copertura raggiunta"/);
+  assert.match(page, /\["Avanzamento distribuzione", progressPct == null \? customerValue\(null\) : formatPercentIT\(progressPct\), progressPct, C\.green\]/);
+  assert.match(page, /\.\.\.\(zonesDone \? \[\[completedZonesLabel\(campagna\), `\$\{zonesDone\.done\}\/\$\{zonesDone\.total\}`, zonesDone\.pct, C\.blue\]\] : \[\]\)/);
+  assert.match(page, /zoneProgressClient\.getCampaignZoneProgress\(zoneProgressCampaignId\)/);
+  assert.match(page, /: \["Avanzamento distribuzione", completedZonesLabel\(campagna\), "Giorni rimanenti"\]\.map\(/);
+  assert.doesNotMatch(page, /Copertura raggiunta|"Volantini distribuiti"|distributedPct/);
+  // hooks run before the early returns
+  assert.ok(page.indexOf("useState(null)") < page.indexOf("if (loading) {"));
+});
+
+test("homepage dashboard demo: photo address wording matches the real feature", () => {
+  const home = read("src/components/home/DashboardClienteSection.jsx");
+  assert.match(home, /\{item\.zone\} · Indirizzo rilevato dal GPS/);
+  assert.doesNotMatch(home, /Civico verificato/);
 });

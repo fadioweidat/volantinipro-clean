@@ -25,6 +25,7 @@ import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { buildCustomerDashboardMetrics, buildCustomerDashboardNotes, buildDistributionProgress } from "./src/lib/customerDashboardMetrics.js";
 import { getFinalCoverage } from "./src/lib/services/coverage-adjustments-api.js";
+import { zoneProgressClient } from "./src/lib/services/zone-progress-api.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState, MARKETPLACE_STATUS_LABELS } from "./src/lib/customerCampaigns.js";
 import { CustomerQuotesView } from "./src/pages/customer/CustomerQuotesView.jsx";
 import { CampaignConfigSection, CustomerMessagesPanel } from "./src/components/customer/CampaignHubPanels.jsx";
@@ -34,7 +35,7 @@ import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContac
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
 import { buildAuthCallbackPath } from "./src/auth/loginIntent.js";
 import { useMagicLinkCooldown } from "./src/auth/useMagicLinkCooldown.js";
-import { DISTRIBUTION_STATS_PENDING, NO_SMART_PAIRING_DISCOUNT, campaignAreaTitle, campaignDatesLabel, campaignStatusLabel, formatEuroIT, formatIntIT, formatPlaceName, isCampaignPaid, isDistributionStarted, serviceLabel, smartPairingLabel } from "./src/lib/customerDisplay.js";
+import { DISTRIBUTION_STATS_PENDING, NO_SMART_PAIRING_DISCOUNT, campaignAreaTitle, completedZonesLabel, completedZonesSummary, formatPercentIT, campaignDatesLabel, campaignStatusLabel, formatEuroIT, formatIntIT, formatPlaceName, isCampaignPaid, isDistributionStarted, serviceLabel, smartPairingLabel } from "./src/lib/customerDisplay.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
@@ -5519,7 +5520,7 @@ export function DashboardPage({
   const { activeCount, waitingPaymentCount, totalSpent } = buildCustomerDashboardMetrics(campagne, { loading, error });
   const metricNotes = buildCustomerDashboardNotes(campagne, { loading, error });
   const progress = buildDistributionProgress(campagne, coverageById, { loading, error });
-  const progressValue = progress.status === "ready" ? `${progress.pct}%` : progress.status === "not_started" ? DISTRIBUTION_STATS_PENDING : null;
+  const progressValue = progress.status === "ready" ? formatPercentIT(progress.pct) : progress.status === "not_started" ? DISTRIBUTION_STATS_PENDING : null;
   return <div className="vp-campaign-dashboard-shell" style={{
     minHeight: "100vh",
     background: C.navyMid
@@ -5815,6 +5816,18 @@ export function CampaignDashboardPage({
     loading,
     error
   } = useCampagnaDetail(routeCampaignId);
+  // Completed zones: each zone's own progress (campaign_zone_progress), only once
+  // the distribution has started; on error or without data the row stays hidden.
+  const [zoneProgressRows, setZoneProgressRows] = useState(null);
+  const zoneProgressCampaignId = campagna && isDistributionStarted(campagna) ? campagna.id : null;
+  useEffect(() => {
+    if (!zoneProgressCampaignId) return undefined;
+    let cancelled = false;
+    zoneProgressClient.getCampaignZoneProgress(zoneProgressCampaignId)
+      .then((rows) => { if (!cancelled) setZoneProgressRows(rows); })
+      .catch(() => { if (!cancelled) setZoneProgressRows(null); });
+    return () => { cancelled = true; };
+  }, [zoneProgressCampaignId]);
   if (loading) {
     return <div className="vp-campaign-dashboard-shell" style={{
       minHeight: "100vh",
@@ -5827,12 +5840,12 @@ export function CampaignDashboardPage({
   if (campagna) {
     const progressSteps = [["confermata", "Confermata"], ["in_preparazione", "In preparazione"], ["in_distribuzione", "Distribuzione"], ["completata", "Completata"]];
     const activeIndex = Math.max(0, progressSteps.findIndex(([key]) => key === campagna.stato));
-    const distributedPct = campagna.quantita && campagna.volantini_distribuiti != null ? Math.min(100, Math.round(campagna.volantini_distribuiti / campagna.quantita * 100)) : null;
     const gpsPoints = campagna.gps_punti?.length ? campagna.gps_punti.map((_, i) => [18 + i * 10, 68 - i * 5]) : [];
     const proof = campagna.foto_proof || [];
     // "Avanzamento distribuzione": same real figure as the campaign list (final verified
     // coverage, injected as copertura_pct by useCampagnaDetail), never a flyer estimate.
-    const progressPct = campagna.copertura_pct == null || !Number.isFinite(Number(campagna.copertura_pct)) ? null : Math.min(100, Math.max(0, Math.round(Number(campagna.copertura_pct))));
+    const progressPct = campagna.copertura_pct == null || !Number.isFinite(Number(campagna.copertura_pct)) ? null : Math.min(100, Math.max(0, Number(campagna.copertura_pct)));
+    const zonesDone = completedZonesSummary(zoneProgressRows);
     const daysRemaining = campagna.data_fine ? Math.max(0, Math.ceil((new Date(`${campagna.data_fine}T00:00:00`) - new Date()) / 86400000)) : 0;
     const pricing = campagna.pricing || {};
     const extras = (pricing.extras || []).reduce((a, x) => a + Number(x.amount || 0), 0);
@@ -6117,9 +6130,9 @@ export function CampaignDashboardPage({
                 textTransform: "uppercase",
                 marginBottom: 12
               }}>Statistiche distribuzione</div>
-                {(isDistributionStarted(campagna) ? [["Avanzamento distribuzione", progressPct == null ? customerValue(null) : `${progressPct}%`, progressPct, C.green], ["Copertura raggiunta", campagna.copertura_pct == null ? customerValue(null) : `${campagna.copertura_pct}%`, campagna.copertura_pct, C.orange], ["Comuni completati", distributedPct == null ? customerValue(null) : `${Math.max(1, Math.round((campagna.comuni?.length || 1) * distributedPct / 100))}/${campagna.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", campagna.data_fine ? String(daysRemaining) : customerValue(null), campagna.data_fine ? Math.max(0, 100 - daysRemaining * 20) : null, C.purple]]
+                {(isDistributionStarted(campagna) ? [["Avanzamento distribuzione", progressPct == null ? customerValue(null) : formatPercentIT(progressPct), progressPct, C.green], ...(zonesDone ? [[completedZonesLabel(campagna), `${zonesDone.done}/${zonesDone.total}`, zonesDone.pct, C.blue]] : []), ["Giorni rimanenti", campagna.data_fine ? String(daysRemaining) : customerValue(null), campagna.data_fine ? Math.max(0, 100 - daysRemaining * 20) : null, C.purple]]
                   // Before the distribution there is nothing to measure yet: say when it appears.
-                  : ["Avanzamento distribuzione", "Copertura raggiunta", "Comuni completati", "Giorni rimanenti"].map((l) => [l, DISTRIBUTION_STATS_PENDING, null, C.white])).map(([l, v, pct, c]) => <div key={l} style={{
+                  : ["Avanzamento distribuzione", completedZonesLabel(campagna), "Giorni rimanenti"].map((l) => [l, DISTRIBUTION_STATS_PENDING, null, C.white])).map(([l, v, pct, c]) => <div key={l} style={{
                 marginBottom: 10
               }}><div style={{
                   display: "flex",

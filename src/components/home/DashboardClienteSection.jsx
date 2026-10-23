@@ -186,7 +186,7 @@ export default function DashboardClienteSection({ onConfigure }) {
                       <span style={{ fontFamily: F.sans, fontSize: 8, color: "#8E9AA8", fontVariantNumeric: "tabular-nums" }}>{item.time}</span>
                     </div>
                     <div style={{ fontFamily: F.sans, fontSize: 8.5, fontWeight: 800, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.via}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "#A3B1C4" }}>{item.zone} · Civico verificato</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "#A3B1C4" }}>{item.zone} · Indirizzo rilevato dal GPS</div>
                   </div>
                 ))}
               </div>
