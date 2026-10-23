@@ -14,7 +14,9 @@ const addressRadiusMigration = fs.readFileSync(new URL("../supabase/migrations_l
 const realNilToleranceMigration = fs.readFileSync(new URL("../supabase/migrations_legacy_pre_rebaseline_20260821/20260805000014_real_nil_geometry_tolerance.sql", import.meta.url), "utf8");
 
 test("official test pipeline includes territorial data import contracts", () => {
-  assert.match(packageJson.scripts.test, /tests\/territorial_data_import\.test\.mjs/);
+  // The suite list lives in tests/suite.list (package.json exceeded the Windows command-line limit).
+  assert.equal(packageJson.scripts.test, "node scripts/run-test-suite.mjs");
+  assert.match(fs.readFileSync(new URL("../tests/suite.list", import.meta.url), "utf8"), /^tests\/territorial_data_import\.test\.mjs$/m);
   assert.equal(fs.existsSync(new URL("../scripts/import_gtfs.mjs", import.meta.url)), true);
 });
 
