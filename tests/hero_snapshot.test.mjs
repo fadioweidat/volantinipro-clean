@@ -41,7 +41,8 @@ test("pickHeroSnapshotData strips everything the hero does not use", () => {
 });
 
 test("missing or corrupt snapshot -> null (the hero then makes the live call)", () => {
-  const now = Date.parse("2026-10-20T15:00:00Z");
+  // "now" follows the committed snapshot, so refreshing it (npm run snapshot:hero) never breaks the test.
+  const now = Date.parse(committed.generatedAt) + 60 * 60 * 1000;
   const bad = [
     ["missing file", undefined],
     ["not an object", "x"],
