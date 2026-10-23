@@ -18,7 +18,7 @@ export const milanoLandingContent = {
   pageKey: "milano-landing",
   h1: "Distribuzione volantini a Milano",
   intro:
-    "VolantiniPro organizza campagne di distribuzione volantini a Milano con pianificazione territoriale, tracking GPS e report di attività, per Door to Door, Hand to Hand e progetti Business.",
+    "VolantiniPro organizza campagne di volantinaggio e distribuzione volantini a Milano con pianificazione territoriale, tracking GPS e report di attività, per Door to Door, Hand to Hand e progetti Business.",
   ctaLabel: "Calcola il preventivo",
 
   sections: [
@@ -49,6 +49,7 @@ export const milanoLandingContent = {
       h2: "Pianificazione territoriale",
       paragraphs: [
         "Ogni campagna a Milano parte dalla selezione delle zone e dalla quantità di volantini da distribuire, in base all'obiettivo indicato.",
+        "Nel configuratore puoi scegliere uno o più quartieri/NIL oppure un raggio intorno al punto di partenza. Il confine del Comune e i quartieri visualizzati sulla mappa sono riferimenti: non selezionano automaticamente la zona di distribuzione.",
         "L'analisi territoriale nel configuratore aiuta a organizzare la campagna in modo coerente con la zona scelta: la distribuzione viene poi monitorata durante lo svolgimento, con gli stessi strumenti di tracciamento usati per tutte le campagne VolantiniPro.",
       ],
     },
@@ -73,6 +74,17 @@ export const milanoLandingContent = {
         "Il preventivo viene calcolato online sulla tua campagna, con lo stesso motore di calcolo del configuratore usato per tutte le campagne VolantiniPro.",
       ],
       priceCta: "Calcola il prezzo sulla tua zona",
+    },
+    {
+      h2: "Tre modi per ottenere il preventivo",
+      paragraphs: [
+        "Scegli come preparare la tua campagna di volantinaggio a Milano: in autonomia oppure con il nostro supporto.",
+      ],
+      quoteOptions: [
+        { title: "Preventivo online con PDF", text: "Configura servizio, quantità e zona, consulta il preventivo e scarica il PDF.", href: "/preventivo", pageKey: "preventivo" },
+        { title: "Preventivo rapido", text: "Inserisci i dati essenziali per ottenere una prima stima dei costi.", href: "/preventivo-rapido", pageKey: "quick" },
+        { title: "Preventivo al telefono", text: "Lascia un messaggio a un consulente: ti ricontattiamo per preparare insieme il preventivo.", href: "/consulente", pageKey: "consultant" },
+      ],
     },
     {
       h2: "Per chi è utile",
