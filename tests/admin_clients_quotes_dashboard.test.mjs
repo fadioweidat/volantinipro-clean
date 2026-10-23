@@ -21,6 +21,8 @@ import {
 } from '../src/lib/admin/clientsQuotesView.js';
 
 const page = readFileSync(new URL('../src/pages/admin/ClientsQuotes.jsx', import.meta.url), 'utf8');
+// Row actions shared by the two views of "Ordini" (moved unchanged from ClientsQuotes.jsx).
+const actions = readFileSync(new URL('../src/lib/admin/orderRowActions.js', import.meta.url), 'utf8');
 
 const ROWS = [
   { id: 'aaaa1111-xxxx', client: 'Fadi Oweidat', comuni: ['Cormano'], zone: 'Cormano', service: 'd2d', qty: 80632, total: 2891.49, paymentStatus: 'da_pagare', assignment: null, gpsStatus: 'non_disponibile', email: 'fadi@example.com', phone: '+393330000001', createdAt: '2026-09-06T09:00:00Z' },
@@ -178,7 +180,8 @@ test('§9 — caso reale Fadi Oweidat / Cormano / DA PAGARE', () => {
 
 test('copia riepilogo — stesso testo del messaggio WhatsApp', () => {
   // §7: la pagina copia buildAdminClientWhatsAppMessage(row), non un formato diverso
-  assert.match(page, /const text = buildAdminClientWhatsAppMessage\(row\);/);
+  assert.match(actions, /navigator\.clipboard\?\.writeText\(buildAdminClientWhatsAppMessage\(row\)\)/);
+  assert.match(page, /await copyClientSummary\(row\);/);
 });
 
 test('helper vari', () => {
@@ -190,14 +193,15 @@ test('helper vari', () => {
 });
 
 test('ClientsQuotes.jsx — wiring: KPI, filtri, ordinamento, copia riepilogo, WhatsApp corretto; conferma pagamento invariata', () => {
-  assert.match(page, /import \{[\s\S]{0,400}computeKpiCounts,[\s\S]{0,400}applyClientsQuotesView,[\s\S]{0,400}buildAdminClientWhatsAppMessage,/);
+  assert.match(page, /import \{[\s\S]{0,400}computeKpiCounts,[\s\S]{0,400}applyClientsQuotesView,[\s\S]{0,400}kpiRows,/);
   // TICKET — Admin non trovava una campagna reale post-fix per ricerca ID
   // esatto (classificata quality:'test' dal nome cliente di prova). Fix:
   // state.rows ora include anche le righe non "real" (load() usa
   // includeTest:true) cosi' la ricerca esplicita puo' raggiungerle, ma i
   // KPI restano filtrati a sole campagne "real" — stesso totale di prima.
-  assert.match(page, /computeKpiCounts\(state\.rows\.filter\(\(r\) => !r\.quality \|\| r\.quality === 'real'\)\)/);
-  assert.match(page, /applyClientsQuotesView\(state\.rows, \{ search, filter, sort \}\)/);
+  // 2026-10-24: counters follow "Mostra dati di prova" (real rows only by default).
+  assert.match(page, /computeKpiCounts\(kpiRows\(state\.rows, showTest\)\)/);
+  assert.match(page, /applyClientsQuotesView\(state\.rows, \{ search, filter, sort, showTest \}\)/);
   assert.match(page, /const \[filter, setFilter\] = useState\('tutti'\)/);
   assert.match(page, /const \[sort, setSort\] = useState\('default'\)/);
   assert.match(page, /<KpiCard label="Da pagare"/);
@@ -206,10 +210,12 @@ test('ClientsQuotes.jsx — wiring: KPI, filtri, ordinamento, copia riepilogo, W
   assert.match(page, /onClick=\{\(\) => handleCopySummary\(row\)\}/);
   assert.match(page, /Copia riepilogo/);
   // WhatsApp cliente: numero normalizzato via buildWhatsAppUrl + template Admin
-  assert.match(page, /buildWhatsAppUrl\(row\.phone, buildAdminClientWhatsAppMessage\(row\)\)/);
-  assert.match(page, /title="Apri chat WhatsApp con il cliente"/);
-  assert.doesNotMatch(page, /Ciao \$\{row\.client \|\| ''\}, la contattiamo per la sua campagna VolantiniPro/);
-  assert.doesNotMatch(page, /String\(row\.phone \|\| ''\)\.replace\(\/\[\^\\d\+\]/); // niente normalizzazione ad-hoc
+  assert.match(actions, /buildWhatsAppUrl\(row\.phone, buildAdminClientWhatsAppMessage\(row\)\)/);
+  assert.match(page, /onClick=\{\(\) => openClientWhatsApp\(row\)\} title="Apri chat WhatsApp con il cliente"/);
+  for (const src of [page, actions]) {
+    assert.doesNotMatch(src, /Ciao \$\{row\.client \|\| ''\}, la contattiamo per la sua campagna VolantiniPro/);
+    assert.doesNotMatch(src, /String\(row\.phone \|\| ''\)\.replace\(\/\[\^\\d\+\]/); // niente normalizzazione ad-hoc
+  }
   // Conferma pagamento: business logic invariata (stesso singolo argomento
   // id, nessuna nuova opzione) — ticket "CONFIRM PAYMENT ONE CLICK": solo la
   // UI post-successo cambia (aggiornamento locale immediato + reload in

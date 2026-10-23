@@ -12,6 +12,7 @@ import {
 import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL, buildDriverAppInstallWhatsAppUrl } from '../../lib/services/driverAppDistribution.js';
 import { buildOperationalGroups, buildTodayGroupCards } from '../../lib/admin/adminHomeModel.js';
 import { buildCommercialSnapshot } from '../../lib/admin/adminCommercialModel.js';
+import { isRealRow } from '../../lib/admin/clientsQuotesView.js';
 import {
   AdminResourceUnavailableError,
   createAdminRefreshLoop,
@@ -42,6 +43,8 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
   // stesso popover invece di un <details> nested in fondo.
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [showAllToday, setShowAllToday] = useState(false);
+  // Test data (is_test campaigns and the other non-real records) hidden by default.
+  const [showTest, setShowTest] = useState(false);
 
   useEffect(() => {
     return createAdminRefreshLoop({
@@ -82,7 +85,13 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
     return () => { cancelled = true; };
   }, [adminSession]);
 
-  const { campaigns, todayGroups, groups, liveOperators, liveSummary, availability, clientsQuotes, smartPairing } = state.data;
+  const { campaigns, liveOperators, liveSummary, availability, smartPairing } = state.data;
+  const todayGroups = showTest ? state.data.todayGroupsAll : state.data.todayGroups;
+  const groups = showTest ? state.data.groupsAll : state.data.groups;
+  const clientsQuotes = useMemo(
+    () => (showTest ? state.data.clientsQuotes : state.data.clientsQuotes.filter(isRealRow)),
+    [state.data.clientsQuotes, showTest],
+  );
   const metrics = useMemo(() => state.data.availability.today ? ({
     groups: todayGroups.length,
     online: todayGroups.filter((group) => group.presence.key === 'online').length,
@@ -131,6 +140,10 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
 
   const headerActions = (
     <div className="admin-home__header-actions">
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'rgba(255,255,255,.8)', cursor: 'pointer' }}>
+        <input type="checkbox" checked={showTest} onChange={(e) => setShowTest(e.target.checked)} />
+        Mostra dati di prova
+      </label>
       <button className="admin-home__primary" type="button" onClick={() => onNav('admin-groups-manager')}>+ Nuovo programma</button>
       <div className="admin-home__tools-menu">
         <button
@@ -301,6 +314,7 @@ async function loadAdminHomeDataUncached({ signal }) {
         operators,
       },
       requireComplete: true,
+      includeTest: true,
       signal,
     });
   }, { fallback: [], maxAgeMs: ADMIN_HOME_COMMERCIAL_TTL_MS });
@@ -322,6 +336,11 @@ async function loadAdminHomeDataUncached({ signal }) {
     campaigns: campaignResult.allRows,
     todayGroups: buildTodayGroupCards({ operations: realOperations, liveOperators, operators }),
     groups: buildOperationalGroups({ groups: realGroups, assignments: operationalReference.assignments, operators, liveOperators, campaigns: campaignResult.allRows }),
+    // "Mostra dati di prova": same cards including test campaigns, each marked isTest (PROVA).
+    todayGroupsAll: buildTodayGroupCards({ operations: operations.rows, liveOperators, operators })
+      .map((group) => ({ ...group, isTest: !realCampaignIds.has(group.campaignId) })),
+    groupsAll: buildOperationalGroups({ groups: operationalReference.groups, assignments: operationalReference.assignments, operators, liveOperators, campaigns: campaignResult.allRows })
+      .map((group) => ({ ...group, isTest: !realCampaignIds.has(group.campaign?.id) })),
     operators,
     liveOperators,
     liveSummary,
@@ -336,7 +355,7 @@ async function loadAdminHomeDataUncached({ signal }) {
 
 function TodayGroupCard({ group, onWhatsApp }) {
   const tone = group.work.key === 'problem' ? 'red' : group.work.key === 'started' ? 'blue' : ['sent', 'opened'].includes(group.program.key) ? 'yellow' : group.presence.key === 'online' ? 'green' : 'gray';
-  return <article className={`admin-home__today-card admin-home__today-card--${tone}`}><header><div><h3>{group.name}</h3><StatusDot status={group.presence} /></div><span className={`admin-home__work admin-home__work--${tone}`}>{group.work.label}</span></header><dl><div><dt>Campagna</dt><dd>{group.campaign}</dd></div><div><dt>Zona corrente</dt><dd>{group.zoneLabel}</dd></div><div><dt>Quantità assegnata</dt><dd>{group.quantity ? `${group.quantity.toLocaleString('it-IT')} volantini` : 'Dato non disponibile'}</dd></div><div><dt>Programma</dt><dd>{group.program.label}</dd></div></dl>{group.problem && <p className="admin-home__problem">{group.problem}</p>}<footer><a href={generateDriverAssignmentLink(group.primaryAssignmentId, group.primaryAssignmentAccessToken)}>Apri</a><a href="/admin/live">GPS</a><button type="button" onClick={onWhatsApp}>{['sent', 'opened'].includes(group.program.key) ? 'Reinvia link lavoro' : DRIVER_JOB_BUTTON_LABEL}</button><button type="button" disabled={!group.phone} onClick={() => window.open(buildDriverAppInstallWhatsAppUrl(group.phone), '_blank', 'noopener,noreferrer')} title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale.">{DRIVER_APP_BUTTON_LABEL}</button></footer></article>;
+  return <article className={`admin-home__today-card admin-home__today-card--${tone}`}><header><div><h3>{group.name}{group.isTest && <span className="admin-home__test-tag">PROVA</span>}</h3><StatusDot status={group.presence} /></div><span className={`admin-home__work admin-home__work--${tone}`}>{group.work.label}</span></header><dl><div><dt>Campagna</dt><dd>{group.campaign}</dd></div><div><dt>Zona corrente</dt><dd>{group.zoneLabel}</dd></div><div><dt>Quantità assegnata</dt><dd>{group.quantity ? `${group.quantity.toLocaleString('it-IT')} volantini` : 'Dato non disponibile'}</dd></div><div><dt>Programma</dt><dd>{group.program.label}</dd></div></dl>{group.problem && <p className="admin-home__problem">{group.problem}</p>}<footer><a href={generateDriverAssignmentLink(group.primaryAssignmentId, group.primaryAssignmentAccessToken)}>Apri</a><a href="/admin/live">GPS</a><button type="button" onClick={onWhatsApp}>{['sent', 'opened'].includes(group.program.key) ? 'Reinvia link lavoro' : DRIVER_JOB_BUTTON_LABEL}</button><button type="button" disabled={!group.phone} onClick={() => window.open(buildDriverAppInstallWhatsAppUrl(group.phone), '_blank', 'noopener,noreferrer')} title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale.">{DRIVER_APP_BUTTON_LABEL}</button></footer></article>;
 }
 
 function ModuleCard({ title, stats, cta, onOpen }) {
@@ -396,7 +415,7 @@ function DashboardSkeleton() {
 function localDateKey(date) { const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 10); }
 function emptyData() {
   return {
-    campaigns: [], todayGroups: [], groups: [], operators: [], liveOperators: [],
+    campaigns: [], todayGroups: [], groups: [], todayGroupsAll: [], groupsAll: [], operators: [], liveOperators: [],
     liveSummary: { liveCount: 0, warningCount: 0 }, clientsQuotes: [], smartPairing: { rows: [], available: false },
     availability: { campaigns: false, today: false, groups: false, gps: false, operators: false, clientsQuotes: false },
     refreshIssues: [], hasAnyData: false,

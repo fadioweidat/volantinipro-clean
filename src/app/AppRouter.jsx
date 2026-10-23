@@ -40,8 +40,8 @@ const AdminDashboard = lazy(() => import("../../volantinipro-final.jsx").then(m 
 
 const AdminLiveDashboard = lazy(() => import("../pages/admin/AdminLiveDashboard.jsx").then(m => ({ default: m.AdminLiveDashboard })));
 const AdminOperationsCenter = lazy(() => import("../pages/admin/AdminOperationsCenter.jsx").then(m => ({ default: m.AdminOperationsCenter })));
-const ClientsQuotes = lazy(() => import("../pages/admin/ClientsQuotes.jsx").then(m => ({ default: m.ClientsQuotes })));
-const AdminOrdersRegistry = lazy(() => import("../pages/admin/AdminOrdersRegistry.jsx").then(m => ({ default: m.AdminOrdersRegistry })));
+// "Registro ordini" and "Clienti & Preventivi" are one page, "Ordini" (views Tabella / Schede).
+const AdminOrders = lazy(() => import("../pages/admin/AdminOrders.jsx").then(m => ({ default: m.AdminOrders })));
 const GroupsManager = lazy(() => import("../pages/admin/GroupsManager.jsx").then(m => ({ default: m.GroupsManager })));
 const CommercialCenter = lazy(() => import("../pages/admin/CommercialCenter.jsx").then(m => ({ default: m.CommercialCenter })));
 const PlatformStatus = lazy(() => import("../pages/admin/PlatformStatus.jsx").then(m => ({ default: m.PlatformStatus })));
@@ -469,8 +469,8 @@ export function AppRouter() {
                   {page === "admin" && <AdminDashboard onNav={goTo} adminSession={session} />}
                   {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
                   {page === "admin-operations" && <AdminOperationsCenter onNav={goTo} />}
-                  {page === "admin-clients-quotes" && <ClientsQuotes onNav={goTo} />}
-                  {page === "admin-orders" && <AdminOrdersRegistry onNav={goTo} />}
+                  {page === "admin-clients-quotes" && <AdminOrders onNav={goTo} initialView="schede" />}
+                  {page === "admin-orders" && <AdminOrders onNav={goTo} />}
                   {page === "admin-groups-manager" && <GroupsManager onNav={goTo} />}
                   {page === "admin-commercial" && <CommercialCenter onNav={goTo} />}
                   {page === "admin-status" && <PlatformStatus onNav={goTo} />}

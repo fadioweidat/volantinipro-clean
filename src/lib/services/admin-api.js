@@ -1006,7 +1006,7 @@ function classifyCampaign(campaign, row, serviceSource) {
 
 function normalizeStatus(value) {
   if (['active', 'started', 'in_corso', 'confermata', 'confirmed', 'pending_review', 'pagato'].some((token) => value.includes(token))) return 'active';
-  if (['completed', 'done', 'completata', 'cancelled'].some((token) => value.includes(token))) return 'done';
+  if (['completed', 'done', 'completata', 'cancelled', 'archived'].some((token) => value.includes(token))) return 'done';
   return 'pending';
 }
 

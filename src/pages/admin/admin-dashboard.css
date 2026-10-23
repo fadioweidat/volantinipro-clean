@@ -22,3 +22,6 @@
 .admin-home__skeleton-section{min-height:160px;display:flex;flex-direction:column;justify-content:center}
 .admin-home__skeleton-card{min-height:160px;display:flex;flex-direction:column}
 
+
+/* Test data label (Mostra dati di prova). */
+.admin-home__test-tag { margin-left: 8px; font-size: 10px; font-weight: 900; letter-spacing: .06em; padding: 2px 7px; border-radius: 4px; color: #FDE68A; border: 1px solid #F59E0B; background: rgba(245, 158, 11, .14); vertical-align: middle; }

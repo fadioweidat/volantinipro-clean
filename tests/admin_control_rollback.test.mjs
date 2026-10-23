@@ -37,7 +37,16 @@ test('P1 ADMIN CONTROL + ROLLBACK — state machine (getAllowedCampaignActions)'
 
   await t.test('archived: solo reopen, mai cancel/archive di nuovo', () => {
     const actions = getAllowedCampaignActions({ status: 'archived', paymentStatus: 'non_disponibile', programStatus: 'nessun_programma' });
-    assert.deepEqual(actions, [CAMPAIGN_ACTIONS.REOPEN]);
+    // The test-data flag (2026-10-24) is always available and does not change the campaign state.
+    const stateActions = actions.filter((a) => a !== CAMPAIGN_ACTIONS.MARK_TEST && a !== CAMPAIGN_ACTIONS.UNMARK_TEST);
+    assert.deepEqual(stateActions, [CAMPAIGN_ACTIONS.REOPEN]);
+  });
+
+  await t.test('test-data flag: "Segna come prova" on real campaigns, "Non è una prova" on test ones', () => {
+    assert.ok(getAllowedCampaignActions({ status: 'in_progress' }).includes(CAMPAIGN_ACTIONS.MARK_TEST));
+    assert.ok(!getAllowedCampaignActions({ status: 'in_progress' }).includes(CAMPAIGN_ACTIONS.UNMARK_TEST));
+    assert.ok(getAllowedCampaignActions({ status: 'archived', isTest: true }).includes(CAMPAIGN_ACTIONS.UNMARK_TEST));
+    assert.ok(getAllowedCampaignActions({ status: 'archived', is_test: true }).includes(CAMPAIGN_ACTIONS.UNMARK_TEST));
   });
 
   await t.test('cancelled: reopen e delete NON insieme (delete solo da draft)', () => {

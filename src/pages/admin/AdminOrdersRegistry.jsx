@@ -6,6 +6,18 @@ import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
 import { AdminActionMenu } from '../../components/admin/AdminActionMenu.jsx';
 import { AdminOrdersSummaryPanel } from './admin-orders/AdminOrdersSummaryPanel.jsx';
 import { AdminOrdersToolbar } from './admin-orders/AdminOrdersToolbar.jsx';
+import { kpiRows } from '../../lib/admin/clientsQuotesView.js';
+import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL } from '../../lib/services/driverAppDistribution.js';
+import {
+  actionMenuCampaign,
+  canOpenDriverApp,
+  canSendDriverProgram,
+  copyClientSummary,
+  isRowPaid,
+  openClientWhatsApp,
+  openDriverAppInstall,
+  sendDriverProgram,
+} from '../../lib/admin/orderRowActions.js';
 
 // REGISTRO PREVENTIVI & ORDINI — vista tabellare stile Excel su tutti i
 // preventivi/campagne reali. Nessuna tabella parallela, nessuna nuova query
@@ -63,7 +75,7 @@ const STATUS_LABEL = { pending: 'Nuovo', active: 'In corso', done: 'Completata' 
 const COLUMNS = [
   { key: 'id', label: 'ID', sortable: false, essential: true, get: (r) => shortId(r.id) },
   { key: 'date', label: 'Data', sortable: true, essential: false, get: (r) => r.date },
-  { key: 'client', label: 'Cliente', sortable: true, essential: true, get: (r) => r.client },
+  { key: 'client', label: 'Cliente', sortable: true, essential: true, get: (r) => r.client, render: (r) => <>{r.client || '—'}{r.quality === 'test' && <TestTag />}</>, csv: (r) => r.client },
   { key: 'company', label: 'Azienda', sortable: false, essential: false, get: (r) => r.company },
   { key: 'phone', label: 'Telefono', sortable: false, essential: false, get: (r) => r.phone },
   { key: 'email', label: 'Email', sortable: false, essential: false, get: (r) => r.email },
@@ -128,7 +140,7 @@ const QUICK_FILTERS = [
 
 const SEARCH_FIELDS = (r) => [r.id, r.client, r.company, r.email, r.phone, ...(r.comuni || []), r.zone, r.group?.name].filter(Boolean).join(' ').toLowerCase();
 
-export function AdminOrdersRegistry({ onNav }) {
+export function AdminOrdersRegistry({ onNav, embedded = false, showTest = false }) {
   const [state, setState] = useState({ loading: true, error: null, rows: [] });
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -169,8 +181,8 @@ export function AdminOrdersRegistry({ onNav }) {
     const q = search.trim().toLowerCase();
     let rows = state.rows.filter(filterDef.test);
     // Nasconde le righe quality!=='real' dalla navigazione di default;
-    // una ricerca esplicita (q non vuota) le rende comunque raggiungibili.
-    if (!q) rows = rows.filter((r) => !r.quality || r.quality === 'real');
+    // una ricerca esplicita (q non vuota) o "Mostra dati di prova" le rendono raggiungibili.
+    if (!q && !showTest) rows = rows.filter((r) => !r.quality || r.quality === 'real');
     if (q) rows = rows.filter((r) => SEARCH_FIELDS(r).includes(q));
     const col = COLUMNS.find((c) => c.key === sort.key);
     if (col) {
@@ -185,13 +197,13 @@ export function AdminOrdersRegistry({ onNav }) {
       });
     }
     return rows;
-  }, [state.rows, search, activeFilter, sort]);
+  }, [state.rows, search, activeFilter, sort, showTest]);
 
   const kpi = useMemo(() => {
     // Solo campagne "real": state.rows ora include anche quality!=='real'
     // (includeTest:true in load(), per la ricerca esplicita), ma i KPI
     // devono restare identici a prima.
-    const rows = state.rows.filter((r) => !r.quality || r.quality === 'real');
+    const rows = kpiRows(state.rows, showTest);
     const sum = (test) => rows.filter(test).length;
     const totalValue = rows.reduce((s, r) => s + (r.total || 0), 0);
     const paidValue = rows.filter((r) => r.paymentStatus === 'pagato').reduce((s, r) => s + (r.total || 0), 0);
@@ -206,7 +218,7 @@ export function AdminOrdersRegistry({ onNav }) {
       totalValue,
       paidValue,
     };
-  }, [state.rows]);
+  }, [state.rows, showTest]);
 
   function toggleSort(key) {
     setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
@@ -245,8 +257,8 @@ export function AdminOrdersRegistry({ onNav }) {
 
   const breadcrumbs = [{ label: 'Dashboard', href: '/admin' }, { label: 'Registro Preventivi & Ordini' }];
 
-  return (
-    <AdminLayout title="Registro Preventivi & Ordini" subtitle="Un registro unico, stile Excel, su tutti i preventivi e ordini reali." breadcrumbs={breadcrumbs} onNav={onNav}>
+  const body = (
+    <>
       <AdminOrdersSummaryPanel
         kpi={kpi}
         activeFilter={activeFilter}
@@ -302,7 +314,7 @@ export function AdminOrdersRegistry({ onNav }) {
                       onAssign={() => setAssignModal(row.id)}
                       onConfirmPayment={() => setPaymentConfirmRow(row)}
                     />
-                    <AdminActionMenu campaign={row} onDone={load} />
+                    <AdminActionMenu campaign={actionMenuCampaign(row)} onDone={load} />
                   </div>
                 </td>
               </tr>
@@ -315,7 +327,7 @@ export function AdminOrdersRegistry({ onNav }) {
       </div>
 
       {drawerRow && (
-        <RowDrawer row={drawerRow} onClose={() => setDrawerRow(null)} onNav={onNav} />
+        <RowDrawer row={drawerRow} onClose={() => setDrawerRow(null)} onNav={onNav} onChanged={() => { setDrawerRow(null); load(); }} />
       )}
 
       {assignModal && (
@@ -344,8 +356,16 @@ export function AdminOrdersRegistry({ onNav }) {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
+  // Inside the "Ordini" page the layout (title, view switch, test toggle) belongs to the page.
+  return embedded ? body : (
+    <AdminLayout title="Registro Preventivi & Ordini" subtitle="Un registro unico, stile Excel, su tutti i preventivi e ordini reali." breadcrumbs={breadcrumbs} onNav={onNav}>{body}</AdminLayout>
+  );
+}
+
+function TestTag() {
+  return <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 900, letterSpacing: '.06em', padding: '1px 6px', borderRadius: 4, color: '#FDE68A', border: '1px solid #F59E0B', background: 'rgba(245,158,11,.14)' }}>PROVA</span>;
 }
 
 function csvCell(value, format) {
@@ -362,7 +382,7 @@ function renderCell(value, format) {
 }
 
 function RowActions({ row, onNav, onAssign, onConfirmPayment }) {
-  const isPaid = ['pagato','settled_by_credit','settled_by_verified_receipt'].includes(row.paymentStatus);
+  const isPaid = isRowPaid(row);
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       <MiniBtn onClick={() => onNav?.(`admin-operations:${row.id}`)}>Apri</MiniBtn>
@@ -374,13 +394,14 @@ function RowActions({ row, onNav, onAssign, onConfirmPayment }) {
   );
 }
 
-function RowDrawer({ row, onClose, onNav }) {
+function RowDrawer({ row, onClose, onNav, onChanged }) {
+  const [copied, setCopied] = useState(false);
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 70 }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.6)' }} onClick={onClose} />
       <aside style={drawerStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, color: C.white, fontSize: 20 }}>{row.client}</h2>
+          <h2 style={{ margin: 0, color: C.white, fontSize: 20 }}>{row.client}{row.quality === 'test' && <TestTag />}</h2>
           <button type="button" onClick={onClose} style={secondaryBtnStyle}>Chiudi</button>
         </div>
 
@@ -433,6 +454,18 @@ function RowDrawer({ row, onClose, onNav }) {
           {/* Fase 10: nessun campo note Admin esiste sui dati reali (audit).
               Nessuna migration automatica — solo un campo disabilitato. */}
           <textarea disabled placeholder="Nessun campo note Admin nel modello dati attuale." style={{ width: '100%', minHeight: 60, background: 'rgba(255,255,255,.03)', border: `1px solid ${C.border}`, borderRadius: 8, color: 'rgba(255,255,255,.4)', padding: 8, fontSize: 13, resize: 'vertical' }} />
+        </DrawerSection>
+
+        <DrawerSection title="CONTATTI E LAVORO">
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <MiniBtn onClick={() => openClientWhatsApp(row)} title="Apri chat WhatsApp con il cliente">WhatsApp cliente</MiniBtn>
+            <MiniBtn onClick={async () => { await copyClientSummary(row); setCopied(true); window.setTimeout(() => setCopied(false), 1600); }}>{copied ? 'Copiato ✓' : 'Copia riepilogo'}</MiniBtn>
+            <MiniBtn onClick={() => { if (row.phone) window.location.href = `tel:${row.phone}`; }} disabled={!row.phone}>Chiama</MiniBtn>
+            <MiniBtn onClick={() => { if (row.email) window.location.href = `mailto:${row.email}`; }} disabled={!row.email}>Email</MiniBtn>
+            <MiniBtn onClick={() => sendDriverProgram(row)} disabled={!canSendDriverProgram(row)} title={!isRowPaid(row) ? 'Conferma prima il pagamento.' : (!row.assignment ? 'Assegna prima un gruppo.' : '')}>{DRIVER_JOB_BUTTON_LABEL}</MiniBtn>
+            <MiniBtn onClick={() => openDriverAppInstall(row)} disabled={!canOpenDriverApp(row)} title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale.">{DRIVER_APP_BUTTON_LABEL}</MiniBtn>
+            <AdminActionMenu campaign={actionMenuCampaign(row)} onDone={onChanged} />
+          </div>
         </DrawerSection>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
