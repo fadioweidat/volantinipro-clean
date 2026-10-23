@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { setAnalyticsOptOut } from "../../lib/analytics/siteEvents.js";
 import { F, C } from "../../lib/constants.js";
 
 const adminBadgeStyle = { 
@@ -48,6 +49,9 @@ export function AdminLayout({
   // nessun'altra pagina Admin che non lo passa cambia aspetto.
   actions = null,
 }) {
+  // This shell is mounted behind the existing AdminGuard. No identity is sent.
+  useEffect(() => { setAnalyticsOptOut(true); }, []);
+
   const go = (page) => {
     if (onNav) {
       onNav(page);

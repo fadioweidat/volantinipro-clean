@@ -76,6 +76,7 @@ export const SITE_EVENT_NAMES = Object.freeze({
 const ALLOWED_EVENTS = Object.values(SITE_EVENT_NAMES);
 
 const OPT_OUT_KEY = 'vp_analytics_optout';
+let memoryOptOut = false;
 const VISITOR_KEY = 'vp_anon_visitor';           // localStorage { id, exp }
 const LEGACY_VISITOR_KEY = 'vp_anon_session_id';  // schema precedente (senza TTL)
 const SESSION_ID_KEY = 'vp_anon_session';         // sessionStorage
@@ -98,9 +99,16 @@ function ls() { try { return typeof window !== 'undefined' ? window.localStorage
 function ss() { try { return typeof window !== 'undefined' ? window.sessionStorage : null; } catch { return null; } }
 
 export function isAnalyticsOptedOut() {
-  try { return ls()?.getItem(OPT_OUT_KEY) === '1'; } catch { return false; }
+  try {
+    // Explicit test links must be checked before the very first event.
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location?.search || '').get('analytics') === 'off') {
+      setAnalyticsOptOut(true);
+    }
+    return memoryOptOut || ls()?.getItem(OPT_OUT_KEY) === '1';
+  } catch { return memoryOptOut; }
 }
 export function setAnalyticsOptOut(optedOut) {
+  memoryOptOut = Boolean(optedOut);
   const store = ls();
   if (!store) return;
   try {
