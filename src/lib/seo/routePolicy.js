@@ -1,8 +1,8 @@
 export const SITE_URL = 'https://www.volantinipro.it';
 export const metaByPage = {
   home: [
-    "Distribuzione Volantini con GPS e Report | VolantiniPro",
-    "Distribuzione volantini Door to Door, Hand to Hand e Business con analisi territoriale, tracking GPS, prove fotografiche e preventivo online.",
+    "Volantinaggio e distribuzione volantini | VolantiniPro",
+    "Distribuzione volantini: configura il preventivo online e scarica il PDF, scegli il preventivo rapido oppure richiedi un ricontatto telefonico.",
   ],
   quick: [
     "Preventivo rapido distribuzione volantini | VolantiniPro",
@@ -10,11 +10,11 @@ export const metaByPage = {
   ],
   consultant: [
     "Parla con un consulente VolantiniPro",
-    "Richiedi supporto diretto per configurare la tua campagna di distribuzione volantini con un consulente VolantiniPro.",
+    "Lascia un messaggio: un consulente VolantiniPro ti ricontatta per preparare al telefono il preventivo della tua campagna di distribuzione volantini.",
   ],
   preventivo: [
     "Configura il tuo preventivo | VolantiniPro",
-    "Configura zona, servizio e quantità e ottieni un preventivo online per la tua campagna di distribuzione volantini.",
+    "Configura zona, servizio e quantità per la distribuzione volantini, ottieni il preventivo online e scarica il PDF.",
   ],
   login: ["Login cliente | VolantiniPro", "Accedi alla dashboard VolantiniPro con magic link sicuro via email."],
   dashboard: ["Dashboard cliente | VolantiniPro", "Monitora campagne, tracking GPS, Smart Pairing e report finali."],
@@ -35,7 +35,7 @@ export const metaByPage = {
     "Distribuzione volantini mirata ad aziende, negozi e uffici, con coordinamento multi-sede, tracking GPS e report finale.",
   ],
   "milano-landing": [
-    "Distribuzione Volantini Milano con GPS e Report | VolantiniPro",
+    "Volantinaggio Milano e distribuzione volantini | VolantiniPro",
     "Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online.",
   ],
 };
