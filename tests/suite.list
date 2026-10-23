@@ -206,3 +206,4 @@ tests/cron_run_details_retention.test.mjs
 tests/drop_address_points_migration.test.mjs
 tests/families_weighted_coverage.test.mjs
 tests/analysis_request_skip_omi.test.mjs
+tests/chat_outbox_dispatch_30s.test.mjs
