@@ -2,7 +2,7 @@ export const SITE_URL = 'https://www.volantinipro.it';
 export const metaByPage = {
   home: [
     "Volantinaggio e distribuzione volantini | VolantiniPro",
-    "Distribuzione volantini: configura il preventivo online e scarica il PDF, scegli il preventivo rapido oppure richiedi un ricontatto telefonico.",
+    "Distribuzione volantini: calcola subito il preventivo online e scarica il PDF. Scegli anche il preventivo rapido o il ricontatto telefonico.",
   ],
   quick: [
     "Preventivo rapido distribuzione volantini | VolantiniPro",

@@ -408,7 +408,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
         <div className="vph-copy">
           <p className="vph-eyebrow">VOLANTINAGGIO PROFESSIONALE</p>
           <h1 id="vph-title">Distribuisci volantini<br />nel territorio giusto,<br />con la <em>quantità giusta</em></h1>
-          <p className="vph-description">Scopri quante famiglie puoi raggiungere in ogni Comune, calcola subito il preventivo online e verifica la distribuzione con GPS e report fotografico.</p>
+          <p className="vph-description">Calcola subito il preventivo online per la distribuzione volantini e scarica il PDF. Scegli il percorso guidato, il preventivo rapido o il ricontatto telefonico.</p>
           <div className="vph-benefits">
             <div><HeroIcon type="check"/><span>Dati territoriali reali</span></div>
             <div><HeroIcon type="check"/><span>Preventivo immediato online</span></div>
