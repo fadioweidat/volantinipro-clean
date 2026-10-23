@@ -13,6 +13,9 @@ export function getServiceAccent(svcType) {
   return SERVICE_ACCENTS[svcType] ?? SERVICE_ACCENTS.d2d;
 }
 
+// Civici layer removed (2026-10-23): address_points moved out of the database
+// (export + restore procedure in db-backups/address_points-export). To bring it
+// back: restore the table, then re-add { id: 'civici', ... } to each service.
 export const SERVICE_LAYERS = {
   d2d: {
     label: 'Door to Door',
@@ -20,7 +23,6 @@ export const SERVICE_LAYERS = {
       { id: 'radius',   label: 'Raggio',        defaultOn: true,  available: true,  future: false, category: 'base'      },
       { id: 'comuni',   label: 'Comuni',         defaultOn: true,  available: true,  future: false, category: 'territory' },
       { id: 'settori',  label: 'Settori censuari', defaultOn: true,  available: true,  future: false, category: 'territory' },
-      { id: 'civici',   label: 'Civici',         defaultOn: false, available: true,  future: false, category: 'points'    },
       { id: 'density',  label: 'Densità fam.',   defaultOn: false, available: true,  future: false, category: 'overlay'   },
       { id: 'poi',      label: 'POI',            defaultOn: false, available: true,  future: false, category: 'points'    },
       { id: 'tracking', label: 'Tracking GPS',   defaultOn: false, available: false, future: true,  category: 'live'      },
@@ -31,7 +33,6 @@ export const SERVICE_LAYERS = {
     layers: [
       { id: 'radius',   label: 'Raggio',        defaultOn: true,  available: true,  future: false, category: 'base'      },
       { id: 'poi',      label: 'POI',            defaultOn: true,  available: true,  future: false, category: 'points'    },
-      { id: 'civici',   label: 'Civici',         defaultOn: false, available: true,  future: false, category: 'points'    },
       { id: 'hotspot',  label: 'Hotspot H2H',   defaultOn: false, available: false, future: true,  category: 'overlay'   },
       { id: 'comuni',   label: 'Comuni',         defaultOn: false, available: true,  future: false, category: 'territory' },
       { id: 'settori',  label: 'Settori',        defaultOn: false, available: true,  future: false, category: 'territory' },
@@ -43,7 +44,6 @@ export const SERVICE_LAYERS = {
     layers: [
       { id: 'radius',   label: 'Raggio',        defaultOn: true,  available: true,  future: false, category: 'base'      },
       { id: 'poi',      label: 'POI',            defaultOn: true,  available: true,  future: false, category: 'points'    },
-      { id: 'civici',   label: 'Civici',         defaultOn: false, available: true,  future: false, category: 'points'    },
       { id: 'cluster',  label: 'Cluster B2B',   defaultOn: false, available: false, future: true,  category: 'overlay'   },
       { id: 'comuni',   label: 'Comuni',         defaultOn: false, available: true,  future: false, category: 'territory' },
       { id: 'settori',  label: 'Settori',        defaultOn: false, available: true,  future: false, category: 'territory' },
