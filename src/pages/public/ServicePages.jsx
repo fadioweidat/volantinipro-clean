@@ -90,13 +90,13 @@ function ServicePageTemplate({ content, onNav }) {
           <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.75)", marginBottom: 14 }}>
             Configura la tua campagna {content.shortName} e ricevi un preventivo online.
           </p>
-          <Button variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
+          <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
         </div>
 
         {/* Internal linking */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 26 }}>
           {SERVICE_LINKS.filter((s) => s.key !== content.pageKey).map((s) => (
-            <Button key={s.key} variant="ghost" onClick={() => onNav(s.key)} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
+            <Button as={PublicNavLink} href={`/servizi/${s.key.replace('service-', '')}`} key={s.key} variant="ghost" onClick={() => onNav(s.key)} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
               {s.label} →
             </Button>
           ))}
@@ -108,7 +108,7 @@ function ServicePageTemplate({ content, onNav }) {
           </Button>
           {/* Link discreto verso la pagina locale pilota Milano (TICKET SEO
               LOCAL PAGE PILOTA MILANO) — nessun link SEO ripetuto altrove. */}
-          <Button variant="ghost" onClick={() => onNav("milano-landing")} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
+          <Button as={PublicNavLink} href="/distribuzione-volantini-milano" variant="ghost" onClick={() => onNav("milano-landing")} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
             Distribuzione volantini a Milano →
           </Button>
         </div>
