@@ -39,6 +39,7 @@ import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "../../../lib/contactConfig.js";
 import { trackQuoteCompleted } from "../../../lib/analytics/siteEvents.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../../lib/monitoring/errorLog.js";
 import { buildQuoteAssistantStep4Context } from "../../../ai/context/buildQuoteAssistantContext.js";
+import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step4({
@@ -125,7 +126,8 @@ export function Step4({
   const selZ = [...S2_ZONES.filter(z => zones.includes(z.id)), ...(data.selectedCaps || []).map(cap => data.capDataMap?.[cap]).filter(Boolean)].filter(z => !z.unavailable);
   const totF = selZ.reduce((a, z) => a + z.families, 0);
   const totP = selZ.reduce((a, z) => a + z.pop, 0);
-  const avgCov = selZ.length > 0 ? Math.round(selZ.reduce((a, z) => a + z.coverage, 0) / selZ.length) : 0;
+  // Fallback coverage (no flyers / requirement): weighted by families, like analysis-istat.
+  const avgCov = familiesWeightedCoverage(selZ);
   const avgFIdx = selZ.length > 0 ? Math.round(selZ.reduce((a, z) => a + z.familyIdx, 0) / selZ.length) : 0;
   const avgFlow = selZ.length > 0 ? Math.round(selZ.reduce((a, z) => a + z.flowScore, 0) / selZ.length) : 0;
   const avgCD = selZ.length > 0 ? Math.round(selZ.reduce((a, z) => a + z.commDens, 0) / selZ.length) : 0;
@@ -669,6 +671,7 @@ export function Step4({
   const mainAreaLabel = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones).join(" + ") || "Aree selezionate" : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
   const estimatedFamiliesForSummary = svcType === "d2d" ? kpis.families ?? (selZ.length ? totF : null) : null;
   const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
+  const fallbackCoverageText = (kpis.coverage ?? avgCov) == null ? "—" : `${kpis.coverage ?? avgCov}%`;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).
   // Display-only override on the sufficient-coverage message — never fed back
   // into families/coverage calculations.
@@ -2618,7 +2621,7 @@ export function Step4({
                     marginBottom: 6,
                     textTransform: "uppercase",
                     letterSpacing: ".04em"
-                  }}>Copertura parziale stimata al {kpis.coverage ?? avgCov}%</div>
+                  }}>Copertura parziale stimata al {fallbackCoverageText}</div>
                           <div style={{
                     fontFamily: F.sans,
                     fontSize: 13,
@@ -2627,7 +2630,7 @@ export function Step4({
                   }}>
                             Con la quantità attuale raggiungerai circa il <strong style={{
                       color: C.white
-                    }}>{kpis.coverage ?? avgCov}%</strong> delle famiglie nella zona selezionata.<br />
+                    }}>{fallbackCoverageText}</strong> delle famiglie nella zona selezionata.<br />
                             <div style={{
                       marginTop: 8,
                       padding: "8px 12px",
@@ -2702,7 +2705,7 @@ export function Step4({
                   fontWeight: 700,
                   cursor: "pointer"
                 }}>
-                          ✓ Mantieni copertura al {kpis.coverage ?? avgCov}%
+                          ✓ Mantieni copertura al {fallbackCoverageText}
                         </button>
                       </div>}
                     </div>)}

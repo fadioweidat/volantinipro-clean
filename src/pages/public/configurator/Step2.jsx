@@ -4,6 +4,7 @@ import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import TerritorialReport from "../../TerritorialReport.jsx";
 import { buildTerritorialAiSnapshot } from "../../../lib/step2/buildTerritorialAiSnapshot.mjs";
+import { familiesShare, familiesShareOfTotal, familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
@@ -4046,7 +4047,7 @@ export function Step2({
     families: isResidentialStep2 ? step2FamiliesCalc.families : 0,
     pop: isResidentialStep2 ? step2FamiliesCalc.pop : 0,
     population: isResidentialStep2 ? step2FamiliesCalc.pop : 0,
-    coverage: isResidentialStep2 ? requiredFlyers > 0 ? Math.min(100, Math.round(allocationFlyers / requiredFlyers * 100)) : Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0) / selZones.length) : null,
+    coverage: isResidentialStep2 ? requiredFlyers > 0 ? Math.min(100, Math.round(allocationFlyers / requiredFlyers * 100)) : familiesWeightedCoverage(selZones) : null,
     recommendedFlyers: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.flyersMin) || 0), 0) : 0,
     selectedComuni: selZones.map(z => z.name),
     intersectedNils,
@@ -4205,7 +4206,6 @@ export function Step2({
   // Incidenza sul comune (custom_zone/Milano): peso geografico reale delle
   // zone NIL selezionate sul totale del comune — dato secondario, mai
   // mostrato come "copertura" principale (che resta il budget volantini).
-  const zoneCoveragePctForBox = isNilAnalysis && selZones.length > 0 ? Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0)) : null;
   const selectedAreaFamiliesLabel = serviceKpis?.families > 0 ? serviceKpis.families.toLocaleString("it-IT", {
     useGrouping: true
   }) : "Dato non disponibile";
@@ -4311,7 +4311,8 @@ export function Step2({
   const relevantResidentialZoneIds = useMemo(() => new Set(relevantResidentialZones.map(z => z.id)), [relevantResidentialZones]);
   const marginalResidentialZones = useMemo(() => shouldGroupMarginalZones ? sortedResidentialZones.filter(z => !relevantResidentialZoneIds.has(z.id)) : [], [shouldGroupMarginalZones, sortedResidentialZones, relevantResidentialZoneIds]);
   const marginalZoneFamilies = marginalResidentialZones.reduce((sum, z) => sum + Number(z.families ?? z.famiglie ?? 0), 0);
-  const marginalZoneCoverage = Math.min(100, Math.round(marginalResidentialZones.reduce((sum, z) => sum + Number(z.coverage ?? z.pct ?? z.percent_nel_raggio ?? 0), 0)));
+  // Share of the radius families held by the grouped marginal zones (not a sum of per-zone %).
+  const marginalZoneCoverage = familiesShare(marginalResidentialZones, sortedResidentialZones);
   const zoneRowsForList = useMemo(() => {
     if (isMovementStep2) return h2hMetrics.clusters.map(z => ({
       type: "zone",
@@ -4417,6 +4418,8 @@ export function Step2({
     return rows;
   }, [milanoUxVisible, apiZones]);
   const milanoGlobalNilRows = allMilanoNilRows;
+  // Incidenza sul comune: families of the selected NIL / families of all Milano NIL loaded (never a sum of %).
+  const zoneCoveragePctForBox = isNilAnalysis && selZones.length > 0 ? familiesShareOfTotal(selZones, allMilanoNilRows.map(row => row.zone)) : null;
   const nilSearchPoolStatus = allMilanoNilRows.length > 0 ? "ready" : (apiError && !apiLoading ? "error" : "loading");
   const [focusedNil, setFocusedNil] = useState(null);
   const focusNilSearchResult = useCallback((result) => {

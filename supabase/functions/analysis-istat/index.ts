@@ -412,7 +412,16 @@ serve(async (req: Request) => {
     const omiMaxValues = omiZones.map((row: OmiZone) => Number(row.max_value)).filter(Number.isFinite);
     const avgDensity = totalArea > 0 ? totalPopulation / totalArea : territorialRows.reduce((acc: number, row: Record<string, unknown>) => acc + Number(row.density_per_km2 || 0), 0) / territorialRows.length;
     const recommendedFlyers = Math.round(totalFamilies * 1.1);
-    const avgCoverage = Math.round(territorialRows.reduce((acc: number, row: Record<string, unknown>) => acc + Number(row.pct_copertura || 100), 0) / territorialRows.length);
+    // Coverage = families in the radius / total families of the territories involved, weighted
+    // by families like the homepage share (never a mean of per-zone %: a 5% slice of a large
+    // quartiere counted as much as a whole small comune). Simple mean only when a territory
+    // lacks its total households; metadata.coverage_method says which one was used.
+    const familiesTotalKnown = territorialRows.every((row: Record<string, unknown>) => Number(row.households_total || 0) > 0);
+    const familiesTotalSum = territorialRows.reduce((acc: number, row: Record<string, unknown>) => acc + Number(row.households_total || 0), 0);
+    const coverageMethod = familiesTotalKnown && familiesTotalSum > 0 ? "families_weighted" : "simple_mean";
+    const avgCoverage = coverageMethod === "families_weighted"
+      ? Math.min(100, Math.round((totalFamilies / familiesTotalSum) * 100))
+      : Math.round(territorialRows.reduce((acc: number, row: Record<string, unknown>) => acc + Number(row.pct_copertura || 100), 0) / territorialRows.length);
     const familyIndex = clamp((avgDensity / 65) + (totalFamilies / 900));
     const reachScore = clamp(avgCoverage * 0.74 + Math.min(26, territorialRows.length * 5));
     const roiScore = clamp(55 + Math.min(30, totalFamilies / 900) + Math.min(12, avgCoverage / 12));
@@ -494,6 +503,7 @@ serve(async (req: Request) => {
         mapboxPlace,
         analysis_level: analysisLevel,
         nil_unavailable: nilUnavailable,
+        coverage_method: coverageMethod,
         omi: buildOmiResult(omiZones),
       },
       confidenceReduced: warnings.length > 0,

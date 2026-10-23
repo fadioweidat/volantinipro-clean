@@ -83,7 +83,8 @@ test("il bottone aggiorna la quantita' via setData su qty + flyerQuantity, mai u
 });
 
 test("il bottone 'Mantieni copertura' resta presente (nessuna regressione)", () => {
-  assert.match(STEP4_SRC, /✓ Mantieni copertura al \{kpis\.coverage \?\? avgCov\}%/);
+  // Value: kpis.coverage ?? families-weighted fallback, "—" when unknown (never "null%").
+  assert.match(STEP4_SRC, /✓ Mantieni copertura al \{fallbackCoverageText\}/);
 });
 
 test("resolveQuoteQuantity legge flyerQuantity ?? qty (i campi scritti dal bottone)", () => {
