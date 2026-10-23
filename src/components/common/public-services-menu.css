@@ -1,0 +1,11 @@
+.vp-services-menu { position: relative; font-family: 'DM Sans', Inter, system-ui, sans-serif; color: rgba(255,255,255,.82); }
+.vp-services-menu > summary { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px; box-sizing: border-box; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; list-style: none; }
+.vp-services-menu > summary::-webkit-details-marker { display: none; }
+.vp-services-menu > summary span { font-size: 10px; transition: transform .2s; }
+.vp-services-menu[open] > summary span { transform: rotate(180deg); }
+.vp-services-menu-links { position: absolute; top: 100%; left: 0; z-index: 220; width: 230px; box-sizing: border-box; padding: 8px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: #0a1222; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
+.vp-services-menu-links a { display: flex; align-items: center; min-height: 44px; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600; }
+.vp-services-menu-links a:hover { background: rgba(255,255,255,.08); }
+.vp-services-menu :is(summary,a):focus-visible { outline: 2px solid #E8571A; outline-offset: 2px; }
+.vp-services-menu-mobile > summary { padding-inline: 6px; font-size: 16px; }
+.vp-services-menu-mobile .vp-services-menu-links { position: static; width: 100%; box-shadow: none; }
