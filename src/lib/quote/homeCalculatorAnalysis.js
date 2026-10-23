@@ -22,11 +22,12 @@ export function isMilanoComune(comune) {
 
 /** Arguments for useServiceAnalysis(lat, lng, radius, service, municipality, quantity, scope, analysisLevel, selectionScope, codes). */
 export function buildHomeCalculatorAnalysisArgs(comune) {
-  if (!comune) return [undefined, undefined, SINGLE_COMUNE_RADIUS_KM, 'd2d', null, null, 'comune', null, null, null];
+  // Last two: targetSelection, includeOmi = false (homepage calculator and Preventivo Rapido never show OMI).
+  if (!comune) return [undefined, undefined, SINGLE_COMUNE_RADIUS_KM, 'd2d', null, null, 'comune', null, null, null, null, false];
   if (isMilanoComune(comune)) {
-    return [comune.lat, comune.lng, MILANO_WHOLE_CITY_RADIUS_KM, 'd2d', 'Milano', null, 'comune', 'nil', 'municipality', MILANO_ISTAT_CODE];
+    return [comune.lat, comune.lng, MILANO_WHOLE_CITY_RADIUS_KM, 'd2d', 'Milano', null, 'comune', 'nil', 'municipality', MILANO_ISTAT_CODE, null, false];
   }
-  return [comune.lat, comune.lng, SINGLE_COMUNE_RADIUS_KM, 'd2d', comune.name, null, 'comune', null, 'municipality', null];
+  return [comune.lat, comune.lng, SINGLE_COMUNE_RADIUS_KM, 'd2d', comune.name, null, 'comune', null, 'municipality', null, null, false];
 }
 
 const finite = (value) => {
@@ -48,7 +49,7 @@ export function buildQuickQuoteAnchorAnalysisArgs(others, service, quantity) {
   const anchor = others[0] || null;
   const radius = others.length > 1 ? 25 : SINGLE_COMUNE_RADIUS_KM;
   const selectionScope = others.length > 1 ? 'multi' : (others.length === 1 ? 'municipality' : null);
-  return [anchor?.lat, anchor?.lng, radius, service, service === 'd2d' ? (anchor?.name || null) : null, quantity || null, 'comune', null, selectionScope, null];
+  return [anchor?.lat, anchor?.lng, radius, service, service === 'd2d' ? (anchor?.name || null) : null, quantity || null, 'comune', null, selectionScope, null, null, false];
 }
 
 /**

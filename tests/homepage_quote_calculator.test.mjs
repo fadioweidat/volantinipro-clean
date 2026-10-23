@@ -20,7 +20,7 @@ test("calculator reuses the configurator pipeline (same request as Quick Quote, 
   assert.match(CALC, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(milanoSnapshot \? null : comune\)\)/);
   assert.match(CALC, /readHomeCalculatorAnalysis\(data, comune\)/);
   const LOGIC = read("src/lib/quote/homeCalculatorAnalysis.js");
-  assert.match(LOGIC, /return \[comune\.lat, comune\.lng, SINGLE_COMUNE_RADIUS_KM, 'd2d', comune\.name, null, 'comune', null, 'municipality', null\];/);
+  assert.match(LOGIC, /return \[comune\.lat, comune\.lng, SINGLE_COMUNE_RADIUS_KM, 'd2d', comune\.name, null, 'comune', null, 'municipality', null, null, false\];/);
   assert.match(LOGIC, /apiToZones\(data, null\)/);
   assert.match(LOGIC, /getZoneFullCoverageFlyers\(zone\)/);
   assert.match(CALC, /searchItalianMunicipalities\(query/);

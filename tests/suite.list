@@ -205,3 +205,4 @@ tests/step2_civici_layer_hidden.test.mjs
 tests/cron_run_details_retention.test.mjs
 tests/drop_address_points_migration.test.mjs
 tests/families_weighted_coverage.test.mjs
+tests/analysis_request_skip_omi.test.mjs

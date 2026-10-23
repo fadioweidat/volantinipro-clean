@@ -15,9 +15,9 @@ test("Milano uses the Step 2 'Milano intera' request; other comuni keep the sing
   assert.equal(isMilanoComune({ name: "milano " }), true);
   assert.equal(isMilanoComune({ name: "Milano Marittima" }), false);
   assert.equal(isMilanoComune(MONZA), false);
-  assert.deepEqual(buildHomeCalculatorAnalysisArgs(MILANO), [45.4642, 9.19, MILANO_WHOLE_CITY_RADIUS_KM, "d2d", "Milano", null, "comune", "nil", "municipality", "015146"]);
+  assert.deepEqual(buildHomeCalculatorAnalysisArgs(MILANO), [45.4642, 9.19, MILANO_WHOLE_CITY_RADIUS_KM, "d2d", "Milano", null, "comune", "nil", "municipality", "015146", null, false]);
   assert.equal(MILANO_WHOLE_CITY_RADIUS_KM, 15);
-  assert.deepEqual(buildHomeCalculatorAnalysisArgs(MONZA), [45.58, 9.27, 3, "d2d", "Monza", null, "comune", null, "municipality", null]);
+  assert.deepEqual(buildHomeCalculatorAnalysisArgs(MONZA), [45.58, 9.27, 3, "d2d", "Monza", null, "comune", null, "municipality", null, null, false]);
   assert.equal(buildHomeCalculatorAnalysisArgs(null)[4], null, "no comune, no request");
 });
 
@@ -64,8 +64,8 @@ test("Preventivo Rapido: Milano gets its own 'Milano intera' request, the other 
   assert.deepEqual(splitQuickQuoteComuni([MILANO]), { milano: MILANO, others: [] });
   assert.deepEqual(splitQuickQuoteComuni([seveso, MILANO, meda]), { milano: MILANO, others: [seveso, meda] });
   assert.equal(buildQuickQuoteAnchorAnalysisArgs([], "d2d", null)[4], null, "Milano alone: no anchor request");
-  assert.deepEqual(buildQuickQuoteAnchorAnalysisArgs([seveso], "d2d", 5000), [45.64, 9.14, 3, "d2d", "Seveso", 5000, "comune", null, "municipality", null]);
-  assert.deepEqual(buildQuickQuoteAnchorAnalysisArgs([seveso, meda], "d2d", null), [45.64, 9.14, 25, "d2d", "Seveso", null, "comune", null, "multi", null]);
+  assert.deepEqual(buildQuickQuoteAnchorAnalysisArgs([seveso], "d2d", 5000), [45.64, 9.14, 3, "d2d", "Seveso", 5000, "comune", null, "municipality", null, null, false]);
+  assert.deepEqual(buildQuickQuoteAnchorAnalysisArgs([seveso, meda], "d2d", null), [45.64, 9.14, 25, "d2d", "Seveso", null, "comune", null, "multi", null, null, false]);
   assert.equal(buildQuickQuoteAnchorAnalysisArgs([seveso], "h2h", null)[4], null, "H2H/B2B use the per-comune POI requests");
   const milano = readHomeCalculatorAnalysis(fixture("milano_intera").body, MILANO);
   assert.ok(milano.population > 0, "population summed from the NILs");

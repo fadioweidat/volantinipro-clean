@@ -64,21 +64,6 @@ function supabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-async function useMapbox(lat: number, lng: number, warnings: string[]) {
-  const token = Deno.env.get("MAPBOX_TOKEN") || Deno.env.get("VITE_MAPBOX_TOKEN");
-  if (!token) return null;
-  try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=place,locality,neighborhood&limit=1&access_token=${encodeURIComponent(token)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`MAPBOX_${res.status}`);
-    const data = await res.json();
-    return data?.features?.[0]?.place_name || null;
-  } catch (error) {
-    warnings.push(`MAPBOX_UNAVAILABLE:${error instanceof Error ? error.message : "unknown"}`);
-    return null;
-  }
-}
-
 function dedupeByTypology(zones: OmiZone[]) {
   const byTypology = new Map<string, OmiZone>();
   for (const z of zones) {
@@ -192,6 +177,7 @@ async function loadOmiZones(
   comuni: Array<Record<string, unknown>>,
   warnings: string[],
   specificMunicipality: string | null = null,
+  prefetchedRadius: PromiseLike<{ data: unknown; error: { message?: string } | null }> | null = null,
 ): Promise<OmiZone[]> {
   if (!supabase) return [];
 
@@ -216,7 +202,7 @@ async function loadOmiZones(
     return [...zones.values()];
   }
 
-  const radiusResult = await supabase.rpc("get_omi_zones_in_radius", {
+  const radiusResult = prefetchedRadius ? await prefetchedRadius : await supabase.rpc("get_omi_zones_in_radius", {
     p_lat: lat,
     p_lng: lng,
     p_radius_km: radiusKm,
@@ -306,8 +292,9 @@ serve(async (req: Request) => {
       return json({ values: {}, comuni_breakdown: [], metadata: { isEstimated: false }, error: "INVALID_COORDINATES", sources: [] }, 400);
     }
 
-    const mapboxPlace = await measurePhase("mapbox", () => useMapbox(lat, lng, warnings));
-    if (mapboxPlace) sources.add(sourceLabel("mapbox"));
+    // omi=0: callers that never show OMI values (homepage hero and calculator, Preventivo
+    // Rapido) skip the OMI lookups entirely.
+    const skipOmi = url.searchParams.get("omi") === "0";
 
     const supabase = supabaseAdmin();
     if (!supabase) {
@@ -333,9 +320,15 @@ serve(async (req: Request) => {
     // Keep independent consumers and warning order. For an explicit municipality
     // they share one database call; otherwise retain the existing RPC path.
     const omiPrefetchWarnings: string[] = [];
-    const pendingOmi = specificMunicipality
+    const pendingOmi = specificMunicipality && !skipOmi
       ? measurePhase("omi", () => loadOmiZones(territorialClient, lat, lng, radiusKm, [], omiPrefetchWarnings, specificMunicipality))
           .then(value => ({ value, error: null }), error => ({ value: null, error }))
+      : null;
+    // Radius mode: the OMI radius lookup does not depend on the territorial rows, so it runs
+    // alongside the pipeline (its result is used only if the analysis is not by NIL).
+    const pendingOmiRadius = !specificMunicipality && !skipOmi
+      ? Promise.resolve(territorialClient.rpc("get_omi_zones_in_radius", { p_lat: lat, p_lng: lng, p_radius_km: radiusKm }))
+          .then((res: any) => ({ data: res?.data ?? null, error: res?.error ?? null }), (error: any) => ({ data: null, error: { message: error?.message || String(error) } }))
       : null;
 
     const pipelineResult = await measurePhase("territorial_pipeline", () => runTerritorialPipeline({
@@ -384,7 +377,7 @@ serve(async (req: Request) => {
         values: {},
         comuni_breakdown: [],
         nil_breakdown: [],
-        metadata: { isEstimated: false, warnings, mapboxPlace, analysis_level: analysisLevel, nil_unavailable: nilUnavailable },
+        metadata: { isEstimated: false, warnings, analysis_level: analysisLevel, nil_unavailable: nilUnavailable },
         error: "TERRITORIAL_DATA_NOT_AVAILABLE",
         sources: [...sources],
         confidenceReduced: true,
@@ -405,7 +398,7 @@ serve(async (req: Request) => {
     const omiLookupRows = analysisLevel === "nil" ? [{ comune_name: "Milano", municipality_name: "Milano", municipality_code: "015146" }] : territorialRows;
     const prefetchedOmi = pendingOmi ? await pendingOmi : null;
     if (prefetchedOmi?.error) throw prefetchedOmi.error;
-    const omiZones = prefetchedOmi?.value ?? await measurePhase("omi", () => loadOmiZones(territorialClient, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality));
+    const omiZones: OmiZone[] = skipOmi ? [] : prefetchedOmi?.value ?? await measurePhase("omi", () => loadOmiZones(territorialClient, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality, omiMunicipality ? null : pendingOmiRadius));
     if (pendingOmi) warnings.push(...omiPrefetchWarnings);
     if (omiZones.length > 0) sources.add(sourceLabel("omi"));
     const omiMinValues = omiZones.map((row: OmiZone) => Number(row.min_value)).filter(Number.isFinite);
@@ -500,10 +493,10 @@ serve(async (req: Request) => {
       metadata: {
         isEstimated: false,
         warnings,
-        mapboxPlace,
         analysis_level: analysisLevel,
         nil_unavailable: nilUnavailable,
         coverage_method: coverageMethod,
+        omi_skipped: skipOmi,
         omi: buildOmiResult(omiZones),
       },
       confidenceReduced: warnings.length > 0,

@@ -52,10 +52,39 @@ test('OMI warnings retain their original position after territorial warnings', a
   assert.deepEqual(body.metadata.warnings, ['territorial', 'OMI_SPECIFIC_LOOKUP_UNAVAILABLE:unavailable']);
 });
 
-test('without explicit municipality OMI still waits for territorial resolution', async () => {
+// A3 (2026-10-23): in radius mode the OMI radius lookup does not depend on the territorial
+// rows, so it starts together with the pipeline. A NIL analysis still uses the Milano lookup
+// after the pipeline (the prefetched radius result is then ignored).
+test('without explicit municipality the OMI radius lookup starts with the pipeline; NIL still uses the Milano lookup after it', async () => {
   const calls = [];
   const handler = handlerFor(async () => { calls.push('pipeline'); return result(); }, async name => { calls.push(name); return { data: [], error: null }; });
   await handler(request(false));
-  assert.deepEqual(calls.slice(0, 1), ['pipeline']);
+  assert.deepEqual(calls.slice(0, 2), ['get_omi_zones_in_radius', 'pipeline']);
+  assert.ok(calls.indexOf('get_omi_zones_by_municipality') > calls.indexOf('pipeline'), 'Milano NIL lookup after the pipeline');
   assert.ok(!calls.includes('get_step2_territorial_bundle'), 'no bundle without an explicit municipality');
+});
+
+test('radius analysis by comuni reuses the prefetched OMI radius lookup (one call only)', async () => {
+  const calls = [];
+  const comune = { municipality_code: '108040', comune_name: 'Seveso', households_total: 100, population_total: 200, area_km2: 1, pct_copertura: 100 };
+  const comuneResult = () => ({ comuni: [comune], nilRows: [], territorialRows: [comune], analysisLevel: 'comune', nilUnavailable: false });
+  const handler = handlerFor(async () => { calls.push('pipeline'); return comuneResult(); },
+    async name => { calls.push(name); return { data: name === 'get_omi_zones_in_radius' ? [{ typology: 'Abitazioni civili', min_value: 1, max_value: 2, zone_code: 'B1', municipality_name: 'Seveso' }] : [], error: null }; });
+  const body = await (await handler(request(false))).json();
+  assert.equal(calls.filter((c) => c === 'get_omi_zones_in_radius').length, 1);
+  assert.equal(body.values.omi_zone_count, 1);
+});
+
+test('omi=0 skips every OMI lookup and says so in metadata', async () => {
+  const calls = [];
+  const handler = handlerFor(async () => { calls.push('pipeline'); return result(); }, async name => { calls.push(name); return { data: [], error: null }; });
+  const body = await (await handler(new Request('https://example.test/?lat=45.46&lng=9.19&radius=15&service=d2d&omi=0'))).json();
+  assert.ok(!calls.some((c) => /omi/.test(c)), calls.join(','));
+  assert.equal(body.metadata.omi_skipped, true);
+  assert.equal(body.values.omi_zone_count, undefined);
+});
+
+test('no Mapbox call and no MAPBOX warning (the token answered 403 on every request)', async () => {
+  const source = readFileSync(new URL('../supabase/functions/analysis-istat/index.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /mapbox/i);
 });

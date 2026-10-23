@@ -205,7 +205,10 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
     null,
     'hero_preview',
     'comune',
-    'radius'
+    'radius',
+    null,
+    null,
+    false // the hero never shows OMI values: analysis-istat skips them
   );
 
   const analysis = useMemo(() => normalizeHomepageAnalysis(snapshot ? snapshot.data : (error ? null : data)), [snapshot, data, error]);

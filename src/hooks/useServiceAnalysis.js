@@ -30,7 +30,7 @@ export function isAnalysisZoneValid({ lat, lng, radius, municipality } = {}) {
   );
 }
 
-export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null, selectionScope = null, selectedMunicipalityCodes = null, targetSelection = null) {
+export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null, selectionScope = null, selectedMunicipalityCodes = null, targetSelection = null, includeOmi = true) {
   const [data, setData] = useState(null);
   // fetchKey a cui appartiene `data`. Tra un cambio di parametri e la nuova
   // risposta `data` resta quella dei parametri precedenti: chi la consuma
@@ -75,7 +75,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   const zoneValid = isAnalysisZoneValid({ lat, lng, radius, municipality });
   const built = buildServiceAnalysisRequest({
     lat, lng, radius, service, municipality, quantity, scope, analysisLevel,
-    selectionScope, selectedMunicipalityCodes, targetSelection
+    selectionScope, selectedMunicipalityCodes, targetSelection, includeOmi
   });
   const fetchKey = zoneValid ? built.fetchKey : "";
   const requestKey = built.requestKey;

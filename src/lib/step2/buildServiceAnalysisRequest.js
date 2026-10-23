@@ -11,7 +11,9 @@ export function buildServiceAnalysisRequest({
   analysisLevel = null,
   selectionScope = null,
   selectedMunicipalityCodes = null,
-  targetSelection = null
+  targetSelection = null,
+  // false = analysis-istat skips the OMI lookups (callers that never show OMI values).
+  includeOmi = true
 }) {
   const centerLat = Number(lat);
   const centerLng = Number(lng);
@@ -38,7 +40,8 @@ export function buildServiceAnalysisRequest({
     analysisLevel || "",
     selectionScope || "",
     canonicalCodes,
-    targetKey
+    targetKey,
+    includeOmi ? "" : "omi0"
   ].join("|");
 
   // `fetchKey` — identita' della RICHIESTA territoriale vera e propria: solo i
@@ -62,7 +65,8 @@ export function buildServiceAnalysisRequest({
     radiusKm,
     analysisLevel || "",
     selectionScope || "",
-    canonicalCodes
+    canonicalCodes,
+    includeOmi ? "" : "omi0"
   ].join("|");
 
   let baseUrl = null;
@@ -86,9 +90,10 @@ export function buildServiceAnalysisRequest({
   const analysisLevelParam = analysisLevel ? `&analysisLevel=${encodeURIComponent(analysisLevel)}` : '';
   const selectionScopeParam = selectionScope ? `&selectionScope=${encodeURIComponent(selectionScope)}` : '';
   const selectedCodesParam = canonicalCodes ? `&selectedMunicipalityCodes=${encodeURIComponent(canonicalCodes)}` : '';
+  const omiParam = service === 'd2d' && !includeOmi ? '&omi=0' : '';
   
   const url = apiUrl
-    ? `${apiUrl}?lat=${encodeURIComponent(centerLat)}&lng=${encodeURIComponent(centerLng)}&radius=${encodeURIComponent(radiusKm)}&service=${encodeURIComponent(service || "d2d")}${municipalityParam}${quantityParam}${analysisLevelParam}${selectionScopeParam}${selectedCodesParam}`
+    ? `${apiUrl}?lat=${encodeURIComponent(centerLat)}&lng=${encodeURIComponent(centerLng)}&radius=${encodeURIComponent(radiusKm)}&service=${encodeURIComponent(service || "d2d")}${municipalityParam}${quantityParam}${analysisLevelParam}${selectionScopeParam}${selectedCodesParam}${omiParam}`
     : null;
 
   return {
