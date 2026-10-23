@@ -78,6 +78,20 @@ export function MilanoLandingPage({ onNav }) {
               </div>
             )}
 
+            {section.quoteOptions && (
+              <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                {section.quoteOptions.map((option) => (
+                  <div key={option.pageKey} style={{ padding: 16, borderRadius: 12, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
+                    <h3 style={{ fontFamily: F.sans, fontSize: 16, color: C.white, margin: "0 0 8px" }}>{option.title}</h3>
+                    <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.75)", lineHeight: 1.7 }}>{option.text}</p>
+                    <Button as={PublicNavLink} href={option.href} variant="ghost" onClick={() => onNav(option.pageKey)} style={{ color: C.orange }}>
+                      {option.title} →
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {section.bullets && (
               <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
                 {section.bullets.map((b) => (
