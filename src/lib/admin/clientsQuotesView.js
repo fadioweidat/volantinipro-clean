@@ -5,6 +5,11 @@
 // getClientsQuotesOverview (paymentStatus / assignment / gpsStatus / ...),
 // non tocca pagamento, pricing, gateway.
 
+/** A row counted as real business (not test data, not incomplete). */
+export const isRealRow = (row) => !row?.quality || row.quality === 'real';
+/** Rows for the counters: real ones, or all of them when test data is shown. */
+export const kpiRows = (rows = [], showTest = false) => (showTest ? rows : rows.filter(isRealRow));
+
 export const CQ_FILTERS = ['tutti', 'da_pagare', 'pagati', 'da_assegnare', 'in_lavorazione', 'completati'];
 export const CQ_SORTS = ['default', 'recenti', 'vecchi', 'importo_desc', 'importo_asc'];
 
@@ -112,12 +117,13 @@ export function sortRows(rows = [], sort = 'default') {
 // raggiungere anche le righe non "real" (il chiamante deve passare
 // includeTest:true a getClientsQuotesOverview perche' queste righe esistano
 // qui in primo luogo).
-export function applyClientsQuotesView(rows = [], { search = '', filter = 'tutti', sort = 'default' } = {}) {
+// showTest ("Mostra dati di prova" in Ordini) shows them without a search too.
+export function applyClientsQuotesView(rows = [], { search = '', filter = 'tutti', sort = 'default', showTest = false } = {}) {
   const hasSearch = String(search || '').trim() !== '';
   const matched = rows.filter((r) =>
     matchesSearch(r, search) &&
     matchesFilter(r, filter) &&
-    (hasSearch || !r.quality || r.quality === 'real')
+    (hasSearch || showTest || isRealRow(r))
   );
   return sortRows(matched, sort);
 }

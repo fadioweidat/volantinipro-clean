@@ -18,6 +18,8 @@ export const CAMPAIGN_ACTIONS = {
   REVOKE_PAYMENT: 'revoke_payment',
   REVOKE_PROGRAM: 'revoke_program',
   DELETE: 'delete',
+  MARK_TEST: 'mark_test',
+  UNMARK_TEST: 'unmark_test',
 };
 
 /**
@@ -55,6 +57,8 @@ export function getAllowedCampaignActions(campaign) {
   if (status === 'draft') {
     actions.push(CAMPAIGN_ACTIONS.DELETE);
   }
+  // Test data flag (admin_set_campaign_test): always available, in both directions.
+  actions.push((campaign.isTest ?? campaign.is_test) ? CAMPAIGN_ACTIONS.UNMARK_TEST : CAMPAIGN_ACTIONS.MARK_TEST);
   return actions;
 }
 
@@ -65,6 +69,8 @@ export const CAMPAIGN_ACTION_LABELS = {
   [CAMPAIGN_ACTIONS.REVOKE_PAYMENT]: 'Revoca conferma pagamento',
   [CAMPAIGN_ACTIONS.REVOKE_PROGRAM]: 'Revoca programma',
   [CAMPAIGN_ACTIONS.DELETE]: 'Elimina definitivamente',
+  [CAMPAIGN_ACTIONS.MARK_TEST]: 'Segna come prova',
+  [CAMPAIGN_ACTIONS.UNMARK_TEST]: 'Non è una prova',
 };
 
 // Testo del modal di conferma (sezione 5 del ticket: "mostrare chiaramente
@@ -95,11 +101,23 @@ export const CAMPAIGN_ACTION_CONFIRM_COPY = {
     title: 'Eliminazione definitiva',
     body: 'Questa azione rimuove permanentemente la campagna. Non reversibile. Consentita solo per bozze senza alcuna dipendenza operativa (nessun pagamento, assegnazione, programma, sessione GPS o report).',
   },
+  [CAMPAIGN_ACTIONS.MARK_TEST]: {
+    title: 'Segna come prova',
+    body: 'La campagna viene esclusa dai contatori e dalle liste admin (visibile con "Mostra dati di prova"). Nessun dato viene modificato o cancellato; si puo\' annullare con "Non è una prova".',
+  },
+  [CAMPAIGN_ACTIONS.UNMARK_TEST]: {
+    title: 'Non è una prova',
+    body: 'La campagna torna nei contatori e nelle liste admin come campagna reale.',
+  },
 };
 
 function unwrap({ data, error }) {
   if (error) throw new Error(error.message || 'Operazione non riuscita.');
   return data;
+}
+
+export async function adminSetCampaignTest(campaignId, isTest, reason) {
+  return unwrap(await supabase.rpc('admin_set_campaign_test', { p_campaign_id: campaignId, p_is_test: isTest, p_reason: reason }));
 }
 
 export async function adminCancelCampaign(campaignId, reason) {

@@ -157,8 +157,9 @@ test("Compenso: le pagine Admin lo passano esattamente come prima", () => {
   // Dashboard e Centro Operazioni non hanno mai passato compensi: resta cosi'.
   assert.equal(count("AdminDashboard.jsx"), 0);
   assert.equal(count("AdminOperationsCenter.jsx"), 0);
-  for (const file of ["CampaignAssignments.jsx", "ClientsQuotes.jsx"]) {
-    assert.match(read(`../src/pages/admin/${file}`), /supplierCompensation: savedSupplierCompensation\(assignment, (campaign|row)\)|supplierCompensation,/);
+  // Ordini (ex Clienti & Preventivi): the send logic lives in lib/admin/orderRowActions.js.
+  for (const file of ["../src/pages/admin/CampaignAssignments.jsx", "../src/lib/admin/orderRowActions.js"]) {
+    assert.match(read(file), /supplierCompensation: savedSupplierCompensation\(assignment, (campaign|row)\)|supplierCompensation,/);
   }
 });
 
@@ -190,16 +191,20 @@ test("Admin: due azioni indipendenti in tutte le pagine che inviano il lavoro", 
   assert.equal(DRIVER_JOB_BUTTON_LABEL, "📍 Invia link lavoro");
   for (const file of [
     "AdminDashboard.jsx", "AdminOperationsCenter.jsx", "CampaignAssignments.jsx",
-    "ClientsQuotes.jsx", "assign-work/AssignWorkResultStep.jsx",
+    "ClientsQuotes.jsx", "AdminOrdersRegistry.jsx", "assign-work/AssignWorkResultStep.jsx",
   ]) {
     const src = read(`../src/pages/admin/${file}`);
     assert.match(src, /from '(\.\.\/)+lib\/services\/driverAppDistribution\.js'/, file);
     assert.match(src, /DRIVER_APP_BUTTON_LABEL\}/, file);
     assert.match(src, /DRIVER_JOB_BUTTON_LABEL/, file);
-    assert.match(src, /buildDriverAppInstallWhatsAppUrl\(/, file);
+    // Ordini (Schede/Tabella) open the install message through lib/admin/orderRowActions.js.
+    assert.match(src, /buildDriverAppInstallWhatsAppUrl\(|openDriverAppInstall\(row\)/, file);
     // Nessun testo di installazione duplicato nelle pagine, nessuno stato "installata".
     assert.doesNotMatch(src, /VOLANTINIPRO DRIVER|app-driver|apk_installed|appInstalled|app_installed/i, file);
   }
+  const shared = read("../src/lib/admin/orderRowActions.js");
+  assert.match(shared, /buildDriverAppInstallWhatsAppUrl\(/);
+  assert.doesNotMatch(shared, /VOLANTINIPRO DRIVER|app-driver|apk_installed|appInstalled|app_installed/i);
 });
 
 // ─── Pagina /app-driver ──────────────────────────────────────────────────────

@@ -152,6 +152,11 @@ describe('Privacy & Data Safety Boundaries', () => {
     assert.ok(assignmentsCode.includes('revokeTargetAssignment'), 'CampaignAssignments must use confirmation modal');
     assert.ok(groupsCode.includes('confirmRemoveMember'), 'GroupsManager must use confirmation modal for member removal');
     assert.ok(groupsCode.includes('confirmDeactivateGroup'), 'GroupsManager must use confirmation modal for group deactivation');
-    assert.ok(quotesCode.includes('actionModalRow'), 'ClientsQuotes must use action confirmation modal for cancel/archive');
+    // 2026-10-24: cancel/archive go through Azioni Admin (ConfirmReasonModal, reason required). The
+    // page's own modal called handleExecuteAction, which was never defined (confirm crashed).
+    const menuCode = readFileSync('src/components/admin/AdminActionMenu.jsx', 'utf8');
+    assert.ok(quotesCode.includes('<AdminActionMenu campaign={actionMenuCampaign(row)}'), 'ClientsQuotes must use Azioni Admin for cancel/archive');
+    assert.ok(menuCode.includes('<ConfirmReasonModal'), 'Azioni Admin must confirm with a reason');
+    assert.ok(!quotesCode.includes('handleExecuteAction'), 'no reference to the undefined handler');
   });
 });

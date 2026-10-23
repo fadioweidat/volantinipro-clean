@@ -7,14 +7,14 @@ export function AdminDashboardModulesPanel({ clientsQuotesCount, clientsStats, g
           vengono dallo stesso clientsQuotes gia' caricato da loadAdminHomeData. */}
       <section className="admin-home__module-grid" aria-label="Moduli principali">
         <ModuleCard
-          title="Registro Ordini"
+          title="Ordini"
           stats={[
             { label: 'Totali', value: clientsQuotesCount },
             { label: 'Pagati', value: clientsStats.pagati },
             { label: 'Da pagare', value: clientsStats.daPagare },
             { label: 'Da assegnare', value: clientsStats.daAssegnare },
           ]}
-          cta="Apri registro"
+          cta="Apri ordini"
           onOpen={() => onNav('admin-orders')}
         />
         <ModuleCard
@@ -35,16 +35,6 @@ export function AdminDashboardModulesPanel({ clientsQuotesCount, clientsStats, g
           ]}
           cta="Apri GPS & Programmi"
           onOpen={() => onNav('admin-live')}
-        />
-        <ModuleCard
-          title="Clienti & Preventivi"
-          stats={[
-            { label: 'Pagati', value: clientsStats.pagati },
-            { label: 'Da pagare', value: clientsStats.daPagare },
-            { label: 'Da assegnare', value: clientsStats.daAssegnare },
-          ]}
-          cta="Apri Clienti & Preventivi"
-          onOpen={() => onNav('admin-clients-quotes')}
         />
       </section>
 

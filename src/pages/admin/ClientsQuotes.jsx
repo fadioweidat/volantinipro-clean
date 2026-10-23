@@ -2,16 +2,21 @@ import { ProgramRecipientSummary } from './assign-work/ProgramRecipient.jsx';
 import CampaignSettlementSummary from '../../components/customer/CampaignSettlementSummary.jsx';
 import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { AdminLayout } from './AdminLayout.jsx';
-import {
-  getClientsQuotesOverview,
-  generateDriverAssignmentLink,
-  buildDriverWhatsAppMessage,
-  buildSupplierProgramWhatsAppMessage,
-} from '../../lib/services/admin-api.js';
-import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL, buildDriverAppInstallWhatsAppUrl } from '../../lib/services/driverAppDistribution.js';
-import { resolveProgramRecipient, savedSupplierCompensation } from '../../lib/services/recipientResolver.js';
+import { getClientsQuotesOverview } from '../../lib/services/admin-api.js';
+import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL } from '../../lib/services/driverAppDistribution.js';
+import { savedSupplierCompensation } from '../../lib/services/recipientResolver.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
-import { adminCancelCampaign, adminArchiveCampaign } from '../../lib/services/admin-transitions-api.js';
+import { AdminActionMenu } from '../../components/admin/AdminActionMenu.jsx';
+import {
+  actionMenuCampaign,
+  canOpenDriverApp,
+  canSendDriverProgram,
+  copyClientSummary,
+  isRowPaid,
+  openClientWhatsApp,
+  openDriverAppInstall,
+  sendDriverProgram,
+} from '../../lib/admin/orderRowActions.js';
 import { ClientsQuotesSearchBar } from './clients-quotes/ClientsQuotesSearchBar.jsx';
 import {
   CQ_FILTERS,
@@ -23,9 +28,7 @@ import {
   applyClientsQuotesView,
   serviceLabel,
   shortCampaignId,
-  buildAdminClientWhatsAppMessage,
-  buildWhatsAppUrl,
-  normalizeInternationalPhone,
+  kpiRows,
 } from '../../lib/admin/clientsQuotesView.js';
 
 const AssignWork = lazy(() => import('./AssignWork.jsx').then(m => ({ default: m.AssignWork })));
@@ -66,7 +69,7 @@ const PROGRAM_LABEL = {
   confermato: 'Confermato',
 };
 
-export function ClientsQuotes({ onNav }) {
+export function ClientsQuotes({ onNav, embedded = false, showTest = false }) {
   const [state, setState] = useState({ loading: true, error: null, rows: [] });
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('tutti');
@@ -76,11 +79,6 @@ export function ClientsQuotes({ onNav }) {
   const [paymentConfirmRow, setPaymentConfirmRow] = useState(null); // riga in corso di conferma pagamento
   const [paymentConfirmBusy, setPaymentConfirmBusy] = useState(false);
   const [paymentConfirmError, setPaymentConfirmError] = useState('');
-  const [actionModalRow, setActionModalRow] = useState(null);
-  const [actionModalType, setActionModalType] = useState(null); // 'cancel' | 'archive'
-  const [actionModalBusy, setActionModalBusy] = useState(false);
-  const [actionModalError, setActionModalError] = useState('');
-  const [actionModalReason, setActionModalReason] = useState('');
 
   // background=true (polling periodico, stesso intervallo di 30s gia' usato
   // da AdminDashboard.jsx) evita lo spinner a schermo intero e non svuota le
@@ -114,12 +112,12 @@ export function ClientsQuotes({ onNav }) {
   // ricerca esplicita di trovarle, ma i contatori KPI devono restare
   // identici a prima (nessun rumore di test nei totali).
   const kpi = useMemo(
-    () => computeKpiCounts(state.rows.filter((r) => !r.quality || r.quality === 'real')),
-    [state.rows],
+    () => computeKpiCounts(kpiRows(state.rows, showTest)),
+    [state.rows, showTest],
   );
   const visibleRows = useMemo(
-    () => applyClientsQuotesView(state.rows, { search, filter, sort }),
-    [state.rows, search, filter, sort],
+    () => applyClientsQuotesView(state.rows, { search, filter, sort, showTest }),
+    [state.rows, search, filter, sort, showTest],
   );
 
   const breadcrumbs = [
@@ -127,94 +125,11 @@ export function ClientsQuotes({ onNav }) {
     { label: 'Clienti & Preventivi' },
   ];
 
-  function handleWhatsAppCliente(row) {
-    // §1 — numero cliente REALE della riga, normalizzato in formato
-    // internazionale (39...). Mai il numero VolantiniPro/Admin/hardcoded.
-    const url = buildWhatsAppUrl(row.phone, buildAdminClientWhatsAppMessage(row));
-    if (!url) {
-      alert('Numero di telefono cliente non disponibile.');
-      return;
-    }
-    // §6 — apre solo una nuova tab: nessun cambio di stato campagna, nessun
-    // "contattato" automatico.
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
-
   async function handleCopySummary(row) {
     // §7 — stesso testo del messaggio WhatsApp, senza aprire WhatsApp.
-    const text = buildAdminClientWhatsAppMessage(row);
-    try {
-      await navigator.clipboard?.writeText(text);
-    } catch {
-      /* clipboard non disponibile: nessuna azione distruttiva */
-    }
+    await copyClientSummary(row);
     setCopiedRowId(row.id);
     window.setTimeout(() => setCopiedRowId((curr) => (curr === row.id ? null : curr)), 1600);
-  }
-
-  function handleInviaProgramma(row) {
-    const assignment = row.assignment;
-    if (!assignment) {
-      alert('Nessun programma creato per questa campagna. Assegna prima un gruppo.');
-      return;
-    }
-    if (!['pagato','settled_by_credit','settled_by_verified_receipt'].includes(row.paymentStatus)) {
-      alert('Conferma prima il pagamento.');
-      return;
-    }
-    const resolved = resolveProgramRecipient({ assignment });
-
-    if (!resolved.valid || !resolved.phone) {
-      alert(resolved.error || 'Numero destinatario non disponibile. Verifica i dati di contatto dell\'assegnazione.');
-      return;
-    }
-
-    const phone = resolved.phone;
-    const link = generateDriverAssignmentLink(assignment.id, assignment.access_token);
-    const programRows = (row.programZones || []).map((z, idx) => ({ name: z.name, quantity: z.quantity, priority: idx + 1 }));
-    const totalQty = programRows.reduce((sum, z) => sum + (z.quantity || 0), 0);
-    const supplierCompensation = savedSupplierCompensation(assignment, row);
-    const isSupplierTarget = Boolean(
-      resolved.recipientType === 'manual_supplier' ||
-      resolved.recipientType === 'registered_supplier' ||
-      row.supplierName ||
-      assignment.metadata?.supplier_name ||
-      assignment.metadata?.manual_supplier?.name ||
-      supplierCompensation != null
-    );
-
-    const recipientDisplayName = resolved.recipientName || row.supplierName || assignment.metadata?.supplier_name || assignment.metadata?.manual_supplier?.name || row.group?.name || row.operator?.name;
-
-    const msg = isSupplierTarget
-      ? buildSupplierProgramWhatsAppMessage({
-          supplierName: recipientDisplayName,
-          groupName: row.group?.name || null,
-          campaignTitle: row.name || row.client,
-          service: row.service,
-          date: assignment.starts_at ? new Date(assignment.starts_at).toLocaleDateString('it-IT') : 'Da definire',
-          startTime: assignment.starts_at ? new Date(assignment.starts_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
-          comuni: programRows.map((r) => r.name),
-          zone: programRows.map((r, idx) => `${idx + 1}. ${r.name}`),
-          programRows,
-          qty: totalQty || null,
-          supplierCompensation,
-          link,
-        })
-      : buildDriverWhatsAppMessage({
-          operatorName: recipientDisplayName,
-          groupName: row.group?.name || null,
-          campaignTitle: row.name || row.client,
-          date: assignment.starts_at ? new Date(assignment.starts_at).toLocaleDateString('it-IT') : 'Da definire',
-          startTime: assignment.starts_at ? new Date(assignment.starts_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
-          comuni: programRows.map((r) => r.name),
-          zone: programRows.map((r, idx) => `${idx + 1}. ${r.name}`),
-          programRows,
-          qty: totalQty || null,
-          supplierCompensation,
-          link,
-        });
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
-    alert('WhatsApp aperto. Lo stato "Inviato" verra mostrato solo dopo un evento reale del driver (apertura/conferma programma).');
   }
 
   function handleGps(row) {
@@ -253,8 +168,8 @@ export function ClientsQuotes({ onNav }) {
     }
   }
 
-  return (
-    <AdminLayout title="Clienti & Preventivi" subtitle="Preventivo pagato -> gruppo -> programma -> WhatsApp -> GPS, da un'unica riga." breadcrumbs={breadcrumbs} onNav={onNav}>
+  const body = (
+    <>
       <style>{`
         @media (max-width: 640px) {
           .cq-kpi-grid { grid-template-columns: 1fr 1fr !important; }
@@ -340,7 +255,7 @@ export function ClientsQuotes({ onNav }) {
         {visibleRows.map((row) => {
           const payment = PAYMENT_LABEL[row.paymentStatus];
           const gps = GPS_LABEL[row.gpsStatus];
-          const isPaid = ['pagato','settled_by_credit','settled_by_verified_receipt'].includes(row.paymentStatus);
+          const isPaid = isRowPaid(row);
           const createdLabel = row.createdAt
             ? new Date(row.createdAt).toLocaleDateString('it-IT')
             : (row.date && row.date !== '—' ? row.date : null);
@@ -349,6 +264,7 @@ export function ClientsQuotes({ onNav }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                 <div style={{ minWidth: 220 }}>
                   <strong style={{ color: C.white, fontSize: 16 }}>{row.client}</strong>
+                  {row.quality === 'test' && <TestTag />}
                   <p style={{ margin: '4px 0 0', color: C.gray, fontSize: 13 }}>
                     {(row.comuni || []).length > 0 ? row.comuni.join(', ') : (row.zone || 'Comuni non disponibili')}
                   </p>
@@ -374,7 +290,7 @@ export function ClientsQuotes({ onNav }) {
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid #374151', paddingTop: 12 }}>
                 <ActionBtn onClick={() => onNav?.(`admin-operations:${row.id}`)}>Apri</ActionBtn>
-                <ActionBtn onClick={() => handleWhatsAppCliente(row)} title="Apri chat WhatsApp con il cliente">WhatsApp cliente</ActionBtn>
+                <ActionBtn onClick={() => openClientWhatsApp(row)} title="Apri chat WhatsApp con il cliente">WhatsApp cliente</ActionBtn>
                 <ActionBtn onClick={() => handleCopySummary(row)} title="Copia il testo del messaggio negli appunti">{copiedRowId === row.id ? 'Copiato ✓' : 'Copia riepilogo'}</ActionBtn>
                 <ActionBtn as="a" href={row.phone ? `tel:${row.phone}` : undefined} disabled={!row.phone}>Chiama</ActionBtn>
                 <ActionBtn as="a" href={row.email ? `mailto:${row.email}` : undefined} disabled={!row.email}>Email</ActionBtn>
@@ -390,22 +306,22 @@ export function ClientsQuotes({ onNav }) {
                 </ActionBtn>
                 <ProgramRecipientSummary assignment={row.assignment} compensation={savedSupplierCompensation(row.assignment, row)} />
                 <ActionBtn
-                  onClick={() => handleInviaProgramma(row)}
-                  disabled={!isPaid || !row.assignment || !resolveProgramRecipient({ assignment: row.assignment }).valid}
+                  onClick={() => sendDriverProgram(row)}
+                  disabled={!canSendDriverProgram(row)}
                   title={!isPaid ? 'Conferma prima il pagamento.' : (!row.assignment ? 'Assegna prima un gruppo.' : '')}
                 >
                   {DRIVER_JOB_BUTTON_LABEL}
                 </ActionBtn>
                 <ActionBtn
-                  onClick={() => window.open(buildDriverAppInstallWhatsAppUrl(resolveProgramRecipient({ assignment: row.assignment }).phone), '_blank', 'noopener,noreferrer')}
-                  disabled={!row.assignment || !resolveProgramRecipient({ assignment: row.assignment }).valid}
+                  onClick={() => openDriverAppInstall(row)}
+                  disabled={!canOpenDriverApp(row)}
                   title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale."
                 >
                   {DRIVER_APP_BUTTON_LABEL}
                 </ActionBtn>
                 <ActionBtn onClick={() => handleGps(row)} disabled={row.gpsStatus === 'non_disponibile'}>GPS</ActionBtn>
-                <ActionBtn onClick={() => { setActionModalRow(row); setActionModalType('cancel'); setActionModalReason(''); setActionModalError(''); }} style={{ color: '#fca5a5' }}>Annulla</ActionBtn>
-                <ActionBtn onClick={() => { setActionModalRow(row); setActionModalType('archive'); setActionModalReason(''); setActionModalError(''); }}>Archivia</ActionBtn>
+                <ActionBtn onClick={() => onNav?.(`admin-report:${row.id}`)} disabled={row.gpsStatus === 'non_disponibile'}>Report</ActionBtn>
+                <AdminActionMenu campaign={actionMenuCampaign(row)} onDone={() => load({ background: true })} />
               </div>
             </div>
           );
@@ -449,53 +365,16 @@ export function ClientsQuotes({ onNav }) {
         </div>
       )}
 
-      {/* Confirmation Modal for Cancel / Archive */}
-      {actionModalRow && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: C.navyLight, border: '1px solid #374151', borderRadius: 14, padding: 24, maxWidth: 440, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,.5)' }}>
-            <h3 style={{ margin: '0 0 8px', color: C.white, fontSize: 18 }}>
-              {actionModalType === 'cancel' ? 'Conferma annullamento preventivo' : 'Conferma archiviazione preventivo'}
-            </h3>
-            <p style={{ margin: '0 0 16px', color: C.gray, fontSize: 13, lineHeight: 1.4 }}>
-              {actionModalType === 'cancel'
-                ? `La campagna "${actionModalRow.client}" passerà allo stato ANNULLATA. Eventuali pagamenti e assegnazioni storiche non vengono toccati.`
-                : `La campagna "${actionModalRow.client}" verrà ARCHIVIATA e rimossa dalle viste operative correnti. Tutti i dati e lo storico restano intatti.`}
-            </p>
-            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(46,204,138,.08)', border: '1px solid rgba(46,204,138,.2)', marginBottom: 16, fontSize: 12, color: '#86efac' }}>
-              ✓ <strong>Garanzia sicurezza:</strong> Nessun dato storico (GPS, pagamenti, foto o report) viene cancellato o corrotto.
-            </div>
-            <label style={{ display: 'block', marginBottom: 16, fontSize: 12, color: C.gray, fontWeight: 700 }}>
-              Motivo (opzionale):
-              <input
-                type="text"
-                value={actionModalReason}
-                onChange={(e) => setActionModalReason(e.target.value)}
-                placeholder="es. Richiesta cliente, riprogrammazione..."
-                style={{ width: '100%', marginTop: 6, padding: '8px 12px', background: '#0d1e30', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, color: '#fff', fontSize: 13 }}
-              />
-            </label>
-            {actionModalError && (
-              <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', color: '#ef4444', padding: 10, borderRadius: 6, marginBottom: 14, fontSize: 13 }}>
-                {actionModalError}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <ActionBtn onClick={() => { setActionModalRow(null); setActionModalType(null); }} disabled={actionModalBusy}>
-                Indietro
-              </ActionBtn>
-              <ActionBtn
-                onClick={handleExecuteAction}
-                disabled={actionModalBusy}
-                style={{ background: actionModalType === 'cancel' ? '#ef4444' : '#e8571a', color: '#fff' }}
-              >
-                {actionModalBusy ? 'Elaborazione…' : (actionModalType === 'cancel' ? 'Conferma annulla' : 'Conferma archivia')}
-              </ActionBtn>
-            </div>
-          </div>
-        </div>
-      )}
-    </AdminLayout>
+    </>
   );
+  // Inside the "Ordini" page the layout (title, view switch, test toggle) belongs to the page.
+  return embedded ? body : (
+    <AdminLayout title="Clienti & Preventivi" subtitle="Preventivo pagato -> gruppo -> programma -> WhatsApp -> GPS, da un'unica riga." breadcrumbs={breadcrumbs} onNav={onNav}>{body}</AdminLayout>
+  );
+}
+
+function TestTag() {
+  return <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 900, letterSpacing: '.06em', padding: '2px 7px', borderRadius: 4, color: '#FDE68A', border: '1px solid #F59E0B', background: 'rgba(245,158,11,.14)', verticalAlign: 'middle' }}>PROVA</span>;
 }
 
 function KpiCard({ label, value, color, onClick, active, loading }) {

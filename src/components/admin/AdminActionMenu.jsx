@@ -9,6 +9,7 @@ import {
   adminReopenCampaign,
   adminRevokePaymentConfirmation,
   adminRevokeAssignmentProgram,
+  adminSetCampaignTest,
   checkCampaignDeleteDependencies,
   hardDeleteCampaign,
 } from '../../lib/services/admin-transitions-api.js';
@@ -75,6 +76,10 @@ export function AdminActionMenu({ campaign, onDone }) {
       case CAMPAIGN_ACTIONS.REVOKE_PROGRAM:
         if (!campaign.assignment?.id) throw new Error('Nessuna assegnazione attiva collegata a questa campagna.');
         await adminRevokeAssignmentProgram(campaign.assignment.id, reason);
+        break;
+      case CAMPAIGN_ACTIONS.MARK_TEST:
+      case CAMPAIGN_ACTIONS.UNMARK_TEST:
+        await adminSetCampaignTest(campaignId, pendingAction === CAMPAIGN_ACTIONS.MARK_TEST, reason);
         break;
       default:
         throw new Error('Azione non riconosciuta.');
