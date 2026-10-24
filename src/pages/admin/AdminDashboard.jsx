@@ -28,6 +28,7 @@ import { AdminDashboardModulesPanel } from './admin-dashboard/AdminDashboardModu
 import './admin-dashboard.css';
 
 const AdminCentralAiPanel = React.lazy(() => import('../../components/ai/admin/AdminCentralAiPanel.jsx'));
+const TraccarBackupPanel = React.lazy(() => import('./TraccarBackupPanel.jsx'));
 
 export { normalizeCampaign } from '../../lib/services/admin-api.js';
 
@@ -199,6 +200,9 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
           />
         </>
       )}
+      <React.Suspense fallback={<p role="status">Caricamento strumenti Piano B…</p>}>
+        <TraccarBackupPanel />
+      </React.Suspense>
     </AdminLayout>
   );
 }
