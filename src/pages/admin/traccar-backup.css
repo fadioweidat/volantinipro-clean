@@ -1,0 +1,15 @@
+.traccar-backup { margin: 24px 0; border: 1px solid #3a4b60; border-radius: 12px; background: #102033; color: #edf3f8; }
+.traccar-backup summary { padding: 16px; cursor: pointer; font-weight: 700; min-height: 48px; box-sizing: border-box; }
+.traccar-backup__body { padding: 0 16px 16px; }
+.traccar-backup__body p { line-height: 1.5; }
+.traccar-backup__form { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 12px; margin-top: 16px; align-items: end; }
+.traccar-backup label { display: grid; gap: 6px; font-size: 14px; min-width: 0; }
+.traccar-backup input,.traccar-backup select { min-height: 44px; box-sizing: border-box; width: 100%; padding: 8px; background: #071321; color: #fff; border: 1px solid #63758b; border-radius: 6px; }
+.traccar-backup button { min-height: 44px; padding: 8px 14px; margin: 4px 6px 4px 0; color: #fff; border: 1px solid #c35827; border-radius: 6px; background: #8a360e; cursor: pointer; }
+.traccar-backup button:disabled { opacity: .55; cursor: default; }
+.traccar-backup :focus-visible { outline: 3px solid #6fcfee; outline-offset: 2px; }
+.traccar-backup [role=alert] { color: #ffd0b6; }
+.traccar-backup__secret,.traccar-backup__connection { margin-top: 16px; padding: 12px; border: 1px solid #63758b; border-radius: 8px; }
+.traccar-backup__secret span { font-size: 13px; line-height: 1.5; }
+.traccar-backup__sessions { list-style: none; padding: 0; }
+.traccar-backup__sessions li { padding: 14px 0; border-bottom: 1px solid #3a4b60; overflow-wrap: anywhere; }

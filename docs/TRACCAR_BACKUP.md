@@ -1,8 +1,10 @@
 # Piano B GPS con Traccar Client
 
 Branch: `feature/traccar-backup`. Nessun merge e nessuna attivazione automatica.
-Solo file nuovi e una migration additiva. GPS nativo, lifecycle delle sessioni,
-token Driver, monitor e dashboard esistenti rimangono invariati.
+Una sola migration additiva, ancora da applicare nell’ambiente di prova.
+La revisione aggiunge un pannello alla home Admin tramite una sola integrazione
+in `AdminDashboard.jsx`; GPS nativo, RPC esistenti, token Driver e monitor non
+vengono riscritti. L’avvio manuale Admin è esplicitamente autorizzato per il Piano B.
 
 ## Cosa è stato verificato prima dell'implementazione
 
@@ -64,12 +66,18 @@ dei due payload richiesti. Per OsmAnd usare `id`/`deviceid`, `lat`, `lon`.
 1. URL HTTPS e Device ID associato a una chiave casuale di 256 bit. L'ID
    leggibile `RAGAZZO01` non è una password. Nel DB resta solo SHA-256 della chiave.
 2. Tabella nuova `traccar_devices`, RLS attiva e nessun accesso anon/customer.
-   La RPC nuova è `SECURITY INVOKER`, eseguibile solo da `service_role`.
+   La RPC di ingestione è `SECURITY INVOKER`, eseguibile solo da `service_role`.
+   Il controllo Admin usa una RPC invoker pubblica e una funzione privilegiata
+   nello schema non esposto `traccar_private`: entrambe sono negate ad anon e
+   service-role; ogni azione richiede UID autenticato e il controllo esistente
+   `gps_is_admin()` (ruolo admin e allowlist email).
 3. Il dispositivo è associato a un operatore registrato OPPURE a un'assegnazione
-   precisa, più `vp_device_id` del telefono che ha avviato il lavoro VolantiniPro.
-   Lo script di registrazione sceglie l'assegnazione precisa per evitare ambiguità.
-4. Nessun avvio/resume automatico. Occorre una sessione esistente `started`,
-   non chiusa, appartenente a quel dispositivo e a un incarico valido.
+   precisa. In modalità app si mantiene `vp_device_id` della sessione esistente;
+   in modalità Admin il binding contiene anche `admin_session_id`, per evitare
+   di attribuire punti a un’altra sessione o campagna dello stesso operatore.
+4. Nessun avvio/resume causato da un punto GPS. Occorre una sessione `started`,
+   non chiusa, appartenente a un incarico valido. Può essere avviata dalla
+   normale app oppure **esplicitamente dall’Admin senza app Driver**.
 5. Finestra esplicita `enabled_from`/`enabled_until`, massimo 24 ore. Il pilot
    usa 2 ore. Scaduta la finestra occorre riabilitare il dispositivo per il turno
    successivo, anche se qualcuno ha dimenticato una sessione aperta.
@@ -108,57 +116,90 @@ Questi passaggi spettano all'amministratore tecnico, una volta per l'ambiente:
    `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TRACCAR_BACKUP_ENABLED=true`.
    `VITE_SUPABASE_URL` è solo il fallback dell'URL. La chiave service-role NON
    deve avere prefisso `VITE_`, NON va inserita nell'app o nel campo Server.
-4. Verificare che il telefono possa raggiungere il nuovo endpoint. Un 401 con
-   login Vercel o una pagina HTML non è la risposta Traccar. Le preview protette
-   richiedono un ambiente di test raggiungibile dal telefono; non distribuire
-   agli operatori chiavi di bypass Vercel e non cambiare le protezioni del sito
-   di produzione. Il solo “build riuscita” non dimostra l'accessibilità.
-5. In VolantiniPro creare un lavoro di prova, assegnarlo al proprio dispositivo
-   e avviarlo con il normale pulsante. Non usare una campagna reale del cliente
-   per collaudi o coordinate sintetiche.
-6. Recuperare l'ID della sessione appena avviata dall'Admin o, in SQL Editor,
-   con una query limitata alla campagna di prova:
+4. Accedere alla home Admin della preview con un account admin autorizzato.
+   Aprire **Piano B GPS · Traccar**. Preparare una campagna di prova
+   `in_progress` e un operatore già assegnato con incarico attivo: non occorre
+   avviare l’app Driver e non usare una campagna reale cliente per collaudi.
+5. Selezionare campagna e operatore, inserire Device ID (es. `RAGAZZO01`) e
+   durata massima (default 2 ore, massimo 24). Premere **Avvia Piano B GPS**.
+   Il pannello crea la sessione nelle normali `delivery_sessions`, associa
+   precisamente il dispositivo, genera una chiave casuale e salva solo l’hash.
+   La scadenza non supera quella dell’incarico. Il retry dello stesso avvio
+   dopo un errore di rete non duplica la sessione e non prolunga il turno.
+6. Nel pannello è visibile l’ultimo punto Traccar ricevuto. **Aggiorna Piano B**
+   rilegge i dati. **Chiudi sessione GPS → Conferma chiusura** usa la RPC di
+   chiusura già esistente, disabilita quel binding e blocca i punti successivi.
+   Non chiude sessioni native tramite questo pannello. L’audit registra l’admin.
+7. La chiave resta solo nella memoria della pagina. Dopo un ricaricamento usare
+   **Rigenera URL**: revoca la precedente chiave senza cambiare sessione o
+   prolungare la scadenza. Il pannello non carica né memorizza il bypass Vercel.
 
-   ```sql
-   select id, status, started_at
-   from public.delivery_sessions
-   where campaign_id = 'UUID_CAMPAGNA_DI_PROVA'
-   order by started_at desc nulls last
-   limit 10;
-   ```
+## Preview protetta: Protection Bypass for Automation
 
-7. Sul computer amministrativo, con le variabili del DB di prova già presenti
-   in un file `.env` locale protetto (mai in git), eseguire:
+Non disattivare Deployment Protection e non usare un link di condivisione del browser.
 
-   ```bash
-   node --env-file=.env.traccar-test scripts/traccar-register.mjs \
-     --device RAGAZZO01 --session UUID_SESSIONE_DI_PROVA \
-     --server https://HOST_PREVIEW/api/gps/traccar --hours 2
-   ```
+1. In Vercel aprire il progetto VolantiniPro → **Settings → Deployment
+   Protection → Protection Bypass for Automation**.
+2. Creare un segreto dedicato al proprio collaudo (es. `traccar-pilot`).
+   Copiarlo privatamente. Se l’interfaccia usa nomi diversi, consultare la
+   documentazione ufficiale collegata sotto. Non usare un segreto di produzione.
+3. Nel pannello Admin della preview incollarlo nel campo **Bypass Vercel per
+   il tuo collaudo**. Dopo aver avviato la sessione premere **Copia URL Server**.
+   Il pannello compone l’URL completo, codificando anche caratteri `+`, `/`, `=`.
+   Incollare direttamente il risultato in Traccar Client.
+4. Il parametro per un client senza header personalizzati è
+   **`x-vercel-protection-bypass`**. Non aggiungere
+   `x-vercel-set-bypass-cookie`: serve a flussi browser con redirect/cookie,
+   non al ricevitore GPS.
+5. Il segreto consente accesso ai deployment protetti **dell’intero progetto**,
+   non soltanto a `/api/gps/traccar`; può inoltre saltare alcune verifiche
+   WAF/bot. Le richieste senza segreto restano protette e l’autenticazione
+   applicativa Admin resta necessaria. Usarlo solo sul proprio telefono per
+   il pilot, non distribuirlo agli operatori, revocarlo in Vercel a fine prova.
+   Un telefono con un vecchio bypass riceverà nuovamente la protezione Vercel.
 
-   Lo script legge la sessione, abbina assegnazione e telefono e registra solo
-   la nuova tabella. NON avvia né modifica il lavoro. Stampa l'URL privato
-   da copiare. Una nuova registrazione ruota la chiave
-   precedente e rinnova la finestra: aggiornare il Server sull'app.
+Riferimento ufficiale:
+https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation
 
 ## Indirizzo da mettere in “Server”
 
-**Durante il collaudo**, usare l'URL stampato dallo script, che avrà questa forma:
+Alias del branch di prova, da confermare dopo l’ultimo deployment:
 
 ```text
-https://HOST_PREVIEW/api/gps/traccar?key=CHIAVE_PRIVATA_DEL_DISPOSITIVO
+https://volantinipro-git-feature-tra-80b3a2-fenicesp-gmailcoms-projects.vercel.app/api/gps/traccar?key=CHIAVE_PRIVATA_DISPOSITIVO&x-vercel-protection-bypass=SEGRETO_VERCEL_CODIFICATO
 ```
 
-**Solo dopo il merge e l'attivazione in produzione**, il percorso definitivo è:
+**Questo è un modello, non un URL già operativo:** i due segreti sono diversi e
+non possono essere inventati. **Copia URL Server** nel pannello produce quello
+completo utilizzabile, dopo l’attivazione tecnica e l’inserimento del bypass.
+Non inviare il link in chat, screenshot, ticket o git. Non basta che la pagina
+web si apra: il browser può avere cookie Vercel che Traccar Client non possiede.
+Un 401, redirect verso il login Vercel o HTML non è una conferma del ricevitore.
+
+Solo dopo merge e attivazione produzione (non eseguiti in questo lavoro):
 
 ```text
-https://www.volantinipro.it/api/gps/traccar?key=CHIAVE_PRIVATA_DEL_DISPOSITIVO
+https://www.volantinipro.it/api/gps/traccar?key=CHIAVE_PRIVATA_DISPOSITIVO
 ```
 
-La chiave è diversa per ogni dispositivo. Questi sono modelli, non credenziali
-già attive. L'URL privato completo viene generato dopo aver scelto il telefono
-e la sessione di prova. Non usare il server demo, non aggiungere `:5055`:
-qui si riceve tramite HTTPS sulla porta standard 443.
+In produzione il bypass Vercel non va aggiunto. Non usare il server demo e non
+aggiungere `:5055`: questo endpoint usa HTTPS sulla porta standard 443.
+
+### CLI opzionale per una sessione già aperta
+
+Per chi vuole agganciare una sessione esistente, avviata dall’app o dal pannello:
+
+```bash
+node --env-file=.env.traccar-test scripts/traccar-register.mjs \
+  --device RAGAZZO01 --session UUID_SESSIONE_DI_PROVA \
+  --server https://HOST_PREVIEW/api/gps/traccar --hours 2
+```
+
+Il file locale protetto può contenere `VERCEL_AUTOMATION_BYPASS_SECRET`:
+lo script lo aggiunge solo agli host preview VolantiniPro ammessi, mai al dominio
+produzione. Non condividere il file. Lo script non avvia il lavoro, registra il
+binding e stampa l’URL privato; una nuova registrazione ruota la chiave e può
+rinnovare la finestra. Non sostituisce la chiusura della sessione dal pannello.
 
 ## Android / Samsung — istruzioni semplici
 
@@ -175,11 +216,12 @@ qui si riceve tramite HTTPS sulla porta standard 443.
 5. Per il pilot imposta accuratezza **Highest / Massima**, intervallo **30
    secondi**, distanza **0** se disponibile, angolo **0**, heartbeat fermo
    **60 secondi**. Sono impostazioni di prova, non una garanzia di puntualità.
-6. Per la prima prova disattiva il buffering offline, se presente, per vedere
-   subito errori di invio. Il “Password” nelle impostazioni protegge la schermata
+6. Abilita il buffering offline, se presente, per conservare i punti durante
+   errori transitori e consentire i retry. La privacy limita il recupero a fix
+   entro 5 minuti e ancora autorizzati: non è un archivio fuori turno. Il “Password” nelle impostazioni protegge la schermata
    dell'app: non è la chiave di autenticazione dell'endpoint.
-7. Avvia il lavoro in VolantiniPro, poi attiva il servizio Traccar. A fine lavoro
-   ferma Traccar e termina la sessione VolantiniPro. L'app può trasmettere anche
+7. Avvia il Piano B dal pannello Admin, poi attiva il servizio Traccar. A fine lavoro
+   ferma Traccar e chiudi la sessione dal pannello Admin. L'app può trasmettere anche
    fuori turno se la lasci accesa: il server scarta i fix non autorizzati, ma è
    meglio spegnerla quando non lavori.
 
@@ -195,9 +237,10 @@ qui si riceve tramite HTTPS sulla porta standard 443.
    secondi**, heartbeat **60 secondi** se disponibili. Su iPhone il solo valore
    distanza zero non garantisce invii temporizzati: la guida Traccar indica
    l'accuratezza massima per questa modalità. Non c'è il wake lock Android.
-5. Avvia il lavoro in VolantiniPro e poi il servizio Traccar. Metti l'app in
+5. Avvia il Piano B dal pannello Admin e poi il servizio Traccar. Abilita
+   il buffering se disponibile, con gli stessi limiti di privacy indicati sopra. Metti l'app in
    background senza forzarne la chiusura. Prova anche con schermo bloccato.
-6. Alla fine ferma il servizio e termina il lavoro in VolantiniPro.
+6. Alla fine ferma il servizio e chiudi la sessione dal pannello Admin.
 
 Le autorizzazioni e i limiti del sistema operativo restano determinanti: non
 promettiamo tracciamento continuo garantito o un invio esatto ogni 30 secondi.
@@ -208,14 +251,16 @@ Usa un lavoro di prova dedicato, il tuo telefono e una finestra di 2 ore.
 
 | Prova | Azione | Risultato da verificare |
 | --- | --- | --- |
-| Primo punto | Avvia lavoro e Traccar; cammina all'aperto | Punti `source='traccar'` nella stessa sessione |
+| Primo punto | Senza aprire l’app Driver: avvia Piano B da Admin e Traccar; cammina all’aperto | Punti `source='traccar'` nella stessa sessione |
 | Monitor e cliente | Apri le viste esistenti della campagna di prova | Punti sulla stessa traccia, senza modifiche UI |
 | Background | Blocca schermo e cammina 5–10 minuti | Nuovi fix con tempi coerenti; nessuna garanzia finché non misurato sul telefono |
 | Pausa | Metti in pausa VolantiniPro, lascia Traccar acceso brevemente | Nessun nuovo punto Traccar memorizzato durante la pausa |
 | Ripresa | Riprendi e cammina | Nuovi fix successivi alla ripresa; i fix della pausa non vengono recuperati |
-| Fine | Termina il lavoro, lascia Traccar acceso brevemente | Nessun nuovo punto salvato; poi spegni Traccar |
+| Fine | Chiudi la sessione dal pannello Admin, lascia Traccar acceso brevemente | Nessun nuovo punto salvato; poi spegni Traccar |
 | Sconosciuto | Cambia temporaneamente ID con uno non registrato | Nessun inserimento; risposta valida resta HTTP 200 |
 | Duplicato | Test automatico con reinvio identico | Un solo punto; non fabbricare coordinate su lavori reali |
+| Errore temporaneo | Tecnico: simulare errore DB solo nel test isolato | HTTP 503, poi retry salvato una volta sola |
+| Perdita conferma | Test automatico: DB salva ma risposta si perde | 503 iniziale; retry 200 senza doppione |
 | Scadenza | Imposta una finestra breve nel DB di test | Backup smette di registrare alla scadenza anche con sessione aperta |
 
 Nota sul sito attuale: i pulsanti Driver di pausa/ripresa risultano dietro un
@@ -242,17 +287,19 @@ la qualità della traccia nel pilot prima di usare il backup operativamente.
 
 ## Risposte HTTP e limiti di affidabilità
 
-- Richiesta valida: **sempre 200**, anche per sconosciuto, chiave errata/mancante,
-  turno chiuso, sessione assente, punto scartato o duplicato. Non si rivela
-  pubblicamente se un Device ID esiste.
+- **200** per punto salvato, duplicato o scartato volutamente: dispositivo
+  sconosciuto, chiave errata/mancante, nessuna sessione attiva, pausa, fuori
+  finestra, fix vecchio/futuro o limite per dispositivo. Non si rivela se un ID esiste.
+- **503** con `Retry-After: 30` per errore DB/server, timeout, risposta RPC non
+  valida, configurazione mancante o backup disabilitato. Non si conferma un fix
+  che potrebbe non essere stato scritto. Traccar può conservarlo e ritentare
+  con buffering attivo; la ritrasmissione effettiva va verificata sul telefono.
+- Se il DB ha salvato ma la risposta si perde, il retry viene riconosciuto
+  come duplicato e riceve 200. Nessun doppio punto.
 - Richiesta malformata: 400; metodo diverso da GET/POST: 405; corpo oltre 16 KiB:
-  413; content type non supportato: 415.
-- **Anche in caso di errore DB, funzione non attivata o configurazione mancante**,
-  una richiesta valida riceve 200 con `{"ok":false,"error":"temporarily_unavailable"}`,
-  come richiesto. Traccar normalmente considera il 200 una conferma e non
-  ritenta quel fix. Quindi questo requisito può causare perdita di punti durante
-  un guasto: il pilot deve controllare la presenza effettiva dei punti, non solo
-  uno stato “inviato” nell'app. Non viene promesso un backup senza perdita dati.
+  413; content type non supportato: 415. Questi errori richiedono correggere il client.
+- Durante guasti oltre 5 minuti, o dopo stop/scadenza/revoca, i fix in coda
+  vengono scartati intenzionalmente: non si promette recupero illimitato.
 - I log applicativi riportano solo `traccar_backup_unavailable` o
   `traccar_backup_ingest_failed`, mai payload/coordinate/chiavi/identità. Le URL
   GET e la chiave nella query possono comparire nei log HTTP della piattaforma:
@@ -275,7 +322,7 @@ Non eliminare punti GPS e non annullare una campagna per disattivare Traccar.
 
 ```bash
 npm ci --prefix tests/traccar --ignore-scripts
-node --test tests/traccar_protocol.test.mjs tests/traccar_database.test.mjs
+node --test tests/traccar_protocol.test.mjs tests/traccar_database.test.mjs tests/traccar_admin_ui.test.mjs
 npm run build
 ```
 
@@ -290,10 +337,16 @@ smartphone. Questi restano requisiti di accettazione del pilot.
 
 - Base: `c9c3189f5df90a5c135d50f2e4ae3553a88963e0`.
 - Migration eseguita e controllata sul database PostgreSQL/WASM isolato,
-  con permessi `anon`/`authenticated` negati e `service_role` consentito.
+  con ingest riservata a `service_role` e controllo sessioni riservato ad
+  admin autenticati in allowlist. Provati utenti normali, admin fuori allowlist,
+  UID assente, anon e service-role: nessun avvio manuale consentito.
 - Handler HTTP locale collegato alla RPC reale nel DB isolato: inserimento,
-  duplicato, sconosciuto e pausa verificati. Nessun punto fittizio in produzione.
-- 28 nuovi test passati; build Vite e prerender delle 11 pagine riusciti.
+  duplicato, sconosciuto, pausa, avvio Admin senza Driver, chiusura e retry
+  dopo perdita della conferma verificati. Nessun punto fittizio in produzione.
+- Revisione: 45 test Traccar passati (protocollo, SQL/permessi, HTTP→DB e
+  comportamenti del nuovo pannello). I test UI sono isolati con React, non
+  una prova del dashboard autenticato nel browser o del telefono fisico.
+- Build Vite e prerender SEO delle 11 pagine riusciti dopo la revisione.
 - 127 verifiche GPS esistenti: 126 passate, 1 fallita. Lo stesso errore
   `DriverWorkMapPage: traccia propria + tracce gruppo, punti GPS per sessione,
   legenda "Tu"` si riproduce anche sul commit base senza questa modifica
@@ -303,3 +356,18 @@ smartphone. Questi restano requisiti di accettazione del pilot.
   punti Traccar reali, PostGIS completo e Supabase/PostgREST remoto dopo la
   migration. La sola preview non attiva il backup: servono migration, variabili
   server e registrazione del telefono nel database scelto per il pilot.
+
+### Regressioni della revisione Admin
+
+Le 49 verifiche mirate di home Admin e isolamento GPS danno 47 PASS e due
+fallimenti, entrambi riprodotti sul commit base invariato `c9c3189`: il test
+analytics/PII di `admin_commercial_home.test.mjs` e l’asserzione statica
+`g.latlngs.map` in `gps_device_isolation.test.mjs`. Nessun file di quelle
+funzionalità è stato modificato per farli passare. La regressione complessiva
+resta quindi PARZIALE, non tutta verde.
+
+Alla consegna la migration non è applicata al DB remoto e la prova della
+preview con Traccar fisico non è stata eseguita. L’accesso Vercel del
+collegamento restituisce 403 per il team: serve il consenso del titolare o la
+configurazione privata del bypass dal dashboard Vercel. Non esiste ancora un
+URL con credenziali reali che possa essere dichiarato collaudato.

@@ -3,6 +3,8 @@ import test from 'node:test';
 import { parseTraccarRequest as parse } from '../server/traccar/protocol.js';
 import { createTraccarHandler } from '../api/gps/traccar.js';
 import { registerDevice } from '../scripts/traccar-register.mjs';
+import { buildTraccarServerUrl, createTraccarCredentials } from '../src/lib/traccar/backupUrl.js';
+import { createHash, webcrypto } from 'node:crypto';
 
 const key = 'a'.repeat(64);
 const query = `id=RAGAZZO01&lat=45.46&lon=9.19&timestamp=1792836000&speed=10&bearing=270&altitude=120&accuracy=8&batt=75&key=${key}`;
@@ -85,7 +87,7 @@ test('unknown/no secret, invalid and mocked fixes never reach database', async (
   const req = json(); req.body.location.mock = true;
   await handler(req,response()); assert.equal(calls,0);
 });
-test('valid requests always get 200, including duplicate/ignored and outage; safe logs only', async () => {
+test('saved/ignored/duplicate get 200; DB/network/configuration failures get retryable 503 and safe logs', async () => {
   const logs = [];
   for (const result of ['duplicate','ignored','stored']) {
     const res = response(); await createTraccarHandler({ env, fetchImpl: async () => ({ok:true,json:async()=>result}) })(get(),res);
@@ -93,9 +95,45 @@ test('valid requests always get 200, including duplicate/ignored and outage; saf
   }
   for (const options of [ { env:{} }, {env,fetchImpl:async()=>({ok:false,status:500})}, {env,fetchImpl:async()=>{throw Error('secret coordinates');}} ]) {
     const res = response(); await createTraccarHandler({...options,log:s=>logs.push(s)})(get(),res);
-    assert.equal(res.code,200); assert.equal(res.body.ok,false);
+    assert.equal(res.code,503); assert.equal(res.body.ok,false); assert.equal(res.headers['Retry-After'],'30');
   }
   assert.ok(logs.every(s=>['traccar_backup_unavailable','traccar_backup_ingest_failed'].includes(s)));
+});
+test('missing or malformed persistence acknowledgement is 503, never silent success',async()=> {
+  for(const result of [null,{},'unexpected']) {
+    const res=response();
+    await createTraccarHandler({env,log:()=>{},fetchImpl:async()=>({ok:true,json:async()=>result})})(get(),res);
+    assert.equal(res.code,503);
+  }
+});
+test('unexpected server parsing failure is retryable and never logged with request details', async () => {
+  const req = get();
+  Object.defineProperty(req, 'method', { get() { throw Error('private server failure'); } });
+  const logs = []; const res = response();
+  await createTraccarHandler({ env, log: value => logs.push(value) })(req, res);
+  assert.equal(res.code, 503);
+  assert.equal(res.headers['Retry-After'], '30');
+  assert.deepEqual(logs, ['traccar_backup_ingest_failed']);
+});
+test('preview URL carries both credentials without cookie/redirect parameters; production has no bypass',()=> {
+  const server='https://volantinipro-git-feature-tra-80b3a2-fenicesp-gmailcoms-projects.vercel.app/api/gps/traccar';
+  const url=new URL(buildTraccarServerUrl(server,key,'test+secret/with=encoding'));
+  assert.equal(url.searchParams.get('key'),key);
+  assert.equal(url.searchParams.get('x-vercel-protection-bypass'),'test+secret/with=encoding');
+  assert.equal(url.searchParams.has('x-vercel-set-bypass-cookie'),false);
+  assert.equal(new URL(buildTraccarServerUrl('https://www.volantinipro.it/api/gps/traccar',key)).searchParams.has('x-vercel-protection-bypass'),false);
+  assert.throws(()=>buildTraccarServerUrl('https://another-project.vercel.app/api/gps/traccar',key,'secret'));
+});
+test('browser generates per-device secrets with the same SHA-256 contract as the endpoint',async()=> {
+  const one=await createTraccarCredentials(webcrypto), two=await createTraccarCredentials(webcrypto);
+  assert.notEqual(one.key,two.key); assert.match(one.key,/^[a-f0-9]{64}$/);
+  assert.equal(one.tokenHash,createHash('sha256').update(one.key).digest('hex'));
+});
+test('Vercel bypass is ignored by the GPS parser and never forwarded to Supabase',async()=> {
+  const req=get(query+'&x-vercel-protection-bypass=preview-secret');
+  let body=''; const res=response();
+  await createTraccarHandler({env,fetchImpl:async(url,opts)=>{body=opts.body;return{ok:true,json:async()=> 'ignored'};}})(req,res);
+  assert.equal(res.code,200);assert.ok(!body.includes('preview-secret'));assert.ok(!body.includes('vercel'));
 });
 test('malformed HTTP requests receive 400/405/413 without upstream call', async () => {
   const handler = createTraccarHandler({ fetchImpl:async()=>{throw Error('must not call');} });

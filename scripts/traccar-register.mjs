@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { DEVICE_ID_RE } from '../server/traccar/protocol.js';
+import { buildTraccarServerUrl } from '../src/lib/traccar/backupUrl.js';
 
 export async function registerDevice(args, { env = process.env, fetchImpl = fetch, output = console.log } = {}) {
   const device = args.device;
@@ -32,26 +33,29 @@ export async function registerDevice(args, { env = process.env, fetchImpl = fetc
   const server = new URL(args.server || '');
   if (server.protocol !== 'https:' || server.username || server.password || server.search || server.hash
     || server.pathname !== '/api/gps/traccar') throw new Error('Indica --server con URL HTTPS completo che termina in /api/gps/traccar');
-  const sessions = await request(`delivery_sessions?id=eq.${args.session}&select=id,assignment_id,device_id,status,ended_at&limit=1`);
+  const sessions = await request(`delivery_sessions?id=eq.${args.session}&select=id,assignment_id,device_id,status,ended_at,metadata&limit=1`);
   const session = sessions?.[0];
   if (!session?.assignment_id || !session.device_id || session.status !== 'started' || session.ended_at) {
     throw new Error('Avvia prima il lavoro sul dispositivo VolantiniPro corretto; non viene creata alcuna sessione automaticamente');
   }
   const secret = randomBytes(32).toString('hex');
+  const preview = server.hostname.startsWith('volantinipro-')
+    && server.hostname.endsWith('-fenicesp-gmailcoms-projects.vercel.app');
+  const privateUrl = buildTraccarServerUrl(server.toString(), secret, preview ? env.VERCEL_AUTOMATION_BYPASS_SECRET || '' : '');
   const now = new Date();
   await request('traccar_devices?on_conflict=device_id', {
     method: 'POST', body: JSON.stringify({
       device_id: device, token_hash: createHash('sha256').update(secret).digest('hex'),
       operator_id: null, assignment_id: session.assignment_id, vp_device_id: session.device_id,
+      admin_session_id: session.metadata?.source === 'traccar_admin_backup' ? session.id : null,
       enabled: true, enabled_from: now.toISOString(),
       enabled_until: new Date(now.getTime() + hours * 3600000).toISOString(),
       rate_window_started_at: null, rate_count: 0,
     }),
   });
-  server.searchParams.set('key', secret);
   output(`Registrazione completata per ${hours} ore. La chiave precedente, se presente, è stata revocata.`);
   output('URL Server privato: copialo solo in Traccar Client; non inviarlo a clienti o in screenshot pubblici.');
-  output(server.toString());
+  output(privateUrl);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

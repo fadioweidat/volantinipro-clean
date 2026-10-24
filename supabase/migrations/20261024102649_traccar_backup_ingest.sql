@@ -8,6 +8,7 @@ create table public.traccar_devices (
   -- Personal account OR an exact assignment (also supports anonymous OPs).
   operator_id uuid references public.operator_profiles(user_id),
   assignment_id uuid references public.operator_assignments(id) on delete cascade,
+  admin_session_id uuid references public.delivery_sessions(id) on delete cascade,
   vp_device_id text not null check (length(btrim(vp_device_id)) between 1 and 200),
   enabled boolean not null default false,
   enabled_from timestamptz not null,
@@ -103,6 +104,7 @@ begin
     where ((v_device.operator_id is not null and a.operator_id = v_device.operator_id)
       or (v_device.assignment_id is not null and a.id = v_device.assignment_id))
       and s.device_id = v_device.vp_device_id
+      and (v_device.admin_session_id is null or s.id = v_device.admin_session_id)
       and s.driver_id = coalesce(a.operator_id, a.id)
       and s.campaign_id = a.campaign_id and s.group_id = a.group_id
       and s.status = 'started' and s.ended_at is null
@@ -128,6 +130,7 @@ begin
   v_now := clock_timestamp();
   if v_session.status <> 'started' or v_session.ended_at is not null
     or v_session.assignment_id is distinct from v_assignment.id
+    or (v_device.admin_session_id is not null and v_session.id is distinct from v_device.admin_session_id)
     or (v_device.operator_id is not null and v_assignment.operator_id is distinct from v_device.operator_id)
     or (v_device.assignment_id is not null and v_assignment.id is distinct from v_device.assignment_id)
     or v_session.device_id is distinct from v_device.vp_device_id
@@ -166,5 +169,174 @@ revoke all on function public.traccar_ingest_point(text,text,timestamptz,float8,
   from public, anon, authenticated;
 grant execute on function public.traccar_ingest_point(text,text,timestamptz,float8,float8,float8,float8,float8,float8,float8,boolean)
   to service_role;
+-- Privileged implementation is outside the exposed Data API schema. Public
+-- wrapper uses invoker permissions, and EVERY action rechecks the existing
+-- authenticated admin authorization. No existing auth/GPS RPC is replaced.
+create schema traccar_private;
+revoke all on schema traccar_private from public, anon;
+grant usage on schema traccar_private to authenticated;
+
+create function traccar_private.admin_control(
+  p_action text, p_campaign_id uuid, p_assignment_id uuid, p_device_id text,
+  p_token_hash text, p_hours integer, p_session_id uuid
+) returns jsonb
+language plpgsql security definer set search_path to ''
+as $$
+declare
+  v_now timestamptz;
+  v_until timestamptz;
+  v_assignment public.operator_assignments%rowtype;
+  v_device public.traccar_devices%rowtype;
+  v_session public.delivery_sessions%rowtype;
+  v_device_id text;
+  v_label text;
+  v_result jsonb;
+begin
+  if auth.uid() is null or not coalesce(public.gps_is_admin(), false) then
+    raise exception 'SOLO_ADMIN_AUTORIZZATO' using errcode = '42501';
+  end if;
+
+  if p_action = 'list' then
+    select jsonb_build_object(
+      'assignments', coalesce((select jsonb_agg(x) from (
+        select a.id, a.campaign_id, coalesce(c.campaign_name,c.title) as campaign_title,
+          coalesce(o.display_name,a.participant_label,'Operatore') as operator_label
+        from public.operator_assignments a
+        join public.campaigns c on c.id = a.campaign_id
+        left join public.operator_profiles o on o.user_id = a.operator_id
+        where public.gps_assignment_is_valid_v2(a.id,coalesce(a.operator_id,a.id),a.campaign_id,a.group_id,clock_timestamp())
+        order by a.created_at desc limit 200
+      ) x), '[]'::jsonb),
+      'sessions', coalesce((select jsonb_agg(x) from (
+        select s.id, s.campaign_id, s.assignment_id, s.status, s.started_at, s.ended_at,
+          s.metadata->>'traccar_device_id' as device_id,
+          coalesce(c.campaign_name,c.title) as campaign_title,
+          coalesce(s.driver_name,'Operatore') as operator_label,
+          d.enabled_until, coalesce(d.enabled,false) as enabled,
+          (select max(p.recorded_at) from public.gps_tracking_points p where p.session_id=s.id and p.source='traccar') as last_point_at
+        from public.delivery_sessions s
+        join public.campaigns c on c.id=s.campaign_id
+        left join public.traccar_devices d on d.admin_session_id=s.id
+        where s.metadata->>'source' = 'traccar_admin_backup'
+          and (s.status in ('started','paused') or s.ended_at >= clock_timestamp()-interval '1 day')
+        order by s.started_at desc nulls last limit 50
+      ) x), '[]'::jsonb)
+    ) into v_result;
+    return v_result;
+  end if;
+
+  if p_action = 'start' then
+    if p_campaign_id is null or p_assignment_id is null or p_device_id is null
+      or p_device_id !~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'
+      or p_token_hash is null or p_token_hash !~ '^[a-f0-9]{64}$'
+      or p_hours is null or p_hours < 1 or p_hours > 24 then
+      raise exception 'PARAMETRI_PIANO_B_NON_VALIDI' using errcode='22023';
+    end if;
+    perform pg_advisory_xact_lock(hashtextextended('traccar-admin:'||p_device_id,0));
+    select * into v_device from public.traccar_devices where device_id=p_device_id for update;
+    select * into v_assignment from public.operator_assignments where id=p_assignment_id for update;
+    if not found or v_assignment.campaign_id <> p_campaign_id then
+      raise exception 'ASSEGNAZIONE_NON_VALIDA' using errcode='22023';
+    end if;
+    perform 1 from public.campaigns where id=p_campaign_id for share;
+    if v_assignment.operator_id is not null then
+      select display_name into v_label from public.operator_profiles where user_id=v_assignment.operator_id for share;
+    else
+      v_label := coalesce(v_assignment.participant_label,'Operatore');
+    end if;
+    v_now := clock_timestamp();
+    if not public.gps_assignment_is_valid_v2(v_assignment.id,coalesce(v_assignment.operator_id,v_assignment.id),
+      v_assignment.campaign_id,v_assignment.group_id,v_now) then
+      raise exception 'ASSEGNAZIONE_NON_ATTIVA_O_CAMPAGNA_NON_IN_CORSO' using errcode='42501';
+    end if;
+    if v_device.admin_session_id is not null then
+      select * into v_session from public.delivery_sessions where id=v_device.admin_session_id for update;
+      if found and v_session.status in ('started','paused') then
+        if v_session.status='started' and v_session.assignment_id=p_assignment_id
+          and v_device.token_hash=p_token_hash and v_device.enabled and v_device.enabled_until>v_now then
+          return jsonb_build_object('session_id',v_session.id,'enabled_until',v_device.enabled_until,'reused',true);
+        end if;
+        raise exception 'SESSIONE_PIANO_B_GIA_APERTA: chiudila o rigenera il suo URL' using errcode='23505';
+      end if;
+    elsif v_device.device_id is not null and exists (
+      select 1 from public.delivery_sessions s join public.operator_assignments a on a.id=s.assignment_id
+      where s.device_id=v_device.vp_device_id and s.status in ('started','paused')
+        and ((v_device.assignment_id is not null and a.id=v_device.assignment_id)
+          or (v_device.operator_id is not null and a.operator_id=v_device.operator_id))
+    ) then
+      raise exception 'DEVICE_ID_GIA_USATO_DA_SESSIONE_APP: scegli un Device ID backup distinto' using errcode='23505';
+    end if;
+    v_until := least(v_now+make_interval(hours=>p_hours), coalesce(v_assignment.ends_at,'infinity'::timestamptz));
+    insert into public.delivery_sessions (
+      campaign_id,assignment_id,group_id,driver_id,driver_name,device_id,status,
+      started_at,updated_at,metadata
+    ) values (
+      v_assignment.campaign_id,v_assignment.id,v_assignment.group_id,
+      coalesce(v_assignment.operator_id,v_assignment.id),v_label,'traccar-backup:'||p_device_id,'started',
+      v_now,v_now,jsonb_build_object('source','traccar_admin_backup','traccar_device_id',p_device_id,
+        'opened_by_admin',auth.uid(),'backup_until',v_until)
+    ) returning * into v_session;
+    insert into public.traccar_devices (
+      device_id,token_hash,assignment_id,admin_session_id,vp_device_id,enabled,enabled_from,enabled_until
+    ) values (
+      p_device_id,p_token_hash,v_assignment.id,v_session.id,v_session.device_id,true,v_now,v_until
+    ) on conflict(device_id) do update set
+      token_hash=excluded.token_hash,operator_id=null,assignment_id=excluded.assignment_id,
+      admin_session_id=excluded.admin_session_id,vp_device_id=excluded.vp_device_id,
+      enabled=true,enabled_from=excluded.enabled_from,enabled_until=excluded.enabled_until,
+      rate_window_started_at=null,rate_count=0;
+    insert into public.gps_operator_audit_log(operator_id,action,campaign_id,assignment_id,session_id,context)
+    values(auth.uid(),'traccar_admin_session_started',v_session.campaign_id,v_session.assignment_id,v_session.id,
+      jsonb_build_object('source','traccar','enabled_until',v_until));
+    return jsonb_build_object('session_id',v_session.id,'enabled_until',v_until,'reused',false);
+  end if;
+
+  if p_action in ('close','rotate_key') then
+    select * into v_session from public.delivery_sessions where id=p_session_id;
+    if not found or v_session.metadata->>'source' is distinct from 'traccar_admin_backup' then
+      raise exception 'SESSIONE_PIANO_B_NON_TROVATA' using errcode='42501';
+    end if;
+    v_device_id := v_session.metadata->>'traccar_device_id';
+    perform pg_advisory_xact_lock(hashtextextended('traccar-admin:'||v_device_id,0));
+    select * into v_device from public.traccar_devices where device_id=v_device_id for update;
+    select * into v_session from public.delivery_sessions where id=p_session_id for update;
+    if v_session.metadata->>'source' is distinct from 'traccar_admin_backup' then
+      raise exception 'SESSIONE_PIANO_B_NON_TROVATA' using errcode='42501';
+    end if;
+    if p_action='close' then
+      if v_session.status in ('started','paused') then
+        -- Reuse the existing admin-aware transition; no lifecycle RPC changed.
+        perform public.gps_transition_session_v3(v_session.id,'complete',null,null);
+      end if;
+      update public.traccar_devices set enabled=false where admin_session_id=v_session.id;
+      return jsonb_build_object('session_id',v_session.id,'closed',true);
+    end if;
+    v_now := clock_timestamp();
+    if p_token_hash is null or p_token_hash !~ '^[a-f0-9]{64}$' then
+      raise exception 'CHIAVE_NON_VALIDA' using errcode='22023';
+    end if;
+    if v_device.admin_session_id is distinct from v_session.id or not v_device.enabled
+      or v_device.enabled_until<=v_now or v_session.status<>'started' then
+      raise exception 'SESSIONE_PIANO_B_NON_ATTIVA: chiudi e avvia un nuovo turno' using errcode='42501';
+    end if;
+    update public.traccar_devices set token_hash=p_token_hash where admin_session_id=v_session.id;
+    insert into public.gps_operator_audit_log(operator_id,action,campaign_id,assignment_id,session_id,context)
+    values(auth.uid(),'traccar_key_rotated',v_session.campaign_id,v_session.assignment_id,v_session.id,'{}'::jsonb);
+    return jsonb_build_object('session_id',v_session.id,'enabled_until',v_device.enabled_until);
+  end if;
+  raise exception 'AZIONE_PIANO_B_NON_VALIDA' using errcode='22023';
+end;
+$$;
+revoke all on function traccar_private.admin_control(text,uuid,uuid,text,text,integer,uuid) from public,anon,service_role;
+grant execute on function traccar_private.admin_control(text,uuid,uuid,text,text,integer,uuid) to authenticated;
+
+create function public.traccar_admin_control(
+  p_action text, p_campaign_id uuid default null, p_assignment_id uuid default null,
+  p_device_id text default null, p_token_hash text default null,
+  p_hours integer default 2, p_session_id uuid default null
+) returns jsonb language sql security invoker set search_path to ''
+as $$ select traccar_private.admin_control(p_action,p_campaign_id,p_assignment_id,p_device_id,p_token_hash,p_hours,p_session_id); $$;
+revoke all on function public.traccar_admin_control(text,uuid,uuid,text,text,integer,uuid) from public,anon,service_role;
+grant execute on function public.traccar_admin_control(text,uuid,uuid,text,text,integer,uuid) to authenticated;
 notify pgrst, 'reload schema';
 commit;
