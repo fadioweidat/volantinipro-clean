@@ -101,7 +101,8 @@ export function AdminLiveDashboard({ onNav }) {
     if (!selectedSummary) { setTrace({ sessionId: null, loading: false, error: null, points: [] }); return undefined; }
     const id = selectedSummary.session.id;
     setTrace({ sessionId: id, loading: true, error: null, points: [] });
-    adminGpsHistory.trace(id, { expectedCount: selectedSummary.pointCount,
+    // Previous reading (RPC not installed yet): its count may be capped, so no exact-count check.
+    adminGpsHistory.trace(id, { expectedCount: selectedSummary.legacySummary ? null : selectedSummary.pointCount,
       lastPointAt: selectedSummary.last_point_at, signal: controller.signal })
       .then(points => { if (!controller.signal.aborted) setTrace({ sessionId: id, loading: false, error: null, points }); })
       .catch(error => { if (!controller.signal.aborted) setTrace({ sessionId: id, loading: false, error: error.message, points: [] }); });
@@ -181,6 +182,7 @@ export function AdminLiveDashboard({ onNav }) {
       <button type="button" onClick={() => setRetry(n => n + 1)} style={mapActionButtonStyle(false)}>Aggiorna GPS</button>
       {state.loading && <Notice text="Caricamento riepiloghi GPS..." />}
       {!state.error && !state.loading && <Notice text={`${withLifecycle.length} sessioni · ${withLifecycle.reduce((n, item) => n + item.pointCount, 0)} punti GPS nel database`} />}
+      {!state.error && state.drivers.some((item) => item.legacySummary) && <Notice text="Riepilogo dalla lettura precedente: il nuovo riepilogo GPS non è ancora installato. I conteggi possono essere incompleti oltre 1.000 punti." />}
       {offlineRecentCount > 0 && <Notice danger text={`${offlineRecentCount} driver offline o senza ping recente.`} />}
 
       <AdminLiveKpiPanel

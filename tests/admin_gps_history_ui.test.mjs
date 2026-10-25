@@ -5,7 +5,7 @@ import { transform } from 'esbuild';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 const source=(await readFile(new URL('../src/pages/admin/AdminLiveDashboard.jsx',import.meta.url),'utf8'))
-  .replace(/^import[\s\S]*?;\n/gm,'');
+  .replace(/^import[\s\S]*?;\r?\n/gm,'');
 const out=new URL('./.admin-gps-history-ui.mjs',import.meta.url);
 await writeFile(out,(await transform(`import React from 'react';
 import { EXCLUSION_LABELS,calculateFilteredDistanceKm,summarizeGpsQuality } from '../src/lib/gps/pointQuality.js';

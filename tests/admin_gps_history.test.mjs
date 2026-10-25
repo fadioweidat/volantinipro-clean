@@ -88,3 +88,31 @@ test('terminal session never displays waiting for GPS, with or without coordinat
   }
   assert.equal(sessionZoneStatus({status:'started'},'awaiting_gps'),'awaiting_gps');
 });
+
+// 2026-10-25: www must keep working between the frontend release and the migration.
+test('missing RPC (not installed): previous reading in the summary shape; other errors stay errors', async () => {
+  const { isMissingRpcError, legacyRowsToSummaries } = await import('../src/lib/services/admin-gps-history-core.js');
+  const rpcError = (error) => ({ rpc: () => ({ abortSignal() { return this; }, then: (ok) => ok({ data: null, error }) }) });
+  const legacy = async () => [{ session: { id: 's1', group_id: 'g' }, group: { name: 'Gruppo' }, latest: { lat: 45, lng: 9 },
+    points: [{ recorded_at: '2026-10-20T10:00:00Z', lat: 45.46, lng: 9.18, accuracy: 5 }, { recorded_at: '2026-10-20T10:01:00Z', lat: 45.461, lng: 9.18, accuracy: 5 }] }];
+  const missing = createAdminGpsHistory(rpcError({ code: 'PGRST202', message: 'Could not find the function public.gps_admin_session_summaries' }), async () => {}, { legacySummaries: legacy });
+  const rows = await missing.summaries();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].pointCount, 2);
+  assert.equal(rows[0].legacySummary, true);
+  assert.equal(rows[0].first_point_at, '2026-10-20T10:00:00Z');
+  assert.equal(rows[0].last_point_at, '2026-10-20T10:01:00Z');
+  assert.equal(rows[0].groupName, 'Gruppo');
+  assert.deepEqual(rows[0].points, []);
+  assert.ok(isMissingRpcError({ code: '42883', message: 'function x does not exist' }));
+  assert.ok(!isMissingRpcError({ code: '42501', message: 'permission denied' }));
+  const denied = createAdminGpsHistory(rpcError({ code: '42501', message: 'ADMIN_NON_AUTORIZZATO' }), async () => {}, { legacySummaries: legacy });
+  await assert.rejects(denied.summaries(), /Riepilogo GPS non disponibile: ADMIN_NON_AUTORIZZATO/);
+  const noFallback = createAdminGpsHistory(rpcError({ code: 'PGRST202', message: 'missing' }));
+  await assert.rejects(noFallback.summaries(), /Riepilogo GPS non disponibile/);
+  assert.equal(legacyRowsToSummaries([{ session: { id: 'x' }, points: [] }])[0].pointCount, 0);
+  const page = read('src/pages/admin/AdminLiveDashboard.jsx');
+  assert.match(page, /expectedCount: selectedSummary\.legacySummary \? null : selectedSummary\.pointCount,/);
+  assert.match(page, /Riepilogo dalla lettura precedente/);
+  assert.match(read('src/lib/services/admin-gps-history.js'), /legacySummaries: \(\) => getLiveDrivers\(\)/);
+});

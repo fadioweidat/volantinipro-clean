@@ -1,5 +1,36 @@
+import { calculateFilteredDistanceKm, summarizeGpsQuality } from '../gps/pointQuality.js';
+
+// Only "the function is not installed yet" (PostgREST PGRST202 / Postgres 42883): any other
+// error stays an explicit error, never a silent fallback.
+export function isMissingRpcError(error) {
+  const text = `${error?.code || ''} ${error?.message || ''}`;
+  return error?.code === 'PGRST202' || error?.code === '42883'
+    || /could not find the function|function [^ ]*gps_admin_session_summaries[^ ]* does not exist/i.test(text);
+}
+
+// Previous reading (getLiveDrivers, all points downloaded) in the summary shape. Used only while
+// gps_admin_session_summaries is not installed: www keeps working between the frontend release
+// and the migration. Marked legacySummary: its counts can still hit the 1.000-row REST limit.
+export function legacyRowsToSummaries(rows = []) {
+  return rows.map((row) => {
+    const points = Array.isArray(row.points) ? row.points : [];
+    return {
+      ...row,
+      points: [],
+      pointCount: points.length,
+      valid_count: summarizeGpsQuality(points).validCount,
+      km: calculateFilteredDistanceKm(points),
+      first_point_at: points[0]?.recorded_at ?? null,
+      last_point_at: points[points.length - 1]?.recorded_at ?? null,
+      campaignName: row.campaignName ?? null,
+      groupName: row.groupName ?? row.group?.name ?? null,
+      legacySummary: true,
+    };
+  });
+}
+
 // Admin read model: summaries never depend on downloading raw tracks.
-export function createAdminGpsHistory(client, bridge = async () => {}) {
+export function createAdminGpsHistory(client, bridge = async () => {}, { legacySummaries = null } = {}) {
   return {
     async summaries({ start = null, end = null, status = 'all_history', signal } = {}) {
       await bridge();
@@ -8,6 +39,7 @@ export function createAdminGpsHistory(client, bridge = async () => {}) {
       });
       if (signal) query = query.abortSignal(signal);
       const { data, error } = await query;
+      if (error && legacySummaries && isMissingRpcError(error)) return legacyRowsToSummaries(await legacySummaries());
       if (error) throw new Error(`Riepilogo GPS non disponibile: ${error.message}`);
       if (!Array.isArray(data?.rows)) throw new Error('Risposta riepilogo GPS non valida.');
       return data.rows.map(row => ({ ...row, points: [], pointCount: Number(row.point_count),
