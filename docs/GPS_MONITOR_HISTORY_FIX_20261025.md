@@ -89,7 +89,7 @@ poi rimuovere wrapper, funzioni private e schema, senza CASCADE.
   elencati in `TRACCAR_RELEASE_20261025.md`; nessuna nuova failure.
   Prima esecuzione: anche il test prestazioni instabile e contratto sorgente
   obsoleto `withLifecycle` (aggiornato per `mapRows`, mantenendo tutte le sessioni).
-- Build Vite + prerender SEO: riuscita; ripetere sul commit finale se cambia codice.
+- Build Vite + prerender SEO: riuscita anche sul codice finale (11 pagine).
 - Runtime Admin autenticato, layout browser mobile, scenario originale e
   produzione nuova versione: NON VERIFICATI. Non pubblicare su www senza OK.
 
@@ -111,3 +111,19 @@ La pulizia approvata cambia gli stati: i 20 started dello storico diventano
 terminali, ma numero punti e collegamenti restano invariati. Eventuali sessioni
 senza punti usano updated_at come attività: chiuderle oggi può cambiare la
 selezione per un intervallo con fine prima di oggi.
+
+## Anteprima e pulizia completata
+
+PR: https://github.com/fadioweidat/volantinipro-clean/pull/17
+Anteprima pubblicata dal primo commit, stato Vercel success:
+https://volantinipro-git-fix-admin-g-b6c0b0-fenicesp-gmailcoms-projects.vercel.app/
+Il percorso /admin/live reindirizza correttamente al login Admin; nessuna
+sessione autenticata disponibile nel browser condiviso. La homepage della
+preview è stata aperta; questo non verifica il Monitor. Nessun merge/www.
+
+Pulizia DML separata completata: vedere [resoconto](GPS_TEST_CLEANUP_20261025.md).
+Dopo la pulizia, la RPC proposta è stata nuovamente provata con ROLLBACK:
+25 sessioni / 1.775 punti, conteggi e km dei tre ID invariati. Stati aggiornati:
+20 cancelled, 5 completed. La RPC non è installata permanentemente.
+
+Ultima suite mirata complessiva SQL/paginazione/UI/autorizzazione: 29/29.

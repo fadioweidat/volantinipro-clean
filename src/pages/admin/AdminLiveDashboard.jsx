@@ -259,7 +259,9 @@ export function AdminLiveDashboard({ onNav }) {
               <MiniRow label="GPS" value={selectedItem.session.status === 'started' ? 'Attivo' : selectedItem.session.status === 'paused' ? 'In pausa' : 'Sessione conclusa'} />
               <MiniRow label="Area" value={zoneStatusLabel(liveZoneStatus, ZONE_LIVE_STATUS_LABELS)} />
               {outsideDistanceKm != null && <MiniRow label="Distanza dalla zona" value={`${outsideDistanceKm.toFixed(1)} km`} />}
-              <MiniRow label="Ultimo ping" value={formatDateTime(selectedItem.lastPing)} />
+              <MiniRow label="Primo punto GPS" value={formatDateTime(selectedItem.first_point_at)} />
+              <MiniRow label="Ultimo punto GPS" value={formatDateTime(selectedItem.last_point_at)} />
+              <MiniRow label="Ultima attività" value={formatDateTime(selectedItem.lastPing)} />
               <MiniRow label="Precisione GPS" value={selectedItem.latest?.accuracy != null ? `${Math.round(selectedItem.latest.accuracy)} m` : 'n/d'} />
             </div>
             <div style={operationalCardStyle}>

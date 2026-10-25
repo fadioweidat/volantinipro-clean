@@ -1,0 +1,812 @@
+{
+  "run_id": "gps-test-cleanup-20261025",
+  "sessions": [
+    {
+      "id": "0f1e5f56-5300-46cd-94d1-6075e022a63e",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-18T14:57:37.648157+00:00",
+      "campaign_id": "6adc7b7a-6b0a-4b29-b9a7-841c3302dcb4",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "11a8608a-75bb-4d26-abce-8ca9918b6a1e",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-21T14:24:39.432144+00:00",
+      "campaign_id": "7816679c-a3c1-4665-9540-f5c890e52e4d",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "2813435c-27a0-4f89-b1fd-3e5a194dabdc",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-24T09:01:29.494138+00:00",
+      "campaign_id": "f3b337af-153c-4f41-8523-997bf35333f2",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "315d4be2-f885-4227-b843-e7f04c04b879",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-18T19:01:43.929458+00:00",
+      "campaign_id": "8bb10172-b8c5-4198-b628-c4d12f4ce1ff",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "5b70b0a2-144e-4781-87bd-de8e0575ec68",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-12T13:24:06.747317+00:00",
+      "campaign_id": "c54077d0-4aff-4c47-bea5-17cd403b4a2c",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "6d399900-7420-4df1-b09f-b8d46a2fa71a",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-24T10:05:45.66363+00:00",
+      "campaign_id": "f3b337af-153c-4f41-8523-997bf35333f2",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "6d8ba237-bfc2-4d68-9f09-ba0e91d45462",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-14T10:09:06.046978+00:00",
+      "campaign_id": "a2b6e00f-1399-4a25-9bee-0d12d63f474c",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "77f4c70f-6f7a-4cb0-ad0a-05f89437c0d8",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-05T14:47:23.324963+00:00",
+      "campaign_id": "119f43d3-4b23-4674-bcef-08b7479e92ac",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "78dcc40b-bd37-4f53-8452-807f4b903a44",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-17T14:43:38.988683+00:00",
+      "campaign_id": "2e64339d-6c51-4160-93c2-d4b4cd04e654",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "7c20bb3f-fd7a-4883-bc66-8736b91ce38f",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-06T19:59:31.657738+00:00",
+      "campaign_id": "68f4222f-efc5-43c1-babf-2f62ec8e7ea1",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "90c6f4b2-2500-4afe-bc96-f4e92a40ee92",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-08-27T18:45:53.164312+00:00",
+      "campaign_id": "fa4c50b6-13b7-4509-bf17-f35165738a50",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "924b5418-7ec8-4603-bb5e-5752eb4aada3",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-22T07:07:23.22911+00:00",
+      "campaign_id": "84b5aef0-eb35-4097-8aff-ca129c76aca7",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "933cd0db-2249-4588-8543-34e0557fae50",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-21T10:18:32.965406+00:00",
+      "campaign_id": "9f99eb7e-76f7-4fee-af44-76ed9e04bf5a",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "9fe2199b-6f07-42cf-9562-4f81331fc91b",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-29T19:20:12.309465+00:00",
+      "campaign_id": "87df2760-f1f2-4c5d-b2c6-c3b7d222b347",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "ac878ec5-3651-4bc4-9dae-d867acff0ddb",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-24T10:01:03.698993+00:00",
+      "campaign_id": "f3b337af-153c-4f41-8523-997bf35333f2",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "c2652080-6782-4d6b-88b3-ce6c944dffcb",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-23T18:42:40.037346+00:00",
+      "campaign_id": "810ad5f5-bd2a-4481-b212-d713d883f819",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "c7da50a0-3e6c-47d5-ac41-3411c991989a",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-25T10:56:02.928824+00:00",
+      "campaign_id": "aed50d1c-37d8-46f1-b8ae-e1e693d18ba4",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "d3e5dede-950f-40b0-99d4-4bca9a7c6365",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-24T10:05:35.157325+00:00",
+      "campaign_id": "f3b337af-153c-4f41-8523-997bf35333f2",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "daa4c400-543c-4a89-9774-910771eb62ee",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-24T10:00:34.719903+00:00",
+      "campaign_id": "f3b337af-153c-4f41-8523-997bf35333f2",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "e18fa558-599b-4e3a-9fb5-566ba7a58b4c",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-08-29T18:30:32.96216+00:00",
+      "campaign_id": "33345221-5323-49e3-8656-ef5bda3e69ed",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "e4e7b72a-83d2-4923-96e9-76b3e3cae2c0",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-09-30T13:58:58.04566+00:00",
+      "campaign_id": "1f1706f5-2c68-4921-a02a-eaaeb9c62e59",
+      "original_metadata_keys": {}
+    },
+    {
+      "id": "f4d06b0c-196f-4d8c-80df-a5b4d4a19d29",
+      "status": "started",
+      "ended_at": null,
+      "updated_at": "2026-10-04T13:47:07.112042+00:00",
+      "campaign_id": "df9c4bc9-3f8a-4db6-8507-609451f17953",
+      "original_metadata_keys": {}
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "0301e51a-aa04-441a-91de-1d2d8ae3fc6b",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-17T18:57:05.480222+00:00"
+    },
+    {
+      "id": "0340e2e0-4a05-4bce-a1a7-0295fc5a42b6",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-18T15:50:47.620473+00:00"
+    },
+    {
+      "id": "0b81c17e-eb01-4e50-af36-5e1b4dfc46e8",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-09-24T18:10:15.829+00:00"
+    },
+    {
+      "id": "0c8c98bc-f917-4b28-9cd5-d3dda3271566",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-10T14:56:30.067+00:00"
+    },
+    {
+      "id": "10cff471-3ed9-47e2-8501-69f14cdbf03f",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-15T08:55:16.189856+00:00"
+    },
+    {
+      "id": "110e8d71-cbc3-4653-8c95-64c0acbca360",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-07T19:32:59.118596+00:00"
+    },
+    {
+      "id": "11558fb4-338b-468c-aac1-043b0c7e80f3",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-14T16:15:52.936436+00:00"
+    },
+    {
+      "id": "119f43d3-4b23-4674-bcef-08b7479e92ac",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-05T08:57:37.806826+00:00"
+    },
+    {
+      "id": "11ea5272-bcf4-4019-a0a7-bfce14a49008",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-05T17:26:07.457384+00:00"
+    },
+    {
+      "id": "12e2613a-7848-4a64-a007-122a44031b97",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-08-10T07:55:12.884+00:00"
+    },
+    {
+      "id": "14d4021e-ac5f-4cbe-a582-5759c320cd1b",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-08-10T18:13:00.866+00:00"
+    },
+    {
+      "id": "1bde3d39-3d88-4907-9bf5-48529765f742",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-12T21:25:04.837+00:00"
+    },
+    {
+      "id": "1eea0372-25d2-4899-95ea-e36d7dc7444e",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-13T19:21:39.5+00:00"
+    },
+    {
+      "id": "1f1706f5-2c68-4921-a02a-eaaeb9c62e59",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-30T13:35:47.179624+00:00"
+    },
+    {
+      "id": "210c6a53-f201-45a0-909a-4351eecc0885",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-12T08:08:26.244515+00:00"
+    },
+    {
+      "id": "2376f6fb-fe62-4e6f-952d-95bf3eb3ad22",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-16T09:27:27.448279+00:00"
+    },
+    {
+      "id": "24b9f727-077e-42f0-a8c2-55f265f63e15",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-12T08:05:58.212885+00:00"
+    },
+    {
+      "id": "2553e31b-8a9b-4232-a163-7cd7b16c5ba6",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-30T10:09:07.784064+00:00"
+    },
+    {
+      "id": "2a568c6d-6e9d-40cf-8621-5436528e873c",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-18T15:51:26.00994+00:00"
+    },
+    {
+      "id": "2b91bc15-6376-491b-9e7d-f356a7322aea",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-09-18T04:13:10.604+00:00"
+    },
+    {
+      "id": "2cdb9266-3e5f-40b8-844d-c85c36620fcc",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-08T15:32:23.131375+00:00"
+    },
+    {
+      "id": "2df41ba1-aa0c-401c-8f59-ec9d3aae15d8",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-13T19:36:49.905397+00:00"
+    },
+    {
+      "id": "2e64339d-6c51-4160-93c2-d4b4cd04e654",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-17T14:36:20.937954+00:00"
+    },
+    {
+      "id": "2ebe7f0b-687e-419b-baf3-24df60866353",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-15T16:13:08.871398+00:00"
+    },
+    {
+      "id": "2f40a2f3-17ab-4513-b32f-e7f8b61178e2",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-09T19:27:47.012027+00:00"
+    },
+    {
+      "id": "33345221-5323-49e3-8656-ef5bda3e69ed",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-29T10:19:47.382391+00:00"
+    },
+    {
+      "id": "33adf782-5f57-49ac-bbe7-622c115be805",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-17T12:16:44.579047+00:00"
+    },
+    {
+      "id": "36b1f646-b57d-4259-8001-3b11ed71953a",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-08-10T08:00:00.582+00:00"
+    },
+    {
+      "id": "38152950-19e5-4141-84c4-a45741cbcba5",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-14T18:53:01.507+00:00"
+    },
+    {
+      "id": "39101518-0b97-4487-9866-c401b68481f9",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-17T18:57:46.481394+00:00"
+    },
+    {
+      "id": "3ad4f8aa-8d83-4db1-8db0-a8565324bf37",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-17T18:58:14.336762+00:00"
+    },
+    {
+      "id": "3c846a51-a3e4-4d4a-b914-6fb1fe57b2fe",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-17T15:44:37.501204+00:00"
+    },
+    {
+      "id": "4894d988-0498-49ff-b0d2-50079cdda646",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-09T19:42:34.449446+00:00"
+    },
+    {
+      "id": "50a8befc-adaf-4e06-ab7a-334c92f31f9c",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-22T02:29:46.882408+00:00"
+    },
+    {
+      "id": "520e0dba-61b9-4c78-b587-3d7006e86fa4",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-14T14:32:40.698+00:00"
+    },
+    {
+      "id": "54b07684-cfe5-4691-8ae1-351fb011ae35",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-27T17:40:23.808287+00:00"
+    },
+    {
+      "id": "59a27968-3e3d-4bc0-9635-74d9235e1463",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-07-31T15:36:17.840318+00:00"
+    },
+    {
+      "id": "5b5e068c-723e-4bb1-9469-8d2cc0cea092",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-25T18:57:10.848819+00:00"
+    },
+    {
+      "id": "6735e4fc-de4d-41d6-b24c-e26ff2b1affd",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-18T09:03:55.707033+00:00"
+    },
+    {
+      "id": "68f4222f-efc5-43c1-babf-2f62ec8e7ea1",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-06T19:24:39.505833+00:00"
+    },
+    {
+      "id": "6adc7b7a-6b0a-4b29-b9a7-841c3302dcb4",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-16T10:10:07.140722+00:00"
+    },
+    {
+      "id": "6b6da72d-9178-4997-b63d-6f1b84f69aa1",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-12T08:07:09.691634+00:00"
+    },
+    {
+      "id": "6fe9c848-4ae1-4fd7-a352-deb4a9d92cc4",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-15T09:36:49.712717+00:00"
+    },
+    {
+      "id": "7406e420-9999-409c-88a9-e15a81353e35",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-31T09:00:07.634742+00:00"
+    },
+    {
+      "id": "77f9cd0b-afe7-4aa1-983e-a3f7f61c82e6",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-08-29T10:16:42.307709+00:00"
+    },
+    {
+      "id": "7816679c-a3c1-4665-9540-f5c890e52e4d",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-21T10:19:27.896921+00:00"
+    },
+    {
+      "id": "7b334fa1-b80d-4c3c-80f1-9b39f1a3b3aa",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-30T12:18:25.086121+00:00"
+    },
+    {
+      "id": "7d57e1ab-ec39-4c8a-9768-124084ef1d2f",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-18T10:08:13.084348+00:00"
+    },
+    {
+      "id": "7e25324e-63ce-4ada-a009-58c6f9877566",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-14T18:08:41.404997+00:00"
+    },
+    {
+      "id": "810ad5f5-bd2a-4481-b212-d713d883f819",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-23T17:23:07.145371+00:00"
+    },
+    {
+      "id": "832583f7-fec6-4887-98de-cf98bbe542a8",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-06T14:10:16.987667+00:00"
+    },
+    {
+      "id": "84b5aef0-eb35-4097-8aff-ca129c76aca7",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-22T02:31:08.765305+00:00"
+    },
+    {
+      "id": "868bf3b7-9587-4f3f-bae4-853eae886f01",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-13T17:07:49.050152+00:00"
+    },
+    {
+      "id": "87df2760-f1f2-4c5d-b2c6-c3b7d222b347",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-28T10:04:55.397287+00:00"
+    },
+    {
+      "id": "8bb10172-b8c5-4198-b628-c4d12f4ce1ff",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-18T18:45:14.249815+00:00"
+    },
+    {
+      "id": "8d603c54-d271-4b39-9b8a-89f4f9d9beb6",
+      "status": "draft",
+      "is_test": false,
+      "updated_at": "2026-05-26T20:11:25.429714+00:00"
+    },
+    {
+      "id": "8f09cfb9-14fd-4a6e-83ec-f053fc989333",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-10-11T15:18:49.168+00:00"
+    },
+    {
+      "id": "9276b544-6d46-472b-9a45-200856833c70",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-11T11:38:38.346369+00:00"
+    },
+    {
+      "id": "9a19892f-6dbd-42ba-87d4-69734755a9a6",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-09-19T15:26:18.359+00:00"
+    },
+    {
+      "id": "9bd147c3-6031-4fc3-8b36-8d66d7ebf5aa",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-15T09:37:17.556869+00:00"
+    },
+    {
+      "id": "9cbaad74-8365-4059-9051-e5326e11b4eb",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-10-11T15:26:58.87+00:00"
+    },
+    {
+      "id": "9f99eb7e-76f7-4fee-af44-76ed9e04bf5a",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-21T09:47:51.469741+00:00"
+    },
+    {
+      "id": "a2b6e00f-1399-4a25-9bee-0d12d63f474c",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-14T07:51:24.789881+00:00"
+    },
+    {
+      "id": "a52d1d2d-9275-4183-8481-8fe4ca50fa22",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-14T08:20:36.8+00:00"
+    },
+    {
+      "id": "a9e8cdef-88e0-4cb5-9271-f335cabe54eb",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-18T15:53:25.293099+00:00"
+    },
+    {
+      "id": "ab8d74a4-5d69-4769-9b38-8de4d7c7dab8",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-10-22T14:01:04.196092+00:00"
+    },
+    {
+      "id": "aed50d1c-37d8-46f1-b8ae-e1e693d18ba4",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-25T09:50:04.02038+00:00"
+    },
+    {
+      "id": "b3001dd9-5bcc-4da8-b648-a7014b565694",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-15T14:22:56.276323+00:00"
+    },
+    {
+      "id": "b7234aa8-854f-44ba-a06c-5093aa331c80",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-14T09:08:54.285+00:00"
+    },
+    {
+      "id": "b8b3213e-e130-4d4d-853f-31735abfbffe",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-06T14:09:49.877511+00:00"
+    },
+    {
+      "id": "ba4e39fe-d624-4852-aaa8-4b8e50a5de20",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-09-18T03:59:48.493+00:00"
+    },
+    {
+      "id": "bb12129e-3f27-45ab-8dd6-8d87101ea2d5",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-15T09:53:40.353459+00:00"
+    },
+    {
+      "id": "c41c005f-63bf-44f0-b503-f3cc8edae55d",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-10T11:13:53.461+00:00"
+    },
+    {
+      "id": "c54077d0-4aff-4c47-bea5-17cd403b4a2c",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-12T09:47:58.242976+00:00"
+    },
+    {
+      "id": "c633cf19-c14b-412c-802d-26a405a07932",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-18T15:54:12.730448+00:00"
+    },
+    {
+      "id": "c64d7fba-6209-4e31-88e5-7c703821d844",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-15T09:40:09.782357+00:00"
+    },
+    {
+      "id": "caabb1a4-a9bd-47c7-9755-78975ac45858",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-16T09:45:55.301268+00:00"
+    },
+    {
+      "id": "ce64dca3-1283-4842-9e61-5705d9d07284",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-13T18:39:28.715673+00:00"
+    },
+    {
+      "id": "d07cdeea-655d-48f6-8269-fdf897b4f515",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-18T15:56:07.436267+00:00"
+    },
+    {
+      "id": "d94a7cfd-c9a0-4d89-8cb9-1986954d7f44",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-22T02:27:52.814594+00:00"
+    },
+    {
+      "id": "d95beccd-6ef0-40b3-839e-aecec4c3526a",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-14T15:40:28.974+00:00"
+    },
+    {
+      "id": "daaed99b-24e2-4572-baf9-2c60cd606090",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-25T18:40:40.680245+00:00"
+    },
+    {
+      "id": "db5fd900-1e49-458b-9916-ebaef4990c1b",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-17T13:53:25.452537+00:00"
+    },
+    {
+      "id": "dc5a5357-453c-46bc-9d1b-48a592ef6152",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-19T15:34:02.356747+00:00"
+    },
+    {
+      "id": "dcedac4f-a993-4fa4-b8f5-835729769f39",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-17T10:26:15.361+00:00"
+    },
+    {
+      "id": "dcee6d22-dc1b-43d7-a0ff-369330439164",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-15T14:23:56.913794+00:00"
+    },
+    {
+      "id": "de271512-1841-450b-aa28-d00b8e5f76ff",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-15T10:11:28.99928+00:00"
+    },
+    {
+      "id": "df9c4bc9-3f8a-4db6-8507-609451f17953",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-10-02T09:01:08.546747+00:00"
+    },
+    {
+      "id": "e0630c06-7c0f-4884-8c73-ccca7c7f6973",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-13T15:15:05.898+00:00"
+    },
+    {
+      "id": "e158d7c9-9a0a-4738-a738-28a7226ff573",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-18T21:44:09.955+00:00"
+    },
+    {
+      "id": "e1ae7a8c-1e8d-4e98-870e-407c3f49fc68",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-14T09:03:01.604709+00:00"
+    },
+    {
+      "id": "e3b6d95f-6cff-4fd3-9506-af192641dfe4",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-10T09:46:56.668246+00:00"
+    },
+    {
+      "id": "ed799ad1-adf1-4f2a-9518-899642e411dd",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-12T08:04:50.470544+00:00"
+    },
+    {
+      "id": "ededb26f-6a37-4251-88b0-60bc93267097",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-08-10T11:08:10.777+00:00"
+    },
+    {
+      "id": "f09445d5-7538-48e7-aa7d-35b21b91780f",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-10T19:01:08.847208+00:00"
+    },
+    {
+      "id": "f0dade8e-20a5-4cfe-98ac-2a7667ab136d",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-29T19:15:33.188483+00:00"
+    },
+    {
+      "id": "f3b337af-153c-4f41-8523-997bf35333f2",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-24T08:00:25.8261+00:00"
+    },
+    {
+      "id": "f4070e2e-18a2-44a0-88f1-435b2e581f63",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-09-18T03:54:04.364+00:00"
+    },
+    {
+      "id": "f7319671-0ae2-4a88-ae17-8e4049be3f34",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-15T09:37:34.010499+00:00"
+    },
+    {
+      "id": "f76a9055-76d1-4aad-b8f6-03337cca2112",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-20T18:42:35.917818+00:00"
+    },
+    {
+      "id": "f909cd01-3606-4253-9b61-d57df01fc2a1",
+      "status": "approved",
+      "is_test": false,
+      "updated_at": "2026-09-16T09:45:45.612023+00:00"
+    },
+    {
+      "id": "fa4c50b6-13b7-4509-bf17-f35165738a50",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-08-27T17:42:10.368686+00:00"
+    },
+    {
+      "id": "fb49d2f4-edf1-4f5f-bb20-f07f9a2773b1",
+      "status": "in_progress",
+      "is_test": false,
+      "updated_at": "2026-09-13T20:21:53.662676+00:00"
+    }
+  ],
+  "gps_digest": "1e02617590f43a301dea6de712b05ad2",
+  "gps_points": 2348,
+  "captured_at": "2026-10-25T11:12:49.90011+00:00",
+  "excluded_info": [
+    {
+      "id": "9dc3e5fd-21bf-4293-a322-3a516546cfed",
+      "status": "pending_review",
+      "is_test": false,
+      "updated_at": "2026-09-12T19:41:53.24+00:00"
+    }
+  ]
+}
