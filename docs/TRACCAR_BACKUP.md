@@ -1,7 +1,9 @@
 # Piano B GPS con Traccar Client
 
 Branch: `feature/traccar-backup`. Nessun merge e nessuna attivazione automatica.
-Una sola migration additiva, ancora da applicare nell’ambiente di prova.
+Una sola migration additiva, NON applicata. Esiste un solo Supabase: produzione.
+Solo la sessione database applica migration ed Edge Functions da
+`integration/rc2-full-site`, dopo il merge. Questa sessione non le applica.
 La revisione aggiunge un pannello alla home Admin tramite una sola integrazione
 in `AdminDashboard.jsx`; GPS nativo, RPC esistenti, token Driver e monitor non
 vengono riscritti. L’avvio manuale Admin è esplicitamente autorizzato per il Piano B.
@@ -103,19 +105,26 @@ non dimostrano da soli la consegna di volantini.
 
 ## Preparazione tecnica PRIMA della prova sul telefono
 
-Questi passaggi spettano all'amministratore tecnico, una volta per l'ambiente:
+**Non esiste un database di staging. Una preview Vercel non isola il database.**
+Non applicare SQL né distribuire Edge Functions da questo branch o da questa
+sessione. I test SQL descritti sotto usano soltanto PostgreSQL/WASM locale.
 
-1. Usare la preview del branch, con database di staging compatibile. Non fare
-   merge solo per ottenere una prova. Nessuna migration è stata applicata al
-   Supabase di produzione durante lo sviluppo.
-2. Revisionare e applicare **solo**
-   `supabase/migrations/20261024102649_traccar_backup_ingest.sql` nel database
-   scelto per la prova. Non lanciare indiscriminatamente tutte le migration
-   storiche: il repository contiene rebaseline e riconciliazioni precedenti.
-3. Sul deployment di prova configurare le variabili server:
-   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TRACCAR_BACKUP_ENABLED=true`.
-   `VITE_SUPABASE_URL` è solo il fallback dell'URL. La chiave service-role NON
-   deve avere prefisso `VITE_`, NON va inserita nell'app o nel campo Server.
+1. La PR deve avere base `integration/rc2-full-site`. Prima di ogni pubblicazione:
+   fetch del branch remoto e di integration, verifica dei commit, rebase su
+   integration; in caso di conflitti fermarsi, senza risoluzioni automatiche.
+   Non forzare integration e non modificare il lavoro delle sessioni database/SEO.
+2. Dopo il merge, **solo la sessione database**, lavorando da integration,
+   revisiona e applica la migration
+   `supabase/migrations/20261024102649_traccar_backup_ingest.sql`.
+   Non eseguire tutte le migration storiche. L’ordine e la compatibilità con
+   altre modifiche DB devono essere verificati da quella sessione.
+3. Fino a quel passaggio mantenere il backup disabilitato. L’attivazione
+   successiva richiede variabili server `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `TRACCAR_BACKUP_ENABLED=true`.
+   `VITE_SUPABASE_URL` è solo fallback URL; la service-role non va nel client.
+   Qualsiasi collaudo remoto dopo l’attivazione scrive nel database di produzione:
+   concordarlo prima con la sessione database e usare una campagna dedicata.
+   I passaggi seguenti sono istruzioni per quel momento, non azioni da fare ora.
 4. Accedere alla home Admin della preview con un account admin autorizzato.
    Aprire **Piano B GPS · Traccar**. Preparare una campagna di prova
    `in_progress` e un operatore già assegnato con incarico attivo: non occorre
@@ -261,14 +270,15 @@ Usa un lavoro di prova dedicato, il tuo telefono e una finestra di 2 ore.
 | Duplicato | Test automatico con reinvio identico | Un solo punto; non fabbricare coordinate su lavori reali |
 | Errore temporaneo | Tecnico: simulare errore DB solo nel test isolato | HTTP 503, poi retry salvato una volta sola |
 | Perdita conferma | Test automatico: DB salva ma risposta si perde | 503 iniziale; retry 200 senza doppione |
-| Scadenza | Imposta una finestra breve nel DB di test | Backup smette di registrare alla scadenza anche con sessione aperta |
+| Scadenza | Test automatico su PostgreSQL/WASM locale, senza Supabase remoto | Backup smette di registrare alla scadenza anche con sessione aperta |
 
 Nota sul sito attuale: i pulsanti Driver di pausa/ripresa risultano dietro un
 flag disattivato. Non sono stati riattivati in questo lavoro. Se non sono
-visibili, la prova pausa/ripresa va eseguita dal tecnico nel solo ambiente di
-test tramite la RPC esistente `gps_transition_session_v3` con autorizzazione
-Driver valida. Non forzare stati o inserire coordinate nel database reale per
-simulare una prova da telefono.
+visibili, limitare la verifica automatica al DB locale isolato. Non esiste
+un Supabase di test: eventuali verifiche remote della RPC esistente
+`gps_transition_session_v3` devono essere concordate con la sessione database
+dopo il merge, con autorizzazione Driver valida. Non forzare stati né inserire
+coordinate sintetiche nel database di produzione.
 
 Controllo SQL limitato alla sessione di prova:
 
@@ -355,7 +365,8 @@ smartphone. Questi restano requisiti di accettazione del pilot.
 - Non verificati: telefono fisico Android/iPhone, dashboard autenticate con
   punti Traccar reali, PostGIS completo e Supabase/PostgREST remoto dopo la
   migration. La sola preview non attiva il backup: servono migration, variabili
-  server e registrazione del telefono nel database scelto per il pilot.
+  server e registrazione del telefono. Esiste solo il database di produzione;
+  la sessione database gestisce l’applicazione da integration dopo il merge.
 
 ### Regressioni della revisione Admin
 
@@ -371,3 +382,42 @@ preview con Traccar fisico non è stata eseguita. L’accesso Vercel del
 collegamento restituisce 403 per il team: serve il consenso del titolare o la
 configurazione privata del bypass dal dashboard Vercel. Non esiste ancora un
 URL con credenziali reali che possa essere dichiarato collaudato.
+
+## Cosa modifica la migration e come tornare indietro
+
+La sola applicazione SQL crea oggetti e colonne: non avvia sessioni, non
+registra dispositivi e non riscrive lo storico GPS. Le scritture operative
+avvengono successivamente, quando si usano pannello o endpoint.
+
+| Oggetto | Modifica |
+| --- | --- |
+| `public.traccar_devices` | Nuova tabella: Device ID, hash della chiave, collegamento a operatore/assegnazione e sessione, finestra autorizzata, contatore invii. RLS attiva. Nessun accesso diretto anon/authenticated; CRUD per service-role. |
+| `public.gps_tracking_points` | Tabella ESISTENTE: aggiunge tre colonne nullable `source`, `source_event_id`, `source_metadata` e l’indice univoco parziale `gps_tracking_points_traccar_event_uidx` per evitare duplicati Traccar. Nessun UPDATE dello storico. |
+| `public.traccar_ingest_point` | Nuova funzione SECURITY INVOKER, eseguibile soltanto da service-role. Valida autorizzazione/tempi e inserisce nella tabella GPS esistente. |
+| `traccar_private` | Nuovo schema con funzione `admin_control` SECURITY DEFINER. Accesso applicativo tramite authenticated, ma ogni azione richiede UID e controllo Admin esistente. |
+| `public.traccar_admin_control` | Nuova funzione SECURITY INVOKER, wrapper autenticato per lista, avvio, chiusura e rotazione chiave; anon e service-role esclusi. |
+
+Non sostituisce funzioni, trigger o policy delle tabelle esistenti. Riutilizza
+`gps_assignment_is_valid_v2`, `gps_is_admin` e `gps_transition_session_v3`.
+A funzionalità attiva il pannello crea/chiude righe di `delivery_sessions` e
+scrive audit in `gps_operator_audit_log`; l’endpoint scrive punti GPS. Queste
+sono tabelle esistenti, anche se la loro struttura non cambia, salvo le tre
+colonne della tabella GPS indicate sopra.
+
+**Ritorno indietro operativo (preferito):** prima chiudere le sole sessioni
+Piano B aperte, poi disabilitare il backup e i binding e fermare Traccar sui
+telefoni. Ripristinare il codice tramite normale revert/PR su integration,
+senza force. Conservare schema e dati evita perdita dello storico e non
+richiede eliminare punti nativi. Con endpoint disabilitato si risponde 503:
+fermare anche i client evita retry inutili. Revocare il bypass del pilot.
+
+**Rimozione dello schema, solo se necessaria:** compete alla sessione database
+con una nuova migration compensativa da integration, dopo revisione di
+backup ed eventuali dipendenze introdotte nel frattempo. Rimuovere prima le
+funzioni pubbliche nuove, poi la funzione/schema privati e la tabella nuova;
+infine indice e tre colonne GPS, soltanto dopo aver esportato i metadati da
+conservare. Non usare `DROP ... CASCADE` indiscriminato. Le righe GPS e le
+sessioni già create non spariscono automaticamente: restano nello storico,
+ma togliere le colonne perde fonte/deduplicazione/metadati. Nessun rollback
+SQL automatico è incluso né è stato eseguito. Se la migration non è ancora
+applicata, non c’è alcuna modifica DB da annullare.
