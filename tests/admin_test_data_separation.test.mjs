@@ -1,5 +1,7 @@
-// 2026-10-24 (approved): test data separated from real data in the admin, the 58 test campaigns
-// left "in distribuzione" closed, "Registro ordini" + "Clienti & Preventivi" merged into "Ordini".
+// 2026-10-24/25 (approved): test data separated from real data in the admin, automatic rule for
+// test accounts, "Segna come prova", "Registro ordini" + "Clienti & Preventivi" merged into "Ordini".
+// The existing test campaigns were flagged and closed by the approved cleanup of 2026-10-25
+// (docs/GPS_TEST_CLEANUP_20261025.md) plus the info@ campaign; the migration adds the rule and RPC only.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -7,21 +9,22 @@ import { applyClientsQuotesView, isRealRow, kpiRows } from "../src/lib/admin/cli
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const code = (sql) => sql.replace(/^\s*--.*$/gm, "");
-const m1 = read("supabase/migrations/20261024100000_test_campaigns_flag.sql");
-const m2 = read("supabase/migrations/20261024101000_close_test_campaigns.sql");
+const m1 = read("supabase/migrations/20261025140000_test_campaign_rule.sql");
 
-test("migration 1: backup, the reviewed 104 ids, rule without Fadi's main account, admin RPC", () => {
-  const ids = m1.match(/'[0-9a-f-]{36}'/g);
-  assert.equal(new Set(ids).size, 104);
-  assert.match(m1, /create table backup_ops\.campaigns_is_test_20261024 as/);
-  assert.ok(m1.indexOf("create table backup_ops.campaigns_is_test_20261024") < m1.indexOf("update public.campaigns c\n   set is_test = true"), "backup before the update");
-  assert.doesNotMatch(code(m1), /fenice\.sp@gmail\.com/);
-  assert.doesNotMatch(code(m1), /\bdelete\b|\btruncate\b|drop table/i);
+test("migration: rule + explicit list + admin RPC, no existing row modified", () => {
+  const c = code(m1);
+  assert.doesNotMatch(c, /update public\.campaigns c?\s+set\s+is_test|\btruncate\b|drop table/i);
+  assert.doesNotMatch(c, /fenice\.sp@gmail\.com|info@volantinipro\.it/);
+  for (const email of ["demo@volantinipro.it", "admin-1785913811466@volantinipro.it", "marco.bianchi@volantinipro.it", "infopostini@gmail.com"]) {
+    assert.ok(c.includes(`'${email}'`), email);
+  }
   assert.match(m1, /create trigger campaigns_mark_test_account_trg\n  before insert on public\.campaigns/);
   assert.match(m1, /function public\.admin_set_campaign_test\(p_campaign_id uuid, p_is_test boolean, p_reason text\)/);
   assert.match(m1, /if not public\.gps_is_admin\(\) then/);
   assert.match(m1, /'campaign_marked_test', 'campaign_unmarked_test'\]\)\);/);
-  assert.match(m1, /revoke all on schema backup_ops from anon, authenticated;/);
+  const rb = read("supabase/migrations/rollback/20261025140000_test_campaign_rule.rollback.sql");
+  assert.match(rb, /drop function if exists public\.admin_set_campaign_test\(uuid, boolean, text\);/);
+  assert.match(rb, /drop trigger if exists campaigns_mark_test_account_trg on public\.campaigns;/);
 });
 
 test("rule: test-account e-mails only (no false positives on real-looking addresses)", () => {
@@ -29,23 +32,7 @@ test("rule: test-account e-mails only (no false positives on real-looking addres
   const re = new RegExp(pattern);
   for (const e of ["qa-runtime-gate-bruzzano@volantinipro.it", "qa.runtime.console@volantinipro.invalid", "test@example.com",
     "test_user_driver3_a_1786521662733@example.com", "test-customer-e2e-final@volantinipro.it", "phase3-admin-x@example.test"]) assert.ok(re.test(e), e);
-  for (const e of ["fenice.sp@gmail.com", "testa.mario@gmail.com", "qatar.office@gmail.com", "tester@azienda.it", "admin@volantinipro.it", "infopostini@gmail.com"]) assert.ok(!re.test(e), e);
-});
-
-test("migration 2: closes only in_progress test campaigns, nothing deleted, history logged, backups", () => {
-  assert.equal(new Set(m2.match(/'[0-9a-f-]{36}'/g)).size, 58);
-  assert.match(m2, /and c\.status = 'in_progress' and c\.is_test;/);
-  const c = code(m2);
-  assert.doesNotMatch(c, /\bdelete\b|\btruncate\b|drop table/i);
-  for (const b of ["campaigns_20261024b", "delivery_sessions_20261024b", "operator_assignments_20261024b", "campaign_action_log_ids_20261024b"]) assert.match(m2, new RegExp(`backup_ops\\.${b}`));
-  assert.match(m2, /set status = 'cancelled',\n       ended_at = coalesce\(\n         \(select pg_catalog\.max\(p\.recorded_at\) from public\.gps_tracking_points p where p\.session_id = s\.id\),/);
-  assert.match(m2, /set status = 'revoked',\n       revoked_at = pg_catalog\.now\(\),/);
-  assert.match(m2, /\(1, 'campaign_cancelled', 'in_progress', 'cancelled'\),\n\s+\(2, 'campaign_archived', 'cancelled', 'archived'\)/);
-  assert.match(m2, /'dati di prova'/);
-  assert.ok(c.indexOf("insert into public.campaign_admin_action_log") < c.indexOf("set status = 'archived'"), "log before the status change");
-  const rb = read("supabase/migrations/rollback/20261024101000_close_test_campaigns.rollback.sql");
-  assert.match(rb, /from backup_ops\.campaigns_20261024b b where b\.id = c\.id;/);
-  assert.match(rb, /using backup_ops\.campaign_action_log_ids_20261024b b where b\.id = l\.id;/);
+  for (const e of ["fenice.sp@gmail.com", "testa.mario@gmail.com", "qatar.office@gmail.com", "tester@azienda.it", "admin@volantinipro.it", "info@volantinipro.it"]) assert.ok(!re.test(e), e);
 });
 
 test("counters and lists: real rows by default, test rows with 'Mostra dati di prova'", () => {
