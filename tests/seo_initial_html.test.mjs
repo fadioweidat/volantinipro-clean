@@ -11,6 +11,11 @@ const expectedH1 = {
   'milano-landing': /Distribuzione volantini a Milano/, preventivo: /Richiedi un Preventivo/,
   quick: /Preventivo rapido/, consultant: /Parla con un consulente/,
   privacy: /Privacy Policy/, terms: /Termini e condizioni/, cookie: /Cookie Policy/,
+  prices: /Prezzi della distribuzione volantini/,
+  'city-monza': /Distribuzione volantini a Monza/, 'city-bergamo': /Distribuzione volantini a Bergamo/,
+  'city-brescia': /Distribuzione volantini a Brescia/, 'city-como': /Distribuzione volantini a Como/,
+  'city-varese': /Distribuzione volantini a Varese/, 'city-sesto-san-giovanni': /Distribuzione volantini a Sesto San Giovanni/,
+  'city-cinisello-balsamo': /Distribuzione volantini a Cinisello Balsamo/,
 };
 const bodyText = html => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 for (const [route, page] of SEO_ROUTES) {

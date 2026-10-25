@@ -7,6 +7,7 @@ const SERVICES = [
   ['Hand to Hand', '/servizi/hand-to-hand', 'service-hand-to-hand'],
   ['Business', '/servizi/business', 'service-business'],
   ['Distribuzione a Milano', '/distribuzione-volantini-milano', 'milano-landing'],
+  ['Prezzi distribuzione volantini', '/prezzi-distribuzione-volantini', 'prices'],
 ];
 
 export default function PublicServicesMenu({ mobile = false, onNavigate }) {

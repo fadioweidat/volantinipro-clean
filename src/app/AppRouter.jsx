@@ -13,6 +13,7 @@ import { SupplierGuard } from "../auth/guards/SupplierGuard.jsx";
 import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHashToken, isStoredSupabaseSessionValid, readPendingAuthContext } from "../auth/session.js";
 import { resolveLoginContext } from "../auth/loginIntent.js";
 import { resolveAppRoute } from "./routeResolution.js";
+import { PRICES_PAGE_KEY, PRICES_PATH, CITY_SLUGS, cityPageKey, cityPath } from "../lib/seo/seoLandingRoutes.js";
 import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 import {
   trackPageView,
@@ -319,6 +320,8 @@ export function AppRouter() {
       step4: "/configuratore",
       "service-door-to-door": "/servizi/door-to-door", "service-hand-to-hand": "/servizi/hand-to-hand", "service-business": "/servizi/business",
       "milano-landing": "/distribuzione-volantini-milano",
+      [PRICES_PAGE_KEY]: PRICES_PATH,
+      ...Object.fromEntries(CITY_SLUGS.map((slug) => [cityPageKey(slug), cityPath(slug)])),
       admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
       "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-suppliers": "/admin/suppliers", "admin-status": "/admin/status", "admin-map-studio": "/admin/map-studio", "admin-analytics": "/admin/analytics",
       "admin-communications": "/admin/communications", "admin-business-feasibility": "/admin/business-feasibility",

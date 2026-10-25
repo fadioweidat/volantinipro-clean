@@ -1,3 +1,5 @@
+import { seoLandingPageForPath } from '../lib/seo/seoLandingRoutes.js';
+
 export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false, step = null } = {}) {
   const p = String(path || '/').toLowerCase();
   if (hasAuthHash) return 'login';
@@ -49,6 +51,8 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   if (p === '/servizi/hand-to-hand') return 'service-hand-to-hand';
   if (p === '/servizi/business') return 'service-business';
   if (p === '/distribuzione-volantini-milano') return 'milano-landing';
+  const seoLanding = seoLandingPageForPath(p);
+  if (seoLanding) return seoLanding;
   if (p === '/configuratore' || prefillHas) return step ? `step${step}` : 'step1';
   return 'not-found';
 }

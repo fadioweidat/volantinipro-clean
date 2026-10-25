@@ -190,8 +190,8 @@ button {
 
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.35fr repeat(3, 1fr);
-  gap: 56px;
+  grid-template-columns: 1.35fr repeat(4, 1fr);
+  gap: 40px;
 }
 
 .footer-bottom {

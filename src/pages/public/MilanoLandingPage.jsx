@@ -4,6 +4,7 @@ import { C, F } from "../../lib/constants.js";
 import { NavButton } from "../../components/NavButton.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { milanoLandingContent as content } from "../../lib/seo/milanoLandingContent.js";
+import { CityNumbersSection, CityPriceTable } from "./SeoLandingPages.jsx";
 
 // TICKET — SEO LOCAL PAGE PILOTA MILANO: unica pagina locale pilota
 // (/distribuzione-volantini-milano), stesso meccanismo di route reale delle
@@ -50,6 +51,9 @@ export function MilanoLandingPage({ onNav }) {
           <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
           <Button as={PublicNavLink} href="/consulente" variant="secondary" onClick={() => onNav("consultant")}>Parla con noi</Button>
         </div>
+
+        {/* Numeri ISTAT di Milano e quantita' consigliata (dati reali, cityPagesData.js). */}
+        <CityNumbersSection slug="milano" onNav={onNav} showPrices={false} />
 
         {/* Sezioni H2 con contenuto reale */}
         {content.sections.map((section) => (
@@ -102,6 +106,9 @@ export function MilanoLandingPage({ onNav }) {
                 ))}
               </div>
             )}
+
+            {/* Prezzi del motore reale per Milano (mai scritti nel contenuto). */}
+            {section.cityPrices && <CityPriceTable slug="milano" onNav={onNav} />}
 
             {section.priceCta && (
               <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")} style={{ marginTop: 10 }}>

@@ -5,6 +5,10 @@ import { faqs } from "../../components/home/FAQSection.jsx";
 import { services } from "../../components/home/ServicesSection.jsx";
 import { SERVICE_PAGE_CONTENT } from "../../lib/seo/servicePagesContent.js";
 import { milanoLandingContent } from "../../lib/seo/milanoLandingContent.js";
+import { CITY_PAGES } from "../../lib/seo/cityPagesData.js";
+import { pricesPageContent } from "../../lib/seo/pricesPageContent.js";
+import { SERVED_CITIES } from "../../lib/seo/seoLandingRoutes.js";
+import { getDoorToDoorCampaignMinimum } from "../../lib/pricing/homepagePricing.js";
 
 // TICKET — SEO TECNICO + GOOGLE + AI SEARCH: title/description/canonical/OG/
 // Twitter/robots per pagina + JSON-LD (Organization/WebSite sempre,
@@ -24,6 +28,33 @@ const CONTENT_PAGES = { ...SERVICE_PAGE_CONTENT, "milano-landing": milanoLanding
 // Pagine interne "di contenuto" (non home, non private): ricevono un
 // BreadcrumbList Home > Pagina, coerente con FASE 5 del ticket.
 const BREADCRUMB_PAGES = new Set(["quick", "consultant", "preventivo", "privacy", "terms", "cookie", ...SERVICE_PAGE_IDS, "milano-landing"]);
+
+// Pagine prezzi e citta' (2026-10-25): Service con area servita e prezzo
+// minimo reale del motore (nessun LocalBusiness finche' non ci sono sede e
+// P.IVA reali), FAQPage dalle FAQ visibili, BreadcrumbList.
+const minimumOffer = (minPrice) => ({
+  "@type": "Offer",
+  priceCurrency: "EUR",
+  priceSpecification: { "@type": "PriceSpecification", minPrice, priceCurrency: "EUR", valueAddedTaxIncluded: false },
+});
+const cityPlace = (name) => ({ "@type": "City", name, containedInPlace: { "@type": "AdministrativeArea", name: "Lombardia" } });
+function seoLandingJsonLd(page, siteUrl) {
+  const provider = { "@type": "Organization", name: "VolantiniPro", url: siteUrl };
+  if (page === pricesPageContent.pageKey) {
+    return {
+      faqs: pricesPageContent.faqs,
+      service: { "@type": "Service", name: "Distribuzione volantini porta a porta", serviceType: "Distribuzione volantini", description: pricesPageContent.intro, provider,
+        areaServed: SERVED_CITIES.map((c) => cityPlace(c.name)), offers: minimumOffer(getDoorToDoorCampaignMinimum()) },
+    };
+  }
+  const city = CITY_PAGES[page];
+  if (!city) return null;
+  return {
+    faqs: city.faqs,
+    service: { "@type": "Service", name: city.h1, serviceType: "Distribuzione volantini", description: city.intro, provider,
+      areaServed: cityPlace(city.facts.name), offers: minimumOffer(city.facts.minimum) },
+  };
+}
 
 function setMeta(selector, attr, value) {
   let el = document.head.querySelector(selector);
@@ -156,13 +187,20 @@ export function SeoMeta({ page }) {
         description: servicePageContent.intro,
         provider: { "@type": "Organization", name: "VolantiniPro", url: siteUrl },
       });
+    } else if (seoLandingJsonLd(page, siteUrl)) {
+      const landing = seoLandingJsonLd(page, siteUrl);
+      setJsonLd("faqpage", {
+        "@type": "FAQPage",
+        mainEntity: landing.faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+      });
+      setJsonLd("services", landing.service);
     } else {
       setJsonLd("faqpage", null);
       setJsonLd("services", null);
     }
 
     // BreadcrumbList: solo pagine interne di contenuto, mai su home/private.
-    if (BREADCRUMB_PAGES.has(page)) {
+    if (BREADCRUMB_PAGES.has(page) || seoLandingJsonLd(page, siteUrl)) {
       setJsonLd("breadcrumb", {
         "@type": "BreadcrumbList",
         itemListElement: [
