@@ -209,3 +209,4 @@ tests/analysis_request_skip_omi.test.mjs
 tests/chat_outbox_dispatch_30s.test.mjs
 tests/chat_outbox_delivery_check.test.mjs
 tests/admin_test_data_separation.test.mjs
+tests/revoke_test_driver_access.test.mjs
