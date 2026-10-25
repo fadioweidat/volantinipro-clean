@@ -49,7 +49,8 @@ function BriefcaseIcon() {
 // Prices come from the live engine (homepagePricing.js), never typed here.
 function startingPriceNote(service) {
   const price = getStartingPricePerThousand(service);
-  return price === null ? "Su progetto" : `da ${formatQuoteCurrency(price, 0)} ogni 1.000 volantini`;
+  // The lowest grid rate is reached only at high volumes (50.000 in Milano): say so.
+  return price === null ? "Su progetto" : `da ${formatQuoteCurrency(price, 0)} ogni 1.000 per grandi quantità`;
 }
 
 // it-IT leaves 4-digit numbers ungrouped ("5000"); the homepage always shows "5.000".

@@ -72,7 +72,9 @@ export const milanoLandingContent = {
       paragraphs: [
         "Il prezzo non è fisso: dipende da zona, quantità, servizio scelto, tempistiche ed eventuali servizi aggiuntivi come stampa e grafica.",
         "Il preventivo viene calcolato online sulla tua campagna, con lo stesso motore di calcolo del configuratore usato per tutte le campagne VolantiniPro.",
+        "La tabella mostra i prezzi di quel motore per la sola distribuzione Door to Door a Milano, IVA esclusa.",
       ],
+      cityPrices: true,
       priceCta: "Calcola il prezzo sulla tua zona",
     },
     {

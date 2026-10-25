@@ -9,6 +9,8 @@ import QuickQuotePage from '../src/pages/public/QuickQuotePage.jsx';
 import ConsultantPage from '../src/pages/public/ConsultantPage.jsx';
 import { LegalPage } from '../src/pages/public/LegalPage.jsx';
 import Footer from '../src/components/home/Footer.jsx';
+import { PricesPage, CityLandingPage } from '../src/pages/public/SeoLandingPages.jsx';
+import { CITY_PAGE_KEYS } from '../src/lib/seo/seoLandingRoutes.js';
 
 const noop = () => {};
 const pages = {
@@ -23,6 +25,8 @@ const pages = {
   privacy: () => <LegalPage type="privacy" onNav={noop} />,
   terms: () => <LegalPage type="terms" onNav={noop} />,
   cookie: () => <LegalPage type="cookie" onNav={noop} />,
+  prices: () => <PricesPage onNav={noop} />,
+  ...Object.fromEntries(CITY_PAGE_KEYS.map((key) => [key, () => <CityLandingPage pageKey={key} onNav={noop} />])),
 };
 
 export function renderMarketingPage(page) {

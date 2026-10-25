@@ -1,4 +1,17 @@
+import { CITY_SLUGS, PRICES_PATH, PRICES_PAGE_KEY, cityPageKey, cityPath } from './seoLandingRoutes.js';
+import { cityFacts, formatEuro, formatInt } from './cityPagesData.js';
+import { getDoorToDoorCampaignMinimum, getStartingPricePerThousand } from '../pricing/homepagePricing.js';
+
 export const SITE_URL = 'https://www.volantinipro.it';
+
+// Pagine citta': numeri ISTAT e prezzo dal motore, mai scritti a mano.
+const cityMeta = (slug) => {
+  const f = cityFacts(slug);
+  return [
+    `Distribuzione volantini a ${f.name} | VolantiniPro`,
+    `Volantinaggio a ${f.name}: ${formatInt(f.households)} famiglie ISTAT, quantità consigliata e prezzi reali (10.000 volantini ${formatEuro(f.price10000)}, IVA esclusa). GPS e foto di prova.`,
+  ];
+};
 export const metaByPage = {
   home: [
     "Volantinaggio e distribuzione volantini | VolantiniPro",
@@ -34,13 +47,19 @@ export const metaByPage = {
     "Distribuzione Volantini Business | VolantiniPro",
     "Distribuzione volantini mirata ad aziende, negozi e uffici, con coordinamento multi-sede, tracking GPS e report finale.",
   ],
+  [PRICES_PAGE_KEY]: [
+    "Prezzi distribuzione volantini: tabella per zona | VolantiniPro",
+    `Quanto costa distribuire volantini: porta a porta da ${formatEuro(getStartingPricePerThousand('d2d'))} ogni 1.000 per grandi quantità, minimo da ${formatEuro(getDoorToDoorCampaignMinimum())} a campagna. Prezzi per 5.000 e 10.000, IVA esclusa.`,
+  ],
+  ...Object.fromEntries(CITY_SLUGS.map((slug) => [cityPageKey(slug), cityMeta(slug)])),
   "milano-landing": [
     "Volantinaggio Milano e distribuzione volantini | VolantiniPro",
     "Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online.",
   ],
 };
 export const SEO_ROUTES = [
- ['/', 'home'], ['/servizi/door-to-door','service-door-to-door'], ['/servizi/hand-to-hand','service-hand-to-hand'], ['/servizi/business','service-business'], ['/distribuzione-volantini-milano','milano-landing'], ['/preventivo','preventivo'], ['/preventivo-rapido','quick'], ['/consulente','consultant'], ['/privacy','privacy'], ['/termini','terms'], ['/cookie-policy','cookie']
+ ['/', 'home'], ['/servizi/door-to-door','service-door-to-door'], ['/servizi/hand-to-hand','service-hand-to-hand'], ['/servizi/business','service-business'], ['/distribuzione-volantini-milano','milano-landing'], ['/preventivo','preventivo'], ['/preventivo-rapido','quick'], ['/consulente','consultant'], ['/privacy','privacy'], ['/termini','terms'], ['/cookie-policy','cookie'],
+ [PRICES_PATH, PRICES_PAGE_KEY], ...CITY_SLUGS.map((slug) => [cityPath(slug), cityPageKey(slug)])
 ];
 export function getRouteMetadata(path) {
  const normalized = path === '/' ? '/' : path.replace(/\/+$/, '');

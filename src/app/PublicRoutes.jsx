@@ -3,6 +3,7 @@ import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx
 import Footer from "../components/home/Footer.jsx";
 import { preloadablePage } from "../bootstrap/preloadablePage.jsx";
 import InlineHelpCta from "../components/common/InlineHelpCta.jsx";
+import { CITY_PAGE_KEYS, PRICES_PAGE_KEY } from "../lib/seo/seoLandingRoutes.js";
 import QuoteAssistantPanel from "../components/ai/quote/QuoteAssistantPanel.jsx";
 import { buildQuoteAssistantBaseContext, quickQuestionsForPage } from "../ai/context/buildQuoteAssistantContext.js";
 
@@ -29,13 +30,16 @@ const ServiceDoorToDoorPage = preloadablePage(() => import("../pages/public/Serv
 const ServiceHandToHandPage = preloadablePage(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceHandToHandPage })));
 const ServiceBusinessPage = preloadablePage(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceBusinessPage })));
 const MilanoLandingPage = preloadablePage(() => import("../pages/public/MilanoLandingPage.jsx").then(m => ({ default: m.MilanoLandingPage })));
+const PricesPage = preloadablePage(() => import("../pages/public/SeoLandingPages.jsx").then(m => ({ default: m.PricesPage })));
+const CityLandingPage = preloadablePage(() => import("../pages/public/SeoLandingPages.jsx").then(m => ({ default: m.CityLandingPage })));
 const SupplierLandingPage = lazy(() => import("../pages/public/SupplierLandingPage.jsx").then(m => ({ default: m.SupplierLandingPage })));
 
 export function preloadMarketingPage(page) {
   const pages = { home: HomePage, privacy: LegalPage, terms: LegalPage, cookie: LegalPage,
     quick: QuickQuotePage, consultant: ConsultantPage, preventivo: ServiceCenter,
     'service-door-to-door': ServiceDoorToDoorPage, 'service-hand-to-hand': ServiceHandToHandPage,
-    'service-business': ServiceBusinessPage, 'milano-landing': MilanoLandingPage };
+    'service-business': ServiceBusinessPage, 'milano-landing': MilanoLandingPage,
+    [PRICES_PAGE_KEY]: PricesPage, ...Object.fromEntries(CITY_PAGE_KEYS.map((key) => [key, CityLandingPage])) };
   if (!Object.hasOwn(pages, page)) throw new Error('Unknown prerendered page');
   return pages[page].preload();
 }
@@ -79,6 +83,8 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     if (page === "service-hand-to-hand") return <ServiceHandToHandPage onNav={goTo} />;
     if (page === "service-business") return <ServiceBusinessPage onNav={goTo} />;
     if (page === "milano-landing") return <MilanoLandingPage onNav={goTo} />;
+    if (page === PRICES_PAGE_KEY) return <PricesPage onNav={goTo} />;
+    if (CITY_PAGE_KEYS.includes(page)) return <CityLandingPage pageKey={page} onNav={goTo} />;
     if (page === "supplier-landing") return <SupplierLandingPage onNav={goTo} />;
 
     if (page === "step1") return <Step1 data={data} setData={setData} onNext={() => goTo("step2")} />;

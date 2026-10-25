@@ -214,3 +214,4 @@ tests/group_join_closed_campaign.test.mjs
 tests/closed_campaign_field_work.test.mjs
 tests/monitor_radius_traccar_idle.test.mjs
 tests/seo_business_identity.test.mjs
+tests/seo_prices_city_pages.test.mjs

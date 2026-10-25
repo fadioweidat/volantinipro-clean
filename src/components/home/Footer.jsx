@@ -6,6 +6,7 @@ const C_ORANGE = "#E8571A";
 const GRAD = "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)";
 
 import { Logo } from "../common/Logo.jsx";
+import { PRICES_PATH, SERVED_CITIES } from "../../lib/seo/seoLandingRoutes.js";
 
 function SocialIcon({ type }) {
   const common = { stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
@@ -34,7 +35,7 @@ function SocialIcon({ type }) {
   );
 }
 
-const publicHrefs = {how:'/#come-funziona', prezzi:'/#prezzi', step1:'/configuratore', 'smart-pairing':'/#smart-pairing', 'milano-landing':'/distribuzione-volantini-milano', consultant:'/consulente', 'lavora-con-noi':'/lavora-con-noi', 'login?context=supplier':'/login?context=supplier', privacy:'/privacy', terms:'/termini', cookie:'/cookie-policy'};
+const publicHrefs = {how:'/#come-funziona', prezzi:'/#prezzi', step1:'/configuratore', 'smart-pairing':'/#smart-pairing', 'milano-landing':'/distribuzione-volantini-milano', consultant:'/consulente', 'lavora-con-noi':'/lavora-con-noi', 'login?context=supplier':'/login?context=supplier', privacy:'/privacy', terms:'/termini', cookie:'/cookie-policy', prices: PRICES_PATH, ...Object.fromEntries(SERVED_CITIES.map((c) => [c.pageKey, c.href]))};
 const columns = [
   {
     title: "Prodotto",
@@ -44,8 +45,13 @@ const columns = [
       ["Configura la tua campagna", "step1"],
       ["Smart Pairing", "smart-pairing"],
       ["Distribuzione volantini a Milano", "milano-landing"],
+      ["Prezzi distribuzione volantini", "prices"],
       ["API & integrazioni", "consultant"],
     ],
+  },
+  {
+    title: "Zone servite",
+    links: SERVED_CITIES.map((c) => [c.name, c.pageKey]),
   },
   {
     title: "Azienda",
