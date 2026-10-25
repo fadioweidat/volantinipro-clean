@@ -10,6 +10,7 @@ const out=new URL('./.admin-gps-history-ui.mjs',import.meta.url);
 await writeFile(out,(await transform(`import React from 'react';
 import { EXCLUSION_LABELS,calculateFilteredDistanceKm,summarizeGpsQuality } from '../src/lib/gps/pointQuality.js';
 import { zoneStatusLabel } from '../src/lib/services/admin-gps-history-core.js';
+import { TRACCAR_IDLE_LABEL,TRACCAR_IDLE_LIFECYCLE } from '../src/lib/gps/traccarIdle.js';
 const displayDriverName=s=>s.driver_name || 'Operatore '+s.driver_id.slice(0,6);
 const displayDeviceId=s=>s.device_id || 'n/d';
 const ZONE_LIVE_STATUS_LABELS={awaiting_gps:'In attesa GPS'};

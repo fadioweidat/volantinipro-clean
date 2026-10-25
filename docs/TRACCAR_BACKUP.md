@@ -217,7 +217,9 @@ rinnovare la finestra. Non sostituisce la chiusura della sessione dal pannello.
 2. Tieni il servizio fermo mentre configuri. In **Identificatore dispositivo /
    Device identifier** scrivi esattamente `RAGAZZO01` (o l'ID assegnato a te).
 3. In **Server URL** incolla l'URL privato completo ricevuto dall'amministratore,
-   compreso `?key=...`. Non basta incollare `www.volantinipro.it`.
+   compreso `?key=...`. Non basta incollare `www.volantinipro.it`. L'app arriva
+   preconfigurata con il **server demo pubblico di Traccar**: sostituiscilo
+   **prima** di attivare il servizio, altrimenti la posizione va a quel server.
 4. Consenti la posizione precisa e l'accesso in background/“Consenti sempre”,
    quando proposto dal sistema. Nelle impostazioni batteria del telefono
    consenti l'uso senza restrizioni per Traccar Client. Su Samsung rimuovi
@@ -253,6 +255,40 @@ rinnovare la finestra. Non sostituisce la chiusura della sessione dal pannello.
 
 Le autorizzazioni e i limiti del sistema operativo restano determinanti: non
 promettiamo tracciamento continuo garantito o un invio esatto ogni 30 secondi.
+
+## Collaudo del 25/10/2026 su www: cosa abbiamo imparato
+
+Esito: 1 sessione, 6 punti validi, qualità buona, visibili nel Monitor GPS
+(campagna di prova «Collaudo Traccar Android», device `fadi01`, Android,
+frequenza 10 secondi).
+
+- **Ricevitore su www.** Funziona solo con `TRACCAR_BACKUP_ENABLED=true` nelle
+  variabili Production del progetto Vercel `volantinipro` e un nuovo deploy. Senza,
+  `/api/gps/traccar` risponde 503. Prova sicura: una richiesta con chiave inventata
+  deve rispondere 200 e non salva nulla.
+- **Campagna di prova.** I punti sono accettati solo per campagne «in corso». Dall'admin
+  oggi non si può crearne una: la pagina «Nuova campagna» non è raggiungibile, e
+  «Assegna lavoro» obbliga a scegliere un fornitore se ne esistono. La crea la
+  sessione database con uno script (campagna `is_test`, «in corso», assegnazione
+  all'operatore per 8 ore). A fine collaudo: Ordini → «Mostra dati di prova» → Azioni
+  Admin → Annulla → Archivia. L'annullamento chiude da solo un'eventuale sessione GPS
+  aperta, con fine all'ultimo punto.
+- **Ordine giusto sul telefono.** Prima l'identificativo nell'app, poi «Avvia Piano B
+  GPS» nel pannello (dal telefono stesso, così copi e incolli l'URL), poi l'URL nel
+  campo Server al posto di quello demo, solo alla fine «Stato servizio». La chiave
+  compare una sola volta: se la perdi, usa «Rigenera URL».
+- **Permessi Android.** Posizione «Consenti sempre» (con «Solo mentre usi l'app»
+  l'invio si ferma a schermo spento) e batteria «Senza restrizioni».
+- **Pausa da fermo.** Quando l'operatore resta fermo, Traccar Client entra in pausa
+  (registro dell'app: `StationaryEnter`) e non invia punti finché non si muove. Nel
+  Monitor GPS le sessioni Piano B aperte, e ancora entro la scadenza, senza punti recenti
+  appaiono **«Fermo o senza segnale»** invece di «Offline recente», e non sono contate
+  tra gli offline. Il pannello Piano B lo spiega. Il server oggi non sa distinguere
+  «fermo» da «senza rete»: vedi TODO.md (salvare `is_moving`).
+- **Zona a raggio.** Una zona con solo centro e raggio, senza poligono e senza un comune
+  nel nome (come «Zona collaudo»), mostrava «Zona non disponibile». Ora il Monitor la
+  disegna come cerchio e calcola dentro/fuori sul cerchio. Le zone con il confine del
+  comune non cambiano.
 
 ## Prova personale prima di darlo agli operatori
 

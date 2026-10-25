@@ -81,6 +81,17 @@ function circleContainsPoint(zone, lat, lng) {
   return distanceM <= zone.radiusKm * 1000;
 }
 
+// Zona a raggio nel formato del motore geofence (kind 'circle'): solo con
+// centro e raggio salvati e validi, altrimenti null.
+export function radiusZoneFromRow(zone) {
+  const centerLat = Number(zone?.center_lat);
+  const centerLng = Number(zone?.center_lng);
+  const radiusM = Number(zone?.radius_m);
+  if (zone?.center_lat == null || zone?.center_lng == null || !Number.isFinite(centerLat) || !Number.isFinite(centerLng)) return null;
+  if (!Number.isFinite(radiusM) || radiusM <= 0) return null;
+  return { kind: 'circle', id: zone.id, zoneName: zone.zone_name || null, centerLat, centerLng, radiusKm: radiusM / 1000 };
+}
+
 // true/false = dentro/fuori rispetto ad almeno una zona; null = nessuna zona
 // con geometria utilizzabile (fallback "zona non disponibile").
 export function isPointInAnyZone(zones, lat, lng) {

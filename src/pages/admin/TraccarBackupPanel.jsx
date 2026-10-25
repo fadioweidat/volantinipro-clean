@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { traccarAdminControl } from '../../lib/services/traccar-api.js';
 import { buildTraccarServerUrl, createTraccarCredentials } from '../../lib/traccar/backupUrl.js';
+import { TRACCAR_IDLE_LABEL } from '../../lib/gps/traccarIdle.js';
 import './traccar-backup.css';
 
 const formatTime = value => value ? new Date(value).toLocaleString('it-IT') : 'Non disponibile';
@@ -113,6 +114,7 @@ export default function TraccarBackupPanel({ control = traccarAdminControl, cred
               <button type="submit" disabled={busy || loading || !assignmentId || !deviceId}>Avvia Piano B GPS</button>
             </form>
             <p>La sessione termina di ricevere punti alla scadenza o quando la chiudi. Il limite dell’assegnazione può abbreviare la durata scelta.</p>
+            <p className="traccar-backup__hint">Pausa da fermo: quando l’operatore resta fermo Traccar Client va in pausa (nel registro dell’app «StationaryEnter») e non invia punti finché non si muove. Nel Monitor GPS la sessione appare «{TRACCAR_IDLE_LABEL}»: non è un guasto. Se dura a lungo mentre l’operatore cammina, controlla permesso «Consenti sempre», batteria «Senza restrizioni» e rete dati.</p>
             {preview && <label className="traccar-backup__secret">Bypass Vercel per il tuo collaudo
               <input type="password" value={bypass} onChange={e => setBypass(e.target.value)} autoComplete="off" spellCheck={false} />
               <span>Incolla qui il segreto di Protection Bypass for Automation. Non viene salvato. Consente accesso ai deployment del progetto: non distribuirlo agli operatori.</span>

@@ -46,6 +46,13 @@
   Proposte: eseguire il dispatch solo quando l'outbox ha righe (o a ogni 30-60 s), housekeeping 1 volta all'ora/giorno,
   pulizia periodica di cron.job_run_details (es. tenere 7 giorni). Verificare prima con chi ha sviluppato la chat se 10 s è un requisito.
 
+- Traccar (Piano B), "in pausa (fermo)" preciso: oggi il Monitor mostra "Fermo o senza segnale" per le sessioni Piano B aperte senza punti recenti,
+  perche' non sa se l'app e' ferma o senza rete. Proposta 2B (collaudo 2026-10-25, non approvata ora):
+  server/traccar/protocol.js conserva location.is_moving (e l'evento) dal JSON di Traccar Client, api/gps/traccar.js lo passa,
+  traccar_ingest_point riceve un parametro in piu' e lo salva in gps_tracking_points.source_metadata (migrazione: la applica la
+  sessione database con OK), poi il Monitor mostra "In pausa (fermo)" solo se l'ultimo punto e' recente e is_moving = false.
+  Prima verificare con un collaudo che Traccar Client invii davvero is_moving (oggi visto solo StationaryEnter nel registro dell'app).
+
 - Step 4, possibile doppione se il cliente riprova mentre la prima richiesta e' ancora in lavorazione (da valutare dopo).
   Oggi: dopo 60 s il sito smette di aspettare e invita a premere di nuovo "Conferma" (src/lib/campaignSaveTimeout.js).
   submit-campaign-request riconosce la stessa richiesta (impronta: email, comune, quantita', importo, zone) solo se la prima

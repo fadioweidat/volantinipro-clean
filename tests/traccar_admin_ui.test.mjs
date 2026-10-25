@@ -9,6 +9,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const source = (await readFile(new URL('../src/pages/admin/TraccarBackupPanel.jsx', import.meta.url), 'utf8'))
   .replace(/import \{ traccarAdminControl \} from [^;]+;/, 'const traccarAdminControl = () => { throw new Error("inject control"); };')
   .replace("'../../lib/traccar/backupUrl.js'", "'../src/lib/traccar/backupUrl.js'")
+  .replace("'../../lib/gps/traccarIdle.js'", "'../src/lib/gps/traccarIdle.js'")
   .replace("import './traccar-backup.css';", '');
 const output = new URL('./.traccar-panel-test.mjs', import.meta.url);
 await writeFile(output, (await transform(source, { loader: 'jsx', format: 'esm' })).code);

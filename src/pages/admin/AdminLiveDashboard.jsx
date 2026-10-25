@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Polyline, Polygon, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
+import { Circle, CircleMarker, MapContainer, Polyline, Polygon, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   classifySessionLifecycle,
@@ -15,6 +15,8 @@ import { dedupeSessionsByOperator, filterOperationalRows, resolveDateRange } fro
 import { EXCLUSION_LABELS, filterValidGpsPoints, calculateFilteredDistanceKm, summarizeGpsQuality } from '../../lib/gps/pointQuality.js';
 import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
+import { traccarAdminControl } from '../../lib/services/traccar-api.js';
+import { openTraccarSessionIds, traccarAwareLifecycle, TRACCAR_IDLE_EXPLANATION, TRACCAR_IDLE_LABEL, TRACCAR_IDLE_LIFECYCLE } from '../../lib/gps/traccarIdle.js';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { AdminLayout } from './AdminLayout.jsx';
@@ -34,6 +36,7 @@ const LIFECYCLE_LABELS = {
   warning: 'Warning',
   offline_recent: 'Offline recente',
   history: 'Storico terminato',
+  [TRACCAR_IDLE_LIFECYCLE]: TRACCAR_IDLE_LABEL,
 };
 
 export function AdminLiveDashboard({ onNav }) {
@@ -42,6 +45,9 @@ export function AdminLiveDashboard({ onNav }) {
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [trace, setTrace] = useState({ sessionId: null, loading: false, error: null, points: [] });
   const [retry, setRetry] = useState(0);
+  // Sessioni Piano B (Traccar) aperte: lettura admin gia' esistente del pannello
+  // Piano B. Se non risponde il Monitor resta com'era (nessuna sessione Traccar).
+  const [traccarIds, setTraccarIds] = useState(() => new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +61,9 @@ export function AdminLiveDashboard({ onNav }) {
         const range = resolveDateRange(filters.period, filters.fromDate, filters.toDate);
         const drivers = await adminGpsHistory.summaries({ ...range, status: filters.status, signal: controller.signal });
         if (!cancelled) setState({ loading: false, error: null, drivers });
+        traccarAdminControl('list')
+          .then((result) => { if (!cancelled) setTraccarIds(openTraccarSessionIds(result.sessions)); })
+          .catch(() => {});
       } catch (err) {
         if (!cancelled) setState(prev => ({ ...prev, loading: false, error: err?.message || 'Errore caricamento live GPS.' }));
       } finally { inFlight = false; }
@@ -71,12 +80,15 @@ export function AdminLiveDashboard({ onNav }) {
   const campaigns = useMemo(() => Array.from(new Map(state.drivers.map(item => [item.session.campaign_id, { id: item.session.campaign_id, name: item.campaignName }])).values()), [state.drivers]);
 
   const withLifecycle = useMemo(
-    () => filterOperationalRows(state.drivers, filters).map((item) => ({
-      ...item,
-      status: classifyDriverStatus(item.activityAt),
-      lifecycle: classifySessionLifecycle(item.session, item.activityAt),
-    })),
-    [state.drivers, filters],
+    () => filterOperationalRows(state.drivers, filters).map((item) => {
+      const lifecycle = traccarAwareLifecycle(classifySessionLifecycle(item.session, item.activityAt), item.session.id, traccarIds);
+      return {
+        ...item,
+        status: lifecycle === TRACCAR_IDLE_LIFECYCLE ? 'fermo' : classifyDriverStatus(item.activityAt),
+        lifecycle,
+      };
+    }),
+    [state.drivers, filters, traccarIds],
   );
 
   const currentRows = useMemo(() => dedupeSessionsByOperator(withLifecycle.filter((item) => item.lifecycle !== 'history')), [withLifecycle]);
@@ -85,6 +97,7 @@ export function AdminLiveDashboard({ onNav }) {
   const liveCount = currentRows.filter((item) => item.lifecycle === 'live').length;
   const warningCount = currentRows.filter((item) => item.lifecycle === 'warning').length;
   const offlineRecentCount = currentRows.filter((item) => item.lifecycle === 'offline_recent').length;
+  const traccarIdleCount = currentRows.filter((item) => item.lifecycle === TRACCAR_IDLE_LIFECYCLE).length;
 
   // La lista e la mappa rispettano anche il filtro storico: i KPI live/offline
   // restano calcolati su currentRows, ma una sessione completata oggi non deve
@@ -119,11 +132,16 @@ export function AdminLiveDashboard({ onNav }) {
   // Confine reale + stato dentro/fuori/vicino-confine per il driver
   // selezionato: stesso hook/funzioni condivise con GpsMonitor.jsx,
   // CampaignTracking.jsx e la Driver App — nessuna logica geografica nuova.
-  const { zoneRows, resolvedBoundaries } = useZoneBoundaries(selectedCampaignId);
+  const { zoneRows, resolvedBoundaries, radiusZones } = useZoneBoundaries(selectedCampaignId);
   const zoneProgress = useZoneProgress({ campaignId: selectedCampaignId, includeHistory: true });
   const liveZones = useMemo(
-    () => Object.values(resolvedBoundaries).filter(Boolean).map((geometry) => ({ kind: 'polygon', geometry })),
-    [resolvedBoundaries],
+    // Confini reali (poligoni) + zone a raggio senza confine: stesso motore
+    // geofence, che gestisce gia' kind 'circle' per dentro/fuori e distanza.
+    () => [
+      ...Object.values(resolvedBoundaries).filter(Boolean).map((geometry) => ({ kind: 'polygon', geometry })),
+      ...radiusZones,
+    ],
+    [resolvedBoundaries, radiusZones],
   );
   const mapZones = useMemo(() => (zoneProgress.zones || []).map((zone) => ({
     ...zone,
@@ -160,11 +178,12 @@ export function AdminLiveDashboard({ onNav }) {
       mapRef.current.setView([Number(selectedItem.latest.lat), Number(selectedItem.latest.lng)], Math.max(mapRef.current.getZoom(), 16));
     }
   };
+  const hasArea = liveZones.length > 0;
   const handleReturnToArea = () => {
-    const geometry = liveZones[0]?.geometry;
-    if (!geometry || !mapRef.current) return;
+    const zone = liveZones[0];
+    if (!zone || !mapRef.current) return;
     try {
-      const bounds = L.geoJSON(geometry).getBounds();
+      const bounds = zoneBounds(zone);
       if (bounds.isValid()) mapRef.current.fitBounds(bounds, { padding: [24, 24] });
     } catch {
       // geometria non valida per Leaflet: nessuna azione, nessun crash.
@@ -184,6 +203,7 @@ export function AdminLiveDashboard({ onNav }) {
       {!state.error && !state.loading && <Notice text={`${withLifecycle.length} sessioni · ${withLifecycle.reduce((n, item) => n + item.pointCount, 0)} punti GPS nel database`} />}
       {!state.error && state.drivers.some((item) => item.legacySummary) && <Notice text="Riepilogo dalla lettura precedente: il nuovo riepilogo GPS non è ancora installato. I conteggi possono essere incompleti oltre 1.000 punti." />}
       {offlineRecentCount > 0 && <Notice danger text={`${offlineRecentCount} driver offline o senza ping recente.`} />}
+      {traccarIdleCount > 0 && <Notice text={`${traccarIdleCount} ${traccarIdleCount === 1 ? 'sessione Traccar' : 'sessioni Traccar'}: ${TRACCAR_IDLE_LABEL.toLowerCase()}. ${TRACCAR_IDLE_EXPLANATION}`} />}
 
       <AdminLiveKpiPanel
         currentRows={currentRows}
@@ -223,14 +243,14 @@ export function AdminLiveDashboard({ onNav }) {
             </div>
           )}
           {withLifecycle.some((item) => item.latest) ? (
-            <LiveMap drivers={mapRows} selectedSessionId={selectedSessionId} zones={mapZones} mapRef={mapRef} />
+            <LiveMap drivers={mapRows} selectedSessionId={selectedSessionId} zones={mapZones} circles={radiusZones} mapRef={mapRef} />
           ) : (
             <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
           )}
           {selectedItem && (
             <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
               <button onClick={handleGoToOperatorPosition} disabled={!selectedItem.latest} style={mapActionButtonStyle(!selectedItem.latest)}>📍 Posizione operatore</button>
-              <button onClick={handleReturnToArea} disabled={!liveZones[0]?.geometry} style={mapActionButtonStyle(!liveZones[0]?.geometry)}>⟲ Torna all'area</button>
+              <button onClick={handleReturnToArea} disabled={!hasArea} style={mapActionButtonStyle(!hasArea)}>⟲ Torna all'area</button>
             </div>
           )}
           <SessionQualityPanel item={selectedItem} />
@@ -257,7 +277,7 @@ export function AdminLiveDashboard({ onNav }) {
           <div style={operationalGridStyle}>
             <div style={operationalCardStyle}>
               <p style={operationalCardTitleStyle}>Stato operatore</p>
-              <MiniRow label="Connessione" value={selectedItem.lifecycle === 'live' ? 'Online' : 'Offline'} />
+              <MiniRow label="Connessione" value={selectedItem.lifecycle === 'live' ? 'Online' : selectedItem.lifecycle === TRACCAR_IDLE_LIFECYCLE ? TRACCAR_IDLE_LABEL : 'Offline'} />
               <MiniRow label="GPS" value={selectedItem.session.status === 'started' ? 'Attivo' : selectedItem.session.status === 'paused' ? 'In pausa' : 'Sessione conclusa'} />
               <MiniRow label="Area" value={zoneStatusLabel(liveZoneStatus, ZONE_LIVE_STATUS_LABELS)} />
               {outsideDistanceKm != null && <MiniRow label="Distanza dalla zona" value={`${outsideDistanceKm.toFixed(1)} km`} />}
@@ -349,18 +369,24 @@ function mapActionButtonStyle(disabled) {
   };
 }
 
+// Bounds Leaflet di una zona del motore geofence: poligono o cerchio.
+function zoneBounds(zone) {
+  if (zone.kind === 'circle') return L.latLng(zone.centerLat, zone.centerLng).toBounds(zone.radiusKm * 2000);
+  return L.geoJSON(zone.geometry).getBounds();
+}
+
 // Stesso pattern di Admin/GpsMonitor.jsx e Driver/DriverWorkMapPage.jsx.
-function FitToZoneBounds({ geometry }) {
+function FitToZoneBounds({ geometry, circle }) {
   const map = useMap();
   useEffect(() => {
-    if (!geometry) return;
+    if (!geometry && !circle) return;
     try {
-      const bounds = L.geoJSON(geometry).getBounds();
+      const bounds = geometry ? L.geoJSON(geometry).getBounds() : zoneBounds(circle);
       if (bounds.isValid()) map.fitBounds(bounds, { padding: [24, 24] });
     } catch {
       // geometria non valida per Leaflet: la mappa resta dov'e', nessun crash.
     }
-  }, [geometry, map]);
+  }, [geometry, circle, map]);
   return null;
 }
 
@@ -378,7 +404,7 @@ function FitBoundsToTrack({ positions }) {
   return null;
 }
 
-function LiveMap({ drivers, selectedSessionId, zones = [], mapRef }) {
+function LiveMap({ drivers, selectedSessionId, zones = [], circles = [], mapRef }) {
   const first = drivers.find((item) => item.latest)?.latest;
   const zoneWithGeometry = useMemo(() => zones.find((zone) => zone.geometry), [zones]);
   const center = useMemo(() => {
@@ -389,8 +415,9 @@ function LiveMap({ drivers, selectedSessionId, zones = [], mapRef }) {
         : zoneWithGeometry.geometry.coordinates?.[0]?.[0];
       if (coord) return [coord[1], coord[0]];
     }
+    if (circles[0]) return [circles[0].centerLat, circles[0].centerLng];
     return [45.4642, 9.19]; // Milano default — solo fallback residuo
-  }, [first, zoneWithGeometry]);
+  }, [first, zoneWithGeometry, circles]);
 
   const selected = drivers.find((item) => item.session.id === selectedSessionId) || null;
   const { valid: selectedValidPoints } = useMemo(
@@ -407,6 +434,12 @@ function LiveMap({ drivers, selectedSessionId, zones = [], mapRef }) {
       <MapContainer ref={mapRef} center={center} zoom={12} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {trackPositions.length < 2 && zoneWithGeometry && <FitToZoneBounds geometry={zoneWithGeometry.geometry} />}
+        {trackPositions.length < 2 && !zoneWithGeometry && circles[0] && <FitToZoneBounds circle={circles[0]} />}
+        {circles.map((zone) => (
+          <Circle key={zone.id} center={[zone.centerLat, zone.centerLng]} radius={zone.radiusKm * 1000} pathOptions={{ color: '#e8571a', weight: 2, fillColor: '#e8571a', fillOpacity: 0.08 }}>
+            <Popup><strong>{zone.zoneName || 'Zona'}</strong><br />Raggio {Math.round(zone.radiusKm * 1000)} m</Popup>
+          </Circle>
+        ))}
         {zones.map((zone) => {
           if (!zone.geometry || !zone.geometry.coordinates) return null;
           let coords = [];
@@ -558,6 +591,7 @@ function EmptyState({ text }) {
 function statusColor(status) {
   if (status === 'online') return '#2ecc8a';
   if (status === 'warning') return '#fbbf24';
+  if (status === 'fermo') return '#94a3b8';
   return '#ef4444';
 }
 
