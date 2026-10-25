@@ -191,6 +191,7 @@ export function useDriverAssignment(assignmentId) {
         if (!rpcResult || rpcResult.error === 'not_found') {
           throw new Error('Assegnazione non trovata. Verifica il link ricevuto o contatta il tuo amministratore.');
         }
+        if (rpcResult.error === 'campaign_closed') throw campaignClosedError(rpcResult.campaign_status);
         data = rpcResult;
         zones = Array.isArray(rpcResult.zones) ? rpcResult.zones : [];
 
@@ -226,7 +227,8 @@ export function useDriverAssignment(assignmentId) {
           const friendlyMessage = timeout
             ? 'Connessione lenta. Il programma resta disponibile; riprova tra poco.'
             : mapDriverAssignmentLoadError(err);
-          if (backgroundRefresh && hydratedRef.current) {
+          // Campagna chiusa: blocca la pagina anche durante un aggiornamento in background.
+          if (backgroundRefresh && hydratedRef.current && !err?.campaignClosed) {
             setProgramDetailsError(friendlyMessage);
           } else {
             setAssignmentError(friendlyMessage);
@@ -435,7 +437,21 @@ export function useDriverAssignment(assignmentId) {
 import { isTransientSchemaOrNetworkError, USER_FRIENDLY_TRANSIENT_ERROR } from '../lib/services/transientErrors.js';
 export { isTransientSchemaOrNetworkError };
 
+// Campagna archiviata/annullata/completata: nessun altro lavoro (GPS, punti, foto).
+const CAMPAIGN_CLOSED_MESSAGES = {
+  archived: 'Campagna archiviata: non ci sono altri lavori da svolgere.',
+  cancelled: 'Campagna annullata: non ci sono altri lavori da svolgere.',
+  completed: 'Campagna completata: non ci sono altri lavori da svolgere.',
+};
+
+export function campaignClosedError(campaignStatus) {
+  const err = new Error(CAMPAIGN_CLOSED_MESSAGES[campaignStatus] || CAMPAIGN_CLOSED_MESSAGES.completed);
+  err.campaignClosed = true;
+  return err;
+}
+
 export function mapDriverAssignmentLoadError(err) {
+  if (err?.campaignClosed) return err.message;
   if (isTransientSchemaOrNetworkError(err)) {
     return USER_FRIENDLY_TRANSIENT_ERROR;
   }
@@ -480,6 +496,9 @@ export function mapDriverActionError(err) {
     return USER_FRIENDLY_TRANSIENT_ERROR;
   }
   const msg = String(err?.message || err || '');
+  if (/CAMPAGNA_ARCHIVIATA/.test(msg)) return CAMPAIGN_CLOSED_MESSAGES.archived;
+  if (/CAMPAGNA_ANNULLATA/.test(msg)) return CAMPAIGN_CLOSED_MESSAGES.cancelled;
+  if (/CAMPAGNA_COMPLETATA/.test(msg)) return CAMPAIGN_CLOSED_MESSAGES.completed;
   if (/permission denied|PERMISSION_DENIED|unauthorized|ASSEGNAZIONE_NON_AUTORIZZATA|OPERATORE_NON_AUTENTICATO/i.test(msg)) {
     return 'Non sei autorizzato ad avviare questa sessione. Verifica il link o contatta l\'amministratore.';
   }

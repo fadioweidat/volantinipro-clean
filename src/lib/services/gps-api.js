@@ -104,7 +104,11 @@ function mapRpcError(error) {
     // da quello che ha avviato la sessione.
     normalized.includes('PAUSED_SESSION') ||
     normalized.includes('SESSION_COMPLETED') ||
-    normalized.includes('DEVICE_MISMATCH')
+    normalized.includes('DEVICE_MISMATCH') ||
+    // Campagna archiviata/annullata/completata: il server non accettera' mai piu' il dato.
+    normalized.includes('CAMPAGNA_ARCHIVIATA') ||
+    normalized.includes('CAMPAGNA_ANNULLATA') ||
+    normalized.includes('CAMPAGNA_COMPLETATA')
   ) {
     mapped.permanent = true;
   }
