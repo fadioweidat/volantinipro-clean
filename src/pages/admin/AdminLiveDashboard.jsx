@@ -4,12 +4,14 @@ import { CircleMarker, MapContainer, Polyline, Polygon, Popup, TileLayer, Toolti
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   classifySessionLifecycle,
+  classifyDriverStatus,
   displayDeviceId,
   displayDriverName,
   calculateGpsCoverage,
 } from '../../lib/services/gps-api.js';
-import { getLiveDrivers } from '../../lib/services/admin-api.js';
-import { dedupeSessionsByOperator, filterOperationalRows } from '../../lib/services/report-utils.js';
+import { adminGpsHistory } from '../../lib/services/admin-gps-history.js';
+import { sessionZoneStatus, zoneStatusLabel } from '../../lib/services/admin-gps-history-core.js';
+import { dedupeSessionsByOperator, filterOperationalRows, resolveDateRange } from '../../lib/services/report-utils.js';
 import { EXCLUSION_LABELS, filterValidGpsPoints, calculateFilteredDistanceKm, summarizeGpsQuality } from '../../lib/gps/pointQuality.js';
 import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
@@ -38,30 +40,40 @@ export function AdminLiveDashboard({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, drivers: [] });
   const [filters, setFilters] = useState({ period: 'today', fromDate: '', toDate: '', campaign: 'all', group: '', status: 'all_history', driver: '' });
   const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [trace, setTrace] = useState({ sessionId: null, loading: false, error: null, points: [] });
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    setState(prev => ({ ...prev, loading: true, error: null }));
+    let inFlight = false;
     async function load() {
+      if (inFlight) return;
+      inFlight = true;
       try {
-        const drivers = await getLiveDrivers();
+        const range = resolveDateRange(filters.period, filters.fromDate, filters.toDate);
+        const drivers = await adminGpsHistory.summaries({ ...range, status: filters.status, signal: controller.signal });
         if (!cancelled) setState({ loading: false, error: null, drivers });
       } catch (err) {
-        if (!cancelled) setState({ loading: false, error: err?.message || 'Errore caricamento live GPS.', drivers: [] });
-      }
+        if (!cancelled) setState(prev => ({ ...prev, loading: false, error: err?.message || 'Errore caricamento live GPS.' }));
+      } finally { inFlight = false; }
     }
     load();
     const timer = window.setInterval(load, 15000);
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearInterval(timer);
     };
-  }, []);
+  }, [filters.period, filters.fromDate, filters.toDate, filters.status, retry]);
 
-  const campaigns = useMemo(() => Array.from(new Set(state.drivers.map((item) => item.session.campaign_id).filter(Boolean))), [state.drivers]);
+  const campaigns = useMemo(() => Array.from(new Map(state.drivers.map(item => [item.session.campaign_id, { id: item.session.campaign_id, name: item.campaignName }])).values()), [state.drivers]);
 
   const withLifecycle = useMemo(
     () => filterOperationalRows(state.drivers, filters).map((item) => ({
       ...item,
+      status: classifyDriverStatus(item.activityAt),
       lifecycle: classifySessionLifecycle(item.session, item.activityAt),
     })),
     [state.drivers, filters],
@@ -79,11 +91,28 @@ export function AdminLiveDashboard({ onNav }) {
   // sparire proprio quando il filtro dichiara di includere lo storico.
   useEffect(() => {
     if (selectedSessionId && withLifecycle.some((item) => item.session.id === selectedSessionId)) return;
-    const withPoints = withLifecycle.find((item) => item.points?.length > 0) || withLifecycle[0] || null;
+    const withPoints = withLifecycle.find((item) => item.pointCount > 0) || withLifecycle[0] || null;
     setSelectedSessionId(withPoints?.session.id || null);
   }, [withLifecycle, selectedSessionId]);
 
-  const selectedItem = withLifecycle.find((item) => item.session.id === selectedSessionId) || null;
+  const selectedSummary = withLifecycle.find((item) => item.session.id === selectedSessionId) || null;
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!selectedSummary) { setTrace({ sessionId: null, loading: false, error: null, points: [] }); return undefined; }
+    const id = selectedSummary.session.id;
+    setTrace({ sessionId: id, loading: true, error: null, points: [] });
+    adminGpsHistory.trace(id, { expectedCount: selectedSummary.pointCount,
+      lastPointAt: selectedSummary.last_point_at, signal: controller.signal })
+      .then(points => { if (!controller.signal.aborted) setTrace({ sessionId: id, loading: false, error: null, points }); })
+      .catch(error => { if (!controller.signal.aborted) setTrace({ sessionId: id, loading: false, error: error.message, points: [] }); });
+    return () => controller.abort();
+  }, [selectedSessionId, selectedSummary?.pointCount, selectedSummary?.last_point_at, retry]);
+  const selectedItem = selectedSummary ? { ...selectedSummary,
+    points: trace.sessionId === selectedSessionId ? trace.points : [],
+    traceLoading: trace.sessionId !== selectedSessionId || trace.loading,
+    traceError: trace.sessionId === selectedSessionId ? trace.error : null,
+  } : null;
+  const mapRows = withLifecycle.map(item => item.session.id === selectedSessionId ? selectedItem : item);
   const selectedCampaignId = selectedItem?.session?.campaign_id || null;
 
   // Confine reale + stato dentro/fuori/vicino-confine per il driver
@@ -101,8 +130,8 @@ export function AdminLiveDashboard({ onNav }) {
   })), [zoneProgress.zones, resolvedBoundaries]);
   const activeZoneName = zoneRows?.[0]?.zone_name || null;
   const liveZoneStatus = useMemo(
-    () => deriveLiveZoneStatus(liveZones, selectedItem?.latest?.lat, selectedItem?.latest?.lng),
-    [liveZones, selectedItem?.latest],
+    () => sessionZoneStatus(selectedItem?.session, deriveLiveZoneStatus(liveZones, selectedItem?.latest?.lat, selectedItem?.latest?.lng)),
+    [liveZones, selectedItem?.latest, selectedItem?.session.status],
   );
   const outsideDistanceKm = useMemo(() => {
     if (liveZoneStatus !== 'outside' || !selectedItem?.latest) return null;
@@ -148,7 +177,10 @@ export function AdminLiveDashboard({ onNav }) {
 
   return (
     <AdminLayout title="Monitor GPS Live" subtitle="Driver, campagne attive e storico operativo" breadcrumbs={breadcrumbs} onNav={onNav}>
-      {state.error && <Notice danger text={state.error} />}
+      {state.error && <Notice danger text={`${state.error} Gli eventuali riepiloghi precedenti non sono aggiornati.`} />}
+      <button type="button" onClick={() => setRetry(n => n + 1)} style={mapActionButtonStyle(false)}>Aggiorna GPS</button>
+      {state.loading && <Notice text="Caricamento riepiloghi GPS..." />}
+      {!state.error && !state.loading && <Notice text={`${withLifecycle.length} sessioni · ${withLifecycle.reduce((n, item) => n + item.pointCount, 0)} punti GPS nel database`} />}
       {offlineRecentCount > 0 && <Notice danger text={`${offlineRecentCount} driver offline o senza ping recente.`} />}
 
       <AdminLiveKpiPanel
@@ -189,7 +221,7 @@ export function AdminLiveDashboard({ onNav }) {
             </div>
           )}
           {withLifecycle.some((item) => item.latest) ? (
-            <LiveMap drivers={withLifecycle} selectedSessionId={selectedSessionId} zones={mapZones} mapRef={mapRef} />
+            <LiveMap drivers={mapRows} selectedSessionId={selectedSessionId} zones={mapZones} mapRef={mapRef} />
           ) : (
             <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
           )}
@@ -203,6 +235,8 @@ export function AdminLiveDashboard({ onNav }) {
         </section>
 
         <AdminLiveSessionsList
+          loading={state.loading}
+          error={state.error}
           withLifecycle={withLifecycle}
           selectedSessionId={selectedSessionId}
           setSelectedSessionId={setSelectedSessionId}
@@ -222,8 +256,8 @@ export function AdminLiveDashboard({ onNav }) {
             <div style={operationalCardStyle}>
               <p style={operationalCardTitleStyle}>Stato operatore</p>
               <MiniRow label="Connessione" value={selectedItem.lifecycle === 'live' ? 'Online' : 'Offline'} />
-              <MiniRow label="GPS" value={selectedItem.session.status === 'started' ? 'Attivo' : selectedItem.session.status === 'paused' ? 'In pausa' : 'Non avviato'} />
-              <MiniRow label="Area" value={ZONE_LIVE_STATUS_LABELS[liveZoneStatus] || ZONE_LIVE_STATUS_LABELS.zone_unavailable} />
+              <MiniRow label="GPS" value={selectedItem.session.status === 'started' ? 'Attivo' : selectedItem.session.status === 'paused' ? 'In pausa' : 'Sessione conclusa'} />
+              <MiniRow label="Area" value={zoneStatusLabel(liveZoneStatus, ZONE_LIVE_STATUS_LABELS)} />
               {outsideDistanceKm != null && <MiniRow label="Distanza dalla zona" value={`${outsideDistanceKm.toFixed(1)} km`} />}
               <MiniRow label="Ultimo ping" value={formatDateTime(selectedItem.lastPing)} />
               <MiniRow label="Precisione GPS" value={selectedItem.latest?.accuracy != null ? `${Math.round(selectedItem.latest.accuracy)} m` : 'n/d'} />
@@ -240,7 +274,7 @@ export function AdminLiveDashboard({ onNav }) {
                 <>
                   <MiniRow label="Copertura GPS" value={`${coverage.coverage_percent}%`} />
                   <MiniRow label="Km validi" value={`${(selectedItem.km || 0).toFixed(2)} km`} />
-                  <MiniRow label="Punti validi/esclusi" value={`${summarizeGpsQuality(selectedItem.points || []).validCount} / ${summarizeGpsQuality(selectedItem.points || []).excludedCount}`} />
+                  <MiniRow label="Punti validi/esclusi" value={`${selectedItem.valid_count} / ${selectedItem.pointCount - selectedItem.valid_count}`} />
                 </>
               ) : (
                 <MiniRow label="Copertura GPS" value={coverage?.calculation_status === 'zone_geometry_missing' ? 'Confine non ancora disponibile' : 'In calcolo...'} />
@@ -290,7 +324,7 @@ function MiniRow({ label, value }) {
 
 function LiveZoneStatusBadge({ status, distanceKm }) {
   const color = ZONE_LIVE_STATUS_COLORS[status] || ZONE_LIVE_STATUS_COLORS.zone_unavailable;
-  const label = ZONE_LIVE_STATUS_LABELS[status] || ZONE_LIVE_STATUS_LABELS.zone_unavailable;
+  const label = zoneStatusLabel(status, ZONE_LIVE_STATUS_LABELS);
   return (
     <span style={{ display: 'inline-flex', border: '1px solid', borderRadius: 999, padding: '6px 14px', fontSize: 13, fontWeight: 900, color, borderColor: `${color}44`, background: `${color}14` }}>
       {label}{status === 'outside' && distanceKm != null ? ` — ${distanceKm.toFixed(1)} km` : ''}
@@ -408,20 +442,20 @@ function LiveMap({ drivers, selectedSessionId, zones = [], mapRef }) {
               <Popup>
                 <strong>{item.status}</strong>
                 <br />Driver: {displayDriverName(item.session)}
-                <br />Campagna: {item.session.campaign_id}
+                <br />Campagna: {item.campaignName || item.session.campaign_id}
                 <br />Sessione: {item.session.id}
                 <br />Device: {displayDeviceId(item.session)}
                 <br />Ultimo ping: {formatDateTime(item.lastPing)}
                 <br />Accuracy: {item.latest.accuracy != null ? `${Math.round(item.latest.accuracy)} m` : 'n/d'}
                 <br />Km: {item.km.toFixed(2)}
-                <br />Punti GPS: {item.points.length}
+                <br />Punti GPS: {item.pointCount}
               </Popup>
             </CircleMarker>
           );
         })}
       </MapContainer>
       {selected && trackPositions.length === 0 && (
-        <div style={{ padding: '10px 4px 0', color: 'rgba(255,255,255,.5)', fontSize: 12 }}>Nessuna traccia disponibile per la sessione selezionata.</div>
+        <div style={{ padding: '10px 4px 0', color: 'rgba(255,255,255,.5)', fontSize: 12 }}>{selected.traceLoading ? 'Caricamento traccia completa...' : selected.traceError || 'Nessuna traccia disponibile per la sessione selezionata.'}</div>
       )}
     </div>
   );
@@ -429,6 +463,10 @@ function LiveMap({ drivers, selectedSessionId, zones = [], mapRef }) {
 
 function SessionQualityPanel({ item }) {
   if (!item) return null;
+  if (item.traceLoading || item.traceError) return <div style={qualityPanelStyle} role="status">
+    <p>{item.pointCount} punti nel database</p>
+    {item.traceError || 'Caricamento traccia completa e qualità GPS...'}
+  </div>;
   const rawKm = (() => {
     const points = [...(item.points || [])].sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
     let km = 0;
@@ -476,8 +514,8 @@ function DriverRow({ item, selected, onSelect }) {
         <strong style={{ color: '#fff', fontSize: 16 }}>{displayDriverName(item.session)}</strong>
         <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', fontWeight: 900 }}>{LIFECYCLE_LABELS[item.lifecycle] || item.lifecycle}</span>
       </div>
-      <span><StatusBadge status={item.status} /> · ping {formatDateTime(item.lastPing)} · {item.km.toFixed(2)} km · {item.points.length} punti</span>
-      <span>Campagna {shortId(item.session.campaign_id)}</span>
+      <span><StatusBadge status={item.status} /> · ping {formatDateTime(item.lastPing)} · {item.km.toFixed(2)} km · {item.pointCount} punti</span>
+      <span>Campagna {item.campaignName || shortId(item.session.campaign_id)}</span>
       <span style={{ color: 'rgba(255,255,255,.34)', fontSize: 11 }}>Device {displayDeviceId(item.session)}</span>
     </button>
   );
@@ -535,11 +573,11 @@ function formatDateTime(value) {
 }
 
 const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 16, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
-const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 };
+const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,180px),1fr))', gap: 12 };
 const layoutStyle = { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 340px', gap: 16 };
-const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 };
-const labelStyle = { display: 'grid', gap: 6, fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,.55)' };
-const inputStyle = { border: '1px solid rgba(255,255,255,.1)', background: 'rgba(0,0,0,.25)', color: '#fff', borderRadius: 9, padding: '10px 11px', font: 'inherit' };
+const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,180px),1fr))', gap: 12 };
+const labelStyle = { minWidth: 0, display: 'grid', gap: 6, fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,.55)' };
+const inputStyle = { minWidth: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box', border: '1px solid rgba(255,255,255,.1)', background: 'rgba(0,0,0,.25)', color: '#fff', borderRadius: 9, padding: '10px 11px', font: 'inherit' };
 const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.42)', fontWeight: 900 };
 const noticeStyle = { padding: 12, border: '1px solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800 };
 const emptyStyle = { padding: 16, border: '1px dashed rgba(255,255,255,.14)', borderRadius: 10, color: 'rgba(255,255,255,.48)' };

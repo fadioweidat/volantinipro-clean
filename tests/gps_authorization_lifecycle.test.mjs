@@ -156,7 +156,9 @@ test('POD, Admin and Customer isolation contract', async (t) => {
   await t.test('Admin Live keeps completed filtered sessions visible on map and list', () => {
     assert.match(adminLive, /status: 'all_history'/);
     assert.match(adminLive + adminLiveFiltersPanel, /value="all_history">Tutti \(incl\. storico\)/);
-    assert.match(adminLive, /<LiveMap drivers=\{withLifecycle\}/);
+    assert.match(adminLive, /<LiveMap drivers=\{mapRows\}/);
+    assert.match(adminLive, /const mapRows = withLifecycle\.map/); // Same sessions, selected trace added only.
+    assert.doesNotMatch(adminLive, /const mapRows = .*\.filter/);
     assert.match(adminLive + adminLiveSessionsList, /withLifecycle\.length \? withLifecycle\.map/);
     assert.match(adminLive, /const currentRows = useMemo/);
   });

@@ -26,7 +26,7 @@ export function AdminLiveFiltersPanel({ filters, setFilters, campaigns, styles }
             Campagna
             <select value={filters.campaign} onChange={(event) => setFilters((prev) => ({ ...prev, campaign: event.target.value }))} style={inputStyle}>
               <option value="all">Tutte</option>
-              {campaigns.map((campaignId) => <option key={campaignId} value={campaignId}>{campaignId}</option>)}
+              {campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name || campaign.id}</option>)}
             </select>
           </label>
           <label style={labelStyle}>
