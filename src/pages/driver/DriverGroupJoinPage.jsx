@@ -12,6 +12,9 @@ const ERROR_MESSAGES = {
   GROUP_LINK_SCADUTO: 'Questo link e’ scaduto. Contatta l’Admin.',
   GROUP_LINK_PIENO: 'Numero massimo di operatori raggiunto per questo gruppo.',
   PARTECIPANTE_REVOCATO: 'Il tuo accesso a questo gruppo e’ stato revocato. Contatta l’Admin.',
+  CAMPAGNA_ARCHIVIATA: 'Questa campagna e’ stata archiviata: il link non e’ piu’ valido. Contatta l’Admin.',
+  CAMPAGNA_ANNULLATA: 'Questa campagna e’ stata annullata: il link non e’ piu’ valido. Contatta l’Admin.',
+  CAMPAGNA_COMPLETATA: 'Questa campagna e’ gia’ completata: non ci sono altri lavori da svolgere. Contatta l’Admin.',
 };
 
 function messageFor(err) {

@@ -210,3 +210,4 @@ tests/chat_outbox_dispatch_30s.test.mjs
 tests/chat_outbox_delivery_check.test.mjs
 tests/admin_test_data_separation.test.mjs
 tests/revoke_test_driver_access.test.mjs
+tests/group_join_closed_campaign.test.mjs
