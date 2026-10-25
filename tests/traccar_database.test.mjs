@@ -294,3 +294,53 @@ test('HTTP runtime → handler → real SQL → same table: formats, duplicate, 
     q.set('id','UNKNOWN'); assert.equal((await fetch(`${base}?${q}`)).status,200); assert.equal(await pointCount(),2);
   } finally { await new Promise(resolve=>server.close(resolve)); }
 });
+
+test('approved partial unique index accepts multiple NULL event IDs without changing its source predicate', async () => {
+  await db.exec(`insert into public.gps_tracking_points
+    (campaign_id,session_id,driver_id,lat,lng,recorded_at,source,source_event_id)
+    select s.campaign_id,s.id,s.driver_id,45.46,9.19,clock_timestamp(),'traccar',null
+    from public.delivery_sessions s cross join generate_series(1,2)`);
+  assert.equal(await pointCount(),2);
+  const row=(await db.query(`select pg_get_expr(indpred,indrelid) as predicate
+    from pg_index where indexrelid='public.gps_tracking_points_traccar_event_uidx'::regclass`)).rows[0];
+  assert.equal(row.predicate,"(source = 'traccar'::text)");
+});
+
+test('manual rollback is safe by default, refuses active backup sessions and preserves GPS history/nullable columns', async () => {
+  const isolated=new PGlite();
+  const rollback=read('supabase/migrations/rollback/20261024102649_traccar_backup_ingest.rollback.sql');
+  try {
+    await isolated.exec(read('tests/traccar/schema.sql'));
+    await isolated.exec(migration);
+    await isolated.exec(`insert into campaigns(id,status) values ('${campaign}','in_progress');
+      insert into delivery_sessions(id,campaign_id,driver_id,status)
+      values ('${session}','${campaign}','${op}','completed');
+      insert into gps_tracking_points(campaign_id,session_id,driver_id,lat,lng,recorded_at,source,source_event_id)
+      values ('${campaign}','${session}','${op}',0,0,now(),null,null),
+             ('${campaign}','${session}','${op}',0,0,now(),'traccar','local-restore-test');`);
+    await isolated.exec(rollback);
+    assert.equal((await isolated.query("select to_regclass('public.traccar_devices') is not null as present")).rows[0].present,true);
+    await isolated.exec("update delivery_sessions set status='started',metadata='{\"source\":\"traccar_admin_backup\"}'::jsonb");
+    await assert.rejects(()=>isolated.exec(rollback),/chiudere prima le sessioni Piano B/);
+    await isolated.exec('rollback');
+    await isolated.exec("update delivery_sessions set status='completed'");
+    // COMMIT is used ONLY in this disposable local PostgreSQL engine, never remotely.
+    await isolated.exec(rollback.replace(/^ROLLBACK;/m,'COMMIT;'));
+    await isolated.exec(rollback); // idempotent after removal, with columns retained
+    const result=(await isolated.query(`select
+      to_regclass('public.traccar_devices') is null as devices_removed,
+      to_regnamespace('traccar_private') is null as schema_removed,
+      to_regclass('public.gps_tracking_points_traccar_event_uidx') is null as index_removed,
+      (select count(*)=3 and bool_and(not attnotnull) from pg_attribute
+        where attrelid='public.gps_tracking_points'::regclass and not attisdropped
+          and attname in ('source','source_event_id','source_metadata')) as nullable_columns_retained,
+      (select count(*)::int from gps_tracking_points) as points,
+      (select count(*)::int from gps_tracking_points where source='traccar') as traccar_points,
+      (select count(*)::int from delivery_sessions) as sessions,
+      not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        where n.nspname='public' and p.proname in ('traccar_ingest_point','traccar_admin_control')) as functions_removed`)).rows[0];
+    assert.deepEqual(result,{devices_removed:true,schema_removed:true,index_removed:true,
+      nullable_columns_retained:true,points:2,traccar_points:1,sessions:1,functions_removed:true});
+    assert.match(migration,/begin;\s*SET LOCAL lock_timeout = '5s';\s*SET LOCAL statement_timeout = '60s';/);
+  } finally { await isolated.close(); }
+});

@@ -353,8 +353,9 @@ smartphone. Questi restano requisiti di accettazione del pilot.
 - Handler HTTP locale collegato alla RPC reale nel DB isolato: inserimento,
   duplicato, sconosciuto, pausa, avvio Admin senza Driver, chiusura e retry
   dopo perdita della conferma verificati. Nessun punto fittizio in produzione.
-- Revisione: 45 test Traccar passati (protocollo, SQL/permessi, HTTP→DB e
-  comportamenti del nuovo pannello). I test UI sono isolati con React, non
+- Revisione aggiornata: 47 test Traccar passati (protocollo, SQL/permessi, HTTP→DB e
+  comportamenti del nuovo pannello, NULL nell’indice e rollback che conserva
+  colonne nullable e storico). I test UI sono isolati con React, non
   una prova del dashboard autenticato nel browser o del telefono fisico.
 - Build Vite e prerender SEO delle 11 pagine riusciti dopo la revisione.
 - 127 verifiche GPS esistenti: 126 passate, 1 fallita. Lo stesso errore
@@ -411,13 +412,33 @@ senza force. Conservare schema e dati evita perdita dello storico e non
 richiede eliminare punti nativi. Con endpoint disabilitato si risponde 503:
 fermare anche i client evita retry inutili. Revocare il bypass del pilot.
 
-**Rimozione dello schema, solo se necessaria:** compete alla sessione database
-con una nuova migration compensativa da integration, dopo revisione di
-backup ed eventuali dipendenze introdotte nel frattempo. Rimuovere prima le
-funzioni pubbliche nuove, poi la funzione/schema privati e la tabella nuova;
-infine indice e tre colonne GPS, soltanto dopo aver esportato i metadati da
-conservare. Non usare `DROP ... CASCADE` indiscriminato. Le righe GPS e le
-sessioni già create non spariscono automaticamente: restano nello storico,
-ma togliere le colonne perde fonte/deduplicazione/metadati. Nessun rollback
-SQL automatico è incluso né è stato eseguito. Se la migration non è ancora
-applicata, non c’è alcuna modifica DB da annullare.
+**Rimozione dello schema, solo se necessaria:** lo script manuale è
+`supabase/migrations/rollback/20261024102649_traccar_backup_ingest.rollback.sql`.
+Rimuove soltanto le tre funzioni nuove, lo schema `traccar_private`,
+`traccar_devices` e l’indice anti-duplicati. Le tre colonne GPS rimangono
+presenti e nullable, con i loro valori; punti, sessioni e audit non vengono
+cancellati. Non usa CASCADE e si ferma se ci sono sessioni Piano B ancora
+aperte, colonne non conformi o dipendenze impreviste.
+
+Lo script termina con `ROLLBACK` per impostazione predefinita. La sessione
+database, da integration e dopo OK esplicito, potrà usarlo per una migration
+compensativa con COMMIT. Prima chiudere le sole sessioni Piano B, fermare i
+client e disabilitare il ricevitore. L’eliminazione di `traccar_devices` perde
+mapping, hash e finestre: salvarli prima se occorre conservarli. Nessuno script
+SQL di questa PR è stato applicato in modo permanente al database remoto.
+
+## Esito della revisione database e aggiornamento richiesto
+
+- Indice confermato: `WHERE source = 'traccar'`; `ON CONFLICT` invariato.
+  L’indice unico permette più NULL in `source_event_id`; i punti storici con
+  `source=NULL` restano esclusi.
+- La migration imposta, subito dopo BEGIN, `SET LOCAL lock_timeout = '5s'` e
+  `SET LOCAL statement_timeout = '60s'`. Non promettono assenza di lock: un
+  lock non ottenuto entro 5 secondi o un comando oltre 60 secondi fa fallire
+  la transazione. Nessun retry automatico della migration.
+- Resta invariata la consegna: nessuna applicazione da feature/preview;
+  migration ed eventuali Edge Functions soltanto dalla sessione database,
+  da integration dopo il merge autorizzato dall’utente.
+- Il merge in integration è riservato all’utente e deve essere fast-forward,
+  senza merge commit. Prima di ogni pubblicazione fare fetch/rebase e fermarsi
+  in caso di conflitti; non forzare integration.

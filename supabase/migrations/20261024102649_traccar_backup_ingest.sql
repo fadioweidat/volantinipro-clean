@@ -1,6 +1,8 @@
 -- Additive GPS backup. Existing points, functions, triggers, RLS policies and
 -- session lifecycle are not rewritten. Apply only after reviewing the guide.
 begin;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '60s';
 
 create table public.traccar_devices (
   device_id text primary key check (device_id ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'),
