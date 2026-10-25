@@ -1,3 +1,4 @@
+-- ATTENZIONE: termina con ROLLBACK = prova a vuoto. Per ripristinare davvero sostituire ROLLBACK con COMMIT.
 -- Rollback of 20261024102649_traccar_backup_ingest.sql / VolantiniPro PR #16
 -- Ripristino strutturale proposto. NON applicato. Di default termina con ROLLBACK.
 -- Solo la sessione database, da integration dopo il merge e con OK esplicito,

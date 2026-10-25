@@ -420,6 +420,8 @@ presenti e nullable, con i loro valori; punti, sessioni e audit non vengono
 cancellati. Non usa CASCADE e si ferma se ci sono sessioni Piano B ancora
 aperte, colonne non conformi o dipendenze impreviste.
 
+**ATTENZIONE: termina con ROLLBACK = prova a vuoto. Per ripristinare davvero sostituire ROLLBACK con COMMIT.**
+
 Lo script termina con `ROLLBACK` per impostazione predefinita. La sessione
 database, da integration e dopo OK esplicito, potrà usarlo per una migration
 compensativa con COMMIT. Prima chiudere le sole sessioni Piano B, fermare i
