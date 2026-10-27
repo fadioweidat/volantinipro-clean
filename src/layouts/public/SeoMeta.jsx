@@ -140,7 +140,6 @@ export function SeoMeta({ page }) {
             name: s.title,
             description: [s.subtitle, ...s.bullets].join(" — "),
             provider: { "@type": "Organization", name: "VolantiniPro", url: siteUrl },
-        areaServed: SERVICE_AREA,
             areaServed: SERVICE_AREA,
           },
         })),
@@ -159,6 +158,7 @@ export function SeoMeta({ page }) {
         name: servicePageContent.h1,
         description: servicePageContent.intro,
         provider: { "@type": "Organization", name: "VolantiniPro", url: siteUrl },
+        areaServed: SERVICE_AREA,
       });
     } else {
       setJsonLd("faqpage", null);
