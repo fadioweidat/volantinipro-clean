@@ -31,3 +31,22 @@ jobs:
       - name: Build and SEO prerender
         if: always()
         run: npm run build
+
+  baseline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout production baseline
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 22a54b3471739b29fa2c5d2721a03ee92997e701
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Run baseline suite for regression comparison
+        run: npm test
