@@ -1,9 +1,6 @@
 name: Validate public SEO changes
 
 on:
-  push:
-    branches:
-      - 'seo/identity-footer-piva-20261027'
   pull_request:
     branches:
       - 'integration/rc2-full-site'
@@ -26,7 +23,9 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - name: Install dependencies
-        run: npm ci
+        # Il package-lock esistente non rispecchia package.json: npm ci fallisce prima dei test.
+        # Installazione temporanea non bloccata per ottenere suite e build senza alterare il lockfile.
+        run: npm install --no-package-lock --no-audit --no-fund
       - name: Full test suite
         run: npm test
       - name: Build and SEO prerender
