@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx";
+import Footer from "../components/home/Footer.jsx";
 import { preloadablePage } from "../bootstrap/preloadablePage.jsx";
 import InlineHelpCta from "../components/common/InlineHelpCta.jsx";
 import QuoteAssistantPanel from "../components/ai/quote/QuoteAssistantPanel.jsx";
@@ -90,9 +91,11 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
 
   if (!content) return null;
   const isConfiguratorStep = page === "step1" || page === "step2" || page === "step3" || page === "step4";
+  const showFooter = page !== "home" && (isConfiguratorStep || ["privacy", "terms", "cookie", "quick", "consultant", "preventivo", "service-door-to-door", "service-hand-to-hand", "service-business", "milano-landing", "supplier-landing", "feasibility"].includes(page));
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
       <div className={`configurator-assistant-layout${isConfiguratorStep && assistantOpen ? " configurator-assistant-layout--open" : ""}`}>{content}</div>
+      {showFooter && <Footer onNav={goTo} onHowItWorks={() => { goTo("home"); setTimeout(() => document.getElementById("come-funziona")?.scrollIntoView({ behavior: "smooth" }), 150); }} />}
       {isConfiguratorStep && <InlineHelpCta expanded={assistantOpen} onAsk={() => setAssistantOpen(true)} />}
       {isConfiguratorStep && <QuoteAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} page={page} context={assistantContext} quickQuestions={quickQuestionsForPage(page, assistantContext)} />}
     </Suspense>
