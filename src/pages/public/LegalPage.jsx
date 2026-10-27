@@ -12,14 +12,14 @@ export function LegalPage({
     privacy: {
       eyebrow: "Privacy",
       title: "Privacy Policy",
-      intro: "Informativa sintetica per il prototipo VolantiniPro. Prima del go-live andra completata con dati societari, DPO/contatti privacy e fornitori effettivi.",
+      intro: "Informazioni sul trattamento dei dati personali relativo ai servizi VolantiniPro. Per richieste sulla privacy: info@volantinipro.it.",
       rows: [["Titolare", "VolantiniPro, P.IVA 04856200615 · info@volantinipro.it"], ["Dati raccolti", "Dati di contatto, informazioni campagna, dati tecnici di navigazione e dati operativi legati a GPS/proof foto quando il servizio e attivo."], ["Finalita", "Gestione preventivi, campagne, dashboard cliente, comunicazioni operative e miglioramento del servizio."], ["Base giuridica", "Esecuzione del contratto, misure precontrattuali, consenso per comunicazioni opzionali e legittimo interesse per sicurezza e analytics essenziali."], ["Conservazione", "Per il tempo necessario alla gestione del servizio, agli obblighi fiscali e alla tutela dei diritti."]]
     },
     terms: {
       eyebrow: "Termini",
       title: "Termini e condizioni",
-      intro: "Condizioni base del servizio in versione prototipo. Il testo legale definitivo va validato prima della pubblicazione.",
-      rows: [["Oggetto", "VolantiniPro consente di configurare e stimare campagne di distribuzione volantini con strumenti digitali di pianificazione e reporting."], ["Preventivi", "I preventivi generati nel prototipo sono stime non vincolanti finche non confermati dal team operativo."], ["Dati territoriali", "I dati mostrati sono disponibili solo quando arrivano da configurazione, API o database."], ["Responsabilità", "Tempi, disponibilità e copertura possono variare in base a condizioni operative, meteo, accessibilità e conferma finale."]]
+      intro: "Condizioni del servizio VolantiniPro. Per informazioni sulle condizioni applicabili: info@volantinipro.it.",
+      rows: [["Titolare", "VolantiniPro, P.IVA 04856200615 · info@volantinipro.it"], ["Oggetto", "VolantiniPro consente di configurare e stimare campagne di distribuzione volantini con strumenti digitali di pianificazione e reporting."], ["Preventivi", "I preventivi generati nel prototipo sono stime non vincolanti finche non confermati dal team operativo."], ["Dati territoriali", "I dati mostrati sono disponibili solo quando arrivano da configurazione, API o database."], ["Responsabilità", "Tempi, disponibilità e copertura possono variare in base a condizioni operative, meteo, accessibilità e conferma finale."]]
     },
     cookie: {
       eyebrow: "Cookie",
