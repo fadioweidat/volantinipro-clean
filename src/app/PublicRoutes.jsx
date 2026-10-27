@@ -91,7 +91,9 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
 
   if (!content) return null;
   const isConfiguratorStep = page === "step1" || page === "step2" || page === "step3" || page === "step4";
-  const showFooter = page !== "home" && (isConfiguratorStep || ["privacy", "terms", "cookie", "quick", "consultant", "preventivo", "service-door-to-door", "service-hand-to-hand", "service-business", "milano-landing", "supplier-landing", "feasibility"].includes(page));
+  // Every rendered public route shares the footer, including future pricing/city/guide pages.
+  // Home already renders Footer; feasibility-library is customer-only.
+  const showFooter = page !== "home" && page !== "feasibility-library";
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
       <div className={`configurator-assistant-layout${isConfiguratorStep && assistantOpen ? " configurator-assistant-layout--open" : ""}`}>{content}</div>
