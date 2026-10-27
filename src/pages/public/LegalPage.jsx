@@ -13,7 +13,7 @@ export function LegalPage({
       eyebrow: "Privacy",
       title: "Privacy Policy",
       intro: "Informativa sintetica per il prototipo VolantiniPro. Prima del go-live andra completata con dati societari, DPO/contatti privacy e fornitori effettivi.",
-      rows: [["Dati raccolti", "Dati di contatto, informazioni campagna, dati tecnici di navigazione e dati operativi legati a GPS/proof foto quando il servizio e attivo."], ["Finalita", "Gestione preventivi, campagne, dashboard cliente, comunicazioni operative e miglioramento del servizio."], ["Base giuridica", "Esecuzione del contratto, misure precontrattuali, consenso per comunicazioni opzionali e legittimo interesse per sicurezza e analytics essenziali."], ["Conservazione", "Per il tempo necessario alla gestione del servizio, agli obblighi fiscali e alla tutela dei diritti."]]
+      rows: [["Titolare", "VolantiniPro, P.IVA 04856200615 · info@volantinipro.it"], ["Dati raccolti", "Dati di contatto, informazioni campagna, dati tecnici di navigazione e dati operativi legati a GPS/proof foto quando il servizio e attivo."], ["Finalita", "Gestione preventivi, campagne, dashboard cliente, comunicazioni operative e miglioramento del servizio."], ["Base giuridica", "Esecuzione del contratto, misure precontrattuali, consenso per comunicazioni opzionali e legittimo interesse per sicurezza e analytics essenziali."], ["Conservazione", "Per il tempo necessario alla gestione del servizio, agli obblighi fiscali e alla tutela dei diritti."]]
     },
     terms: {
       eyebrow: "Termini",
