@@ -8,6 +8,7 @@ import ServiceCenter from '../src/pages/public/ServiceCenter.jsx';
 import QuickQuotePage from '../src/pages/public/QuickQuotePage.jsx';
 import ConsultantPage from '../src/pages/public/ConsultantPage.jsx';
 import { LegalPage } from '../src/pages/public/LegalPage.jsx';
+import Footer from '../src/components/home/Footer.jsx';
 
 const noop = () => {};
 const pages = {
@@ -27,5 +28,5 @@ const pages = {
 export function renderMarketingPage(page) {
   const Page = pages[page];
   if (!Page) throw new Error(`No public snapshot renderer: ${page}`);
-  return renderToStaticMarkup(<>{page !== 'home' && <Navbar onNav={noop} />}<Page /></>);
+  return renderToStaticMarkup(<>{page !== 'home' && <Navbar onNav={noop} />}<Page />{page !== 'home' && <Footer onNav={noop} />}</>);
 }
