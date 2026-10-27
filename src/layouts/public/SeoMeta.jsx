@@ -14,6 +14,7 @@ import { milanoLandingContent } from "../../lib/seo/milanoLandingContent.js";
 
 
 
+const SERVICE_AREA = { "@type": "AdministrativeArea", name: "Lombardia" };
 const SERVICE_PAGE_IDS = Object.keys(SERVICE_PAGE_CONTENT);
 
 // Pagine "servizio/locali" che condividono lo stesso shape {h1, intro, faqs}
@@ -67,6 +68,7 @@ function organizationJsonLd(siteUrl) {
     name: "VolantiniPro",
     url: siteUrl,
     email: SUPPORT_EMAIL,
+    vatID: "IT04856200615",
   };
   // Stesso numero già usato per i CTA WhatsApp del sito (contactConfig.js,
   // solo se configurato via env — nessun numero inventato qui). Formattato
@@ -138,6 +140,8 @@ export function SeoMeta({ page }) {
             name: s.title,
             description: [s.subtitle, ...s.bullets].join(" — "),
             provider: { "@type": "Organization", name: "VolantiniPro", url: siteUrl },
+        areaServed: SERVICE_AREA,
+            areaServed: SERVICE_AREA,
           },
         })),
       });
