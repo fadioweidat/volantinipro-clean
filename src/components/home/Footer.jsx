@@ -134,7 +134,7 @@ export default function Footer({ onNav, onHowItWorks }) {
         </div>
 
         <div className="footer-bottom">
-          <span>© 2026 VolantiniPro · P.IVA in aggiornamento · Made in Milano, Italia</span>
+          <span>© 2026 · VolantiniPro · P.IVA 04856200615 · Operiamo a Milano e in Lombardia</span>
           <span style={{ ...languageStyle, cursor: "default" }}>Lingua: IT</span>
         </div>
       </div>
