@@ -62,6 +62,38 @@
       "destination": "/cookie-policy/index.html"
     },
     {
+      "source": "/prezzi-distribuzione-volantini",
+      "destination": "/prezzi-distribuzione-volantini/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-monza",
+      "destination": "/distribuzione-volantini-monza/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-bergamo",
+      "destination": "/distribuzione-volantini-bergamo/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-brescia",
+      "destination": "/distribuzione-volantini-brescia/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-como",
+      "destination": "/distribuzione-volantini-como/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-varese",
+      "destination": "/distribuzione-volantini-varese/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-sesto-san-giovanni",
+      "destination": "/distribuzione-volantini-sesto-san-giovanni/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-cinisello-balsamo",
+      "destination": "/distribuzione-volantini-cinisello-balsamo/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/app-shell.html"
     }
