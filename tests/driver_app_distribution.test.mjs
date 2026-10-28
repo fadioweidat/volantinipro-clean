@@ -18,6 +18,7 @@ import {
   buildDriverJobWhatsAppMessage,
 } from "../src/lib/services/driverAppDistribution.js";
 import { buildDriverWhatsAppMessage, buildSupplierProgramWhatsAppMessage } from "../src/lib/services/admin-api.js";
+import { SEO_ROUTES } from "../src/lib/seo/routePolicy.js";
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
 const lf = (s) => s.replace(/\r\n/g, "\n");
@@ -66,8 +67,8 @@ test("/app-driver NON e' intercettato dall'App Link Android ne' dal router Drive
   // /app-driver serve la pagina statica prima del catch-all SPA (che resta ultimo).
   assert.deepEqual(vercel.rewrites[0], { source: "/app-driver", destination: "/app-driver/index.html" });
   assert.deepEqual(vercel.rewrites.at(-1), { source: "/(.*)", destination: "/app-shell.html" });
-  const marketing = ['/', '/servizi/door-to-door', '/servizi/hand-to-hand', '/servizi/business',
-    '/distribuzione-volantini-milano', '/preventivo', '/preventivo-rapido', '/consulente', '/privacy', '/termini', '/cookie-policy'];
+  // Public routes grow with the SEO route policy; /app-driver must stay first and SPA fallback last.
+  const marketing = SEO_ROUTES.map(([source]) => source);
   assert.deepEqual(vercel.rewrites.slice(1, -1), marketing.map(source => ({
     source, destination: source === '/' ? '/index.html' : `${source}/index.html`,
   })));
