@@ -157,9 +157,10 @@ test("ServicePages.jsx: ognuna delle 3 pagine servizio ha un solo link discreto 
 });
 
 // ── Design: stile riusato (constants.js C/F, NavButton, Button), nessun design separato ──
-test("MilanoLandingPage.jsx: riusa il design system esistente (constants.js, NavButton, Button), nessun colore/font nuovo", () => {
+// 2026-10-28 (approvato): niente pulsante "Home" isolato in fondo, titoli in sans come la homepage.
+test("MilanoLandingPage.jsx: riusa il design system esistente (constants.js, Button), titoli sans, nessun pulsante Home isolato", () => {
   const src = read("src/pages/public/MilanoLandingPage.jsx");
   assert.match(src, /import \{ C, F \} from "\.\.\/\.\.\/lib\/constants\.js"/);
-  assert.match(src, /import \{ NavButton \} from "\.\.\/\.\.\/components\/NavButton\.jsx"/);
+  assert.doesNotMatch(src, /NavButton|F\.serif/);
   assert.match(src, /import Button from "\.\.\/\.\.\/components\/ui\/Button\.jsx"/);
 });

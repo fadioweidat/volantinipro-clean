@@ -46,7 +46,6 @@ const columns = [
       ["Smart Pairing", "smart-pairing"],
       ["Distribuzione volantini a Milano", "milano-landing"],
       ["Prezzi distribuzione volantini", "prices"],
-      ["API & integrazioni", "consultant"],
     ],
   },
   {
@@ -59,9 +58,7 @@ const columns = [
       ["Chi siamo", "how"],
       ["Lavora con noi", "lavora-con-noi"],
       ["Area fornitori", "login?context=supplier"],
-      ["Blog (in prep.)", "prep"],
       ["Contatti", "consultant"],
-      ["Press kit (in prep.)", "prep"],
     ],
   },
   {

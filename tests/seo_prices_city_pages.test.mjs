@@ -92,3 +92,16 @@ test("structured data: Service with areaServed and real minimum, no LocalBusines
   assert.match(milano, /<CityNumbersSection slug="milano" onNav=\{onNav\} showPrices=\{false\} \/>/);
   assert.match(milano, /\{section\.cityPrices && <CityPriceTable slug="milano" onNav=\{onNav\} \/>\}/);
 });
+
+test("2026-10-28: footer without placeholder links, sans titles, no isolated Home button", () => {
+  const footer = read("src/components/home/Footer.jsx");
+  assert.doesNotMatch(footer, /Blog \(in prep\.\)|Press kit \(in prep\.\)|API & integrazioni/);
+  const pages = read("src/pages/public/SeoLandingPages.jsx");
+  assert.doesNotMatch(pages, /NavButton|F\.serif/);
+  assert.match(pages, /const h1Style = \{ fontFamily: F\.sans, fontWeight: 800,/);
+});
+
+test("footer grid has room for 4 link columns (Prodotto, Zone servite, Azienda, Legale) in both CSS sources", () => {
+  assert.match(read("src/layouts/public/Bootstrap.jsx"), /\.footer-grid\{display:grid;grid-template-columns:1\.35fr repeat\(4,1fr\);gap:40px\}/);
+  assert.match(read("src/styles/app.css"), /\.footer-grid \{\n  display: grid;\n  grid-template-columns: 1\.35fr repeat\(4, 1fr\);/);
+});

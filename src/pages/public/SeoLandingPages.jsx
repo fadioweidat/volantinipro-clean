@@ -1,7 +1,6 @@
 import React from "react";
 import PublicNavLink from "../../components/common/PublicNavLink.jsx";
 import { C, F } from "../../lib/constants.js";
-import { NavButton } from "../../components/NavButton.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { pricesPageContent as prices } from "../../lib/seo/pricesPageContent.js";
 import { CITY_PAGES, ISTAT_SOURCE, cityFacts, formatEuro, formatInt } from "../../lib/seo/cityPagesData.js";
@@ -14,9 +13,9 @@ import { CITY_PAGES, ISTAT_SOURCE, cityFacts, formatEuro, formatInt } from "../.
 const shell = { minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" };
 const inner = { maxWidth: 860, margin: "0 auto" };
 const eyebrow = { fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 12 };
-const h1Style = { fontFamily: F.serif, fontSize: "clamp(30px, 4.2vw, 42px)", color: C.white, letterSpacing: "-1px", lineHeight: 1.1, marginBottom: 14 };
+const h1Style = { fontFamily: F.sans, fontWeight: 800, fontSize: "clamp(30px, 4.2vw, 42px)", color: C.white, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 14 };
 const introStyle = { fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.62)", lineHeight: 1.65, maxWidth: 680, marginBottom: 24 };
-const h2Style = { fontFamily: F.serif, fontSize: 22, color: C.white, marginBottom: 10, letterSpacing: "-.02em" };
+const h2Style = { fontFamily: F.sans, fontWeight: 800, fontSize: 22, color: C.white, marginBottom: 10, letterSpacing: "-.02em" };
 const pStyle = { fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.65)", lineHeight: 1.7, marginBottom: 10 };
 const card = { padding: 16, borderRadius: 12, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" };
 const smallNote = { fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", lineHeight: 1.6, marginTop: 8 };
@@ -116,7 +115,7 @@ export function CityNumbersSection({ slug, onNav, showPrices = true }) {
           {facts.map(([label, value]) => (
             <div key={label} style={card}>
               <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.5)", textTransform: "uppercase", letterSpacing: ".08em" }}>{label}</div>
-              <div style={{ fontFamily: F.serif, fontSize: 24, color: C.white, marginTop: 4 }}>{value}</div>
+              <div style={{ fontFamily: F.sans, fontWeight: 800, fontSize: 24, color: C.white, marginTop: 4 }}>{value}</div>
             </div>
           ))}
         </div>
@@ -222,7 +221,6 @@ export function PricesPage({ onNav }) {
         <Faqs faqs={prices.faqs} />
         <QuoteCta onNav={onNav} text="Il prezzo esatto si calcola sulla tua zona: configura la campagna e scarica il preventivo in PDF." />
         <LinkRow onNav={onNav} links={SERVICE_LINKS} />
-        <NavButton onClick={() => onNav("home")}>Home</NavButton>
       </div>
     </div>
   );
@@ -275,7 +273,6 @@ export function CityLandingPage({ pageKey, onNav }) {
           <LinkRow onNav={onNav} links={content.nearby.map((c) => ({ label: `Distribuzione volantini a ${c.name}`, href: c.href, pageKey: c.pageKey }))} />
         </Section>
         <LinkRow onNav={onNav} links={[PRICES_LINK, ...SERVICE_LINKS]} />
-        <NavButton onClick={() => onNav("home")}>Home</NavButton>
       </div>
     </div>
   );

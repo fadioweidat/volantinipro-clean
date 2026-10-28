@@ -1,7 +1,6 @@
 import React from "react";
 import PublicNavLink from '../../components/common/PublicNavLink.jsx';
 import { C, F } from "../../lib/constants.js";
-import { NavButton } from "../../components/NavButton.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { milanoLandingContent as content } from "../../lib/seo/milanoLandingContent.js";
 import { CityNumbersSection, CityPriceTable } from "./SeoLandingPages.jsx";
@@ -41,7 +40,7 @@ export function MilanoLandingPage({ onNav }) {
         <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 12 }}>
           Distribuzione volantini locale
         </div>
-        <h1 style={{ fontFamily: F.serif, fontSize: "clamp(30px, 4.2vw, 42px)", color: C.white, letterSpacing: "-1px", lineHeight: 1.1, marginBottom: 14 }}>
+        <h1 style={{ fontFamily: F.sans, fontWeight: 800, fontSize: "clamp(30px, 4.2vw, 42px)", color: C.white, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 14 }}>
           {content.h1}
         </h1>
         <p style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.62)", lineHeight: 1.65, maxWidth: 680, marginBottom: 24 }}>
@@ -58,7 +57,7 @@ export function MilanoLandingPage({ onNav }) {
         {/* Sezioni H2 con contenuto reale */}
         {content.sections.map((section) => (
           <section key={section.h2} style={{ marginBottom: 34 }}>
-            <h2 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, marginBottom: 10, letterSpacing: "-.02em" }}>
+            <h2 style={{ fontFamily: F.sans, fontWeight: 800, fontSize: 22, color: C.white, marginBottom: 10, letterSpacing: "-.02em" }}>
               {section.h2}
             </h2>
             {section.paragraphs.map((p, i) => (
@@ -120,7 +119,7 @@ export function MilanoLandingPage({ onNav }) {
 
         {/* FAQ brevi e reali — visibili senza interazione, per crawler/AI search */}
         <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, marginBottom: 14, letterSpacing: "-.02em" }}>
+          <h2 style={{ fontFamily: F.sans, fontWeight: 800, fontSize: 22, color: C.white, marginBottom: 14, letterSpacing: "-.02em" }}>
             Domande frequenti
           </h2>
           <div style={{ display: "grid", gap: 12 }}>
@@ -156,7 +155,6 @@ export function MilanoLandingPage({ onNav }) {
           </Button>
         </div>
 
-        <NavButton onClick={() => onNav("home")}>Home</NavButton>
       </div>
     </div>
   );
