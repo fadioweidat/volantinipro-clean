@@ -1,3 +1,4 @@
+import { doorToDoorRangeBeforeZone } from "../../../lib/pricing/step1Estimate.js";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
@@ -396,6 +397,10 @@ export function Step1({
     monthly12: 8
   }[data.subscription] || 0;
   if (discPct > 0) distEst = distEst * (1 - discPct / 100);
+  // Door to Door: la zona si sceglie nello Step 2, quindi qui si mostra
+  // l'intervallo reale della griglia territoriale (step1Estimate.js), mai la
+  // vecchia tariffa fissa sopra (18,50 €/1.000, sotto qualunque fascia).
+  const d2dRange = (data.type || "d2d") === "d2d" ? doorToDoorRangeBeforeZone(activeQty, { urgency: data.urgency, planDiscountPct: discPct }) : null;
   // "Sì, voglio anche stampa" ⟺ hasFlyers === "no" (id fuorviante della card).
   const printActive = data.hasFlyers === "no";
   // Motore prezzi stampa centralizzato (src/lib/pricing/printPricing.js).
@@ -1243,7 +1248,8 @@ export function Step1({
           printUnknown: printEstUnknown,
           printSpecLabel,
           distributionCost: Math.round(distEst),
-          total: Math.round(subtotalEst)
+          total: Math.round(subtotalEst),
+          distributionRange: d2dRange
         }} />
         </aside>
         {/* Left Column: Configuration Sections */}

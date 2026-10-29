@@ -216,3 +216,4 @@ tests/monitor_radius_traccar_idle.test.mjs
 tests/seo_business_identity.test.mjs
 tests/seo_prices_city_pages.test.mjs
 tests/seo_vercel_rewrites.test.mjs
+tests/step1_distribution_range.test.mjs
