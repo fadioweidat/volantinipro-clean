@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_TRAVEL_NOTE, calculateHandToHandPricing, handToHandNeedsTravel, handToHandOperatorHours, handToHandStartComuni, formatFlyersRange } from "../../../lib/pricing/handToHandPricing.js";
+import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_TRAVEL_NOTE, calculateHandToHandPricing, describeHandToHandCalculation, handToHandNeedsTravel, handToHandOperatorHours, handToHandStartComuni, formatFlyersRange } from "../../../lib/pricing/handToHandPricing.js";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
@@ -305,7 +305,7 @@ export function Step4({
         lineHeight: 1.55
       }}>{text}</div>
       </div>;
-    const previewKpis = [["Zona", mainAreaLabel, C.white], ["Volantini", formatNumber(flyerQty), C.orange], ["Famiglie stimate", formatNumber(realFamilies), C.green], ["Copertura stimata", realCoverage != null ? `${realCoverage}%` : "-", C.green], ["Comuni", realComuniCount != null ? formatNumber(realComuniCount) : "-", C.blue], ["Totale", eur(grandTotal), C.orange]];
+    const previewKpis = [["Zona", mainAreaLabel, C.white], [isHandToHandQuote ? "Materiale" : "Volantini", formatNumber(flyerQty), C.orange], ["Famiglie stimate", formatNumber(realFamilies), C.green], ["Copertura stimata", realCoverage != null ? `${realCoverage}%` : "-", C.green], ["Comuni", realComuniCount != null ? formatNumber(realComuniCount) : "-", C.blue], ["Totale", eur(grandTotal), C.orange]];
     if (ext.id === "tracking_gps") {
       return <div style={{
         display: "grid",
@@ -511,6 +511,7 @@ export function Step4({
     ? calculateHandToHandPricing({ operatorHours: h2hOperatorHours, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras })
     : calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
   const h2hQuoteDetail = isHandToHandQuote ? {
+    calculation: describeHandToHandCalculation(pricing.operatorHours),
     operators: pricing.operators,
     totalHours: pricing.totalHours,
     rate: H2H_HOURLY_RATE_EUR,
@@ -1226,7 +1227,7 @@ export function Step4({
     pricing: {
       lines: [h2hQuoteDetail ? {
         label: `Distribuzione ${tLabel}`,
-        detail: `${h2hQuoteDetail.operators} ${h2hQuoteDetail.operators === 1 ? "operatore" : "operatori"} · ${h2hQuoteDetail.totalHours} ore × ${formatQuoteCurrency(H2H_HOURLY_RATE_EUR, 2)}/ora`,
+        detail: h2hQuoteDetail.calculation,
         quantity: h2hQuoteDetail.totalHours,
         quantityLabel: `${h2hQuoteDetail.operators} ${h2hQuoteDetail.operators === 1 ? "operatore" : "operatori"} · ${h2hQuoteDetail.totalHours} ore`,
         unitPrice: H2H_HOURLY_RATE_EUR,
@@ -2020,7 +2021,7 @@ export function Step4({
             marginBottom: 5,
             textTransform: "uppercase",
             letterSpacing: ".06em"
-          }}>Volantini</div>
+          }}>{isHandToHandQuote ? "Materiale" : "Volantini"}</div>
             <div style={{
             fontFamily: F.serif,
             fontSize: 28,
@@ -2147,7 +2148,7 @@ export function Step4({
               c: C.white
             }, {
               icon: "",
-              l: "quantità",
+              l: isHandToHandQuote ? "materiale" : "quantità",
               v: flyerQty.toLocaleString("it-IT", {
                 useGrouping: true
               }) + " pz.",
@@ -2159,7 +2160,7 @@ export function Step4({
               c: C.green
             }, {
               icon: "",
-              l: "Materiale",
+              l: isHandToHandQuote ? "Stato materiale" : "Materiale",
               v: alreadyPrinted ? "già stampato" : "Da produrre",
               c: alreadyPrinted ? C.green : C.blue
             }, !alreadyPrinted && {
@@ -2437,7 +2438,7 @@ export function Step4({
                 c: col
               }, {
                 icon: "",
-                l: "Quantità assegnata",
+                l: isHandToHandQuote ? "Materiale assegnato" : "Quantità assegnata",
                 v: flyerQty.toLocaleString("it-IT", {
                   useGrouping: true
                 }) + " pz.",
@@ -2485,7 +2486,7 @@ export function Step4({
                 c: C.green
               }, {
                 icon: "",
-                l: "Quantità assegnata",
+                l: isHandToHandQuote ? "Materiale assegnato" : "Quantità assegnata",
                 v: flyerQty.toLocaleString("it-IT", {
                   useGrouping: true
                 }) + " pz.",
@@ -2951,7 +2952,7 @@ export function Step4({
               l: "Zona",
               v: mainAreaLabel || "—"
             }, {
-              l: "Quantità",
+              l: isHandToHandQuote ? "Materiale" : "Quantità",
               v: flyerQty.toLocaleString("it-IT", {
                 useGrouping: true
               }) + " pz."

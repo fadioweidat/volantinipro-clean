@@ -72,3 +72,23 @@ test("Step 4 and Quick Quote use the hourly engine; Smart Pairing excluded for H
   assert.ok(quick.includes("? calculateHandToHandPricing({ operatorHours: h2hOperatorHours, urgency, extras: extraLineItems })"));
   assert.ok(quick.includes("<FieldLabel>3. Operatori e ore</FieldLabel>"));
 });
+
+test("readable calculation in summaries; 'Materiale' instead of 'Volantini'/'Quantità' in Step 4", async () => {
+  const { describeHandToHandCalculation } = await import("../src/lib/pricing/handToHandPricing.js");
+  assert.equal(describeHandToHandCalculation([4, 4]), "2 operatori × 4 ore = 8 ore totali × €25/ora = €200,00");
+  assert.equal(describeHandToHandCalculation([4, 6]), "Ore per operatore 4 + 6 = 10 ore totali × €25/ora = €250,00");
+  assert.equal(describeHandToHandCalculation([3]), "1 operatore × 3 ore = 3 ore totali × €25/ora = €75,00");
+  assert.ok(read("src/components/Step1Summary.jsx").includes("{h2h.calculation}"));
+  assert.ok(read("src/pages/public/configurator/step4/Step4PricingSummaryPanel.jsx").includes("{h2hDetail.calculation}"));
+  const step4 = read("src/pages/public/configurator/Step4.jsx");
+  assert.ok(step4.includes('[isHandToHandQuote ? "Materiale" : "Volantini", formatNumber(flyerQty), C.orange]'));
+  assert.ok(step4.includes('l: isHandToHandQuote ? "materiale" : "quantità",'));
+  assert.ok(step4.includes('l: isHandToHandQuote ? "Materiale" : "Quantità",'));
+  assert.equal(step4.split('l: isHandToHandQuote ? "Materiale assegnato" : "Quantità assegnata",').length - 1, 2);
+});
+
+test("Smart Pairing texts say the real maximum (40% same zone, on distribution)", () => {
+  assert.ok(read("src/pages/public/ServiceCenter.jsx").includes("Riduci il costo della distribuzione fino al 40% senza rinunciare a nulla."));
+  assert.doesNotMatch(read("src/pages/public/ServiceCenter.jsx"), /fino al 20%/);
+  assert.ok(read("src/components/home/FeatureSmartPairing.jsx").includes('{ label: "Risparmio fino al 40% sulla distribuzione", desc:'));
+});

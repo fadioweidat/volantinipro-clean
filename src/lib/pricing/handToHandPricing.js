@@ -81,3 +81,17 @@ export function calculateHandToHandPricing({ operatorHours, urgency = "normal", 
   const pricing = calculateQuotePricing({ quantity: hours.reduce((s, h) => s + h, 0), baseCostOverride: baseCost, urgency, planDiscountPct, extras, smartPairingDiscountPct: 0 });
   return { ...pricing, operatorHours: hours, operators: hours.length, totalHours: hours.reduce((s, h) => s + h, 0), flyersRange: handToHandFlyersRange(hours) };
 }
+
+// Formula leggibile: "2 operatori × 4 ore = 8 ore totali × €25/ora = €200,00";
+// con ore diverse: "Ore per operatore 4 + 6 = 10 ore totali × €25/ora = €250,00".
+const euroCents = (n) => {
+  const [int, dec] = Number(n || 0).toFixed(2).split(".");
+  return `€${int.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${dec}`;
+};
+export function describeHandToHandCalculation(operatorHours) {
+  const hours = (Array.isArray(operatorHours) ? operatorHours : []).map(billableHours);
+  const total = hours.reduce((s, h) => s + h, 0);
+  const same = hours.every((h) => h === hours[0]);
+  const team = same ? `${hours.length} ${hours.length === 1 ? "operatore" : "operatori"} × ${hours[0]} ore` : `Ore per operatore ${hours.join(" + ")}`;
+  return `${team} = ${total} ore totali × €${H2H_HOURLY_RATE_EUR}/ora = ${euroCents(handToHandBaseCost(hours))}`;
+}

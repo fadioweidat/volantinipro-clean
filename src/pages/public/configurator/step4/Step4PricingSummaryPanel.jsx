@@ -36,7 +36,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, h2hDetail = null, s
                 fontFamily: F.sans,
                 fontSize: 12,
                 color: "rgba(255,255,255,.45)"
-              }}>Distribuzione {tLabel}{h2hDetail && <><br /><span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>{h2hDetail.operators} {h2hDetail.operators === 1 ? "operatore" : "operatori"} · {h2hDetail.totalHours} ore × {eur(h2hDetail.rate)}/ora</span></>}</span>
+              }}>Distribuzione {tLabel}{h2hDetail && <><br /><span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>{h2hDetail.calculation}</span></>}</span>
                 <span style={{
                 fontFamily: F.sans,
                 fontSize: 12,

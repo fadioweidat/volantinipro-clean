@@ -186,7 +186,7 @@ const SERVICES = [
         name: "Smart Pairing",
         desc: "Risparmio automatico quando la tua area coincide con un'altra campagna già programmata nella stessa data.",
         chart: "gauge", col: C.green,
-        benefit: "Riduci il costo della distribuzione fino al 20% senza rinunciare a nulla.",
+        benefit: "Riduci il costo della distribuzione fino al 40% senza rinunciare a nulla.",
       },
     ],
   },

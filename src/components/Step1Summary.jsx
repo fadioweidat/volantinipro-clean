@@ -18,7 +18,7 @@ export const Step1Summary = React.memo(function Step1Summary({ rows, issues, isM
   const h2h = estimate?.h2h || null;
   const h2hRows = h2h ? (
     <>
-      <div className="vp-s1-summary-row"><span>Distribuzione<br /><small style={{ opacity: 0.7 }}>{h2h.operators} {h2h.operators === 1 ? "operatore" : "operatori"} · {h2h.totalHours} ore × {eur(h2h.rate).replace(",00", "")}/ora</small></span><strong><Amount value={h2h.total} /></strong></div>
+      <div className="vp-s1-summary-row"><span>Distribuzione<br /><small style={{ opacity: 0.7 }}>{h2h.calculation}</small></span><strong><Amount value={h2h.total} /></strong></div>
       <small>Volantini stimati: circa {formatFlyersRange(h2h.flyersRange)}, secondo luogo e orario. {h2h.travelNote}</small>
     </>
   ) : null;

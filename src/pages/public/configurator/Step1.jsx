@@ -1,5 +1,5 @@
 import { doorToDoorRangeBeforeZone } from "../../../lib/pricing/step1Estimate.js";
-import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_TRAVEL_NOTE, calculateHandToHandPricing, handToHandFlyersRange, handToHandOperatorHours, formatFlyersRange } from "../../../lib/pricing/handToHandPricing.js";
+import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_TRAVEL_NOTE, calculateHandToHandPricing, describeHandToHandCalculation, handToHandFlyersRange, handToHandOperatorHours, formatFlyersRange } from "../../../lib/pricing/handToHandPricing.js";
 import { PRINT_TIMING_NOTE, earliestStartWithPrint, isPeriodPresetUnavailableWithPrint } from "../../../lib/printLeadTime.js";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
@@ -401,7 +401,7 @@ export function Step1({
   const d2dRange = serviceType === "d2d" ? doorToDoorRangeBeforeZone(activeQty, { urgency: data.urgency, planDiscountPct: discPct }) : null;
   const distributionNote = serviceType === "b2b" || serviceType === "business-distribution" ? "Su progetto" : null;
   const h2hPricing = serviceType === "h2h" ? calculateHandToHandPricing({ operatorHours: handToHandOperatorHours(data), urgency: data.urgency, planDiscountPct: discPct }) : null;
-  const h2hEstimate = h2hPricing ? { total: h2hPricing.total, operators: h2hPricing.operators, totalHours: h2hPricing.totalHours, rate: H2H_HOURLY_RATE_EUR, flyersRange: h2hPricing.flyersRange, travelNote: `Fuori da Milano città: ${H2H_TRAVEL_NOTE.toLowerCase()}.` } : null;
+  const h2hEstimate = h2hPricing ? { total: h2hPricing.total, calculation: describeHandToHandCalculation(h2hPricing.operatorHours), operators: h2hPricing.operators, totalHours: h2hPricing.totalHours, rate: H2H_HOURLY_RATE_EUR, flyersRange: h2hPricing.flyersRange, travelNote: `Fuori da Milano città: ${H2H_TRAVEL_NOTE.toLowerCase()}.` } : null;
   // "Sì, voglio anche stampa" ⟺ hasFlyers === "no" (id fuorviante della card).
   const printActive = data.hasFlyers === "no";
   // Motore prezzi stampa centralizzato (src/lib/pricing/printPricing.js).

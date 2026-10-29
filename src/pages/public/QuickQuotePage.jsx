@@ -27,7 +27,7 @@ import { formatOperationalMarginNote } from "../../lib/doorToDoorCoverage.js";
 import { submitPublicCampaign } from "../../lib/supabaseClient.js";
 import { sendQuoteAdminNotification, sendQuoteCustomerConfirmation } from "../../api/sendEmailConferma.js";
 import { trackQuoteCompleted } from "../../lib/analytics/siteEvents.js";
-import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOUR_OPTIONS, H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING, H2H_TRAVEL_NOTE, calculateHandToHandPricing, handToHandNeedsTravel, handToHandPlanningFlyers } from "../../lib/pricing/handToHandPricing.js";
+import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOUR_OPTIONS, H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING, H2H_TRAVEL_NOTE, calculateHandToHandPricing, describeHandToHandCalculation, handToHandNeedsTravel, handToHandPlanningFlyers } from "../../lib/pricing/handToHandPricing.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -473,6 +473,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     });
   const h2hQuickDetail = isH2HQuick ? {
     label: `${h2hOperators} ${h2hOperators === 1 ? "operatore" : "operatori"} · ${h2hOperators * h2hHours} ore`,
+    calculation: describeHandToHandCalculation(h2hOperatorHours),
     range: quickPricing.flyersRange,
     travel: hasComuni && handToHandNeedsTravel(comuni),
   } : null;
@@ -677,7 +678,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
           lines: [
             {
               label: `Distribuzione ${serviceLabel}`,
-              detail: h2hQuickDetail ? h2hQuickDetail.label : `${n(effectiveQuantity)} volantini`,
+              detail: h2hQuickDetail ? h2hQuickDetail.calculation : `${n(effectiveQuantity)} volantini`,
               quantity: effectiveQuantity,
               ...(h2hQuickDetail ? { quantityLabel: h2hQuickDetail.label, unitPrice: H2H_HOURLY_RATE_EUR, unitPriceLabel: `${money(H2H_HOURLY_RATE_EUR)}/ora` } : { unitPrice: pricePerThousand / 1000 }),
               total: baseCost,
@@ -1533,7 +1534,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                 {canPrice && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
-                      <span>{h2hQuickDetail ? `Distribuzione (${h2hQuickDetail.label} × ${money(H2H_HOURLY_RATE_EUR)}/ora)` : `Distribuzione (${n(effectiveQuantity)} pz)`}</span>
+                      <span>{h2hQuickDetail ? `Distribuzione: ${h2hQuickDetail.calculation}` : `Distribuzione (${n(effectiveQuantity)} pz)`}</span>
                       <span>{money(baseCost)}</span>
                     </div>
                     {h2hQuickDetail && (
