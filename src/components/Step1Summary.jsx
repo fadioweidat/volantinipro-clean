@@ -30,6 +30,7 @@ export const Step1Summary = React.memo(function Step1Summary({ rows, issues, isM
         {printActive ? (
           <>
             <div className="vp-s1-summary-row"><span>Stampa{estimate.printSpecLabel ? <><br /><small style={{ opacity: 0.7 }}>{estimate.printSpecLabel}</small></> : null}</span><strong>{estimate.printUnknown ? "Da verificare" : <Amount value={estimate.printCost} />}</strong></div>
+            {estimate.printTimingNote && <small>{estimate.printTimingNote}</small>}
             {range ? (
               <>
                 <div className="vp-s1-summary-row"><span>Distribuzione</span><strong>da <Amount value={range.min} /> a <Amount value={range.max} /></strong></div>
@@ -38,9 +39,10 @@ export const Step1Summary = React.memo(function Step1Summary({ rows, issues, isM
               </>
             ) : (
               <>
-                <div className="vp-s1-summary-row"><span>Distribuzione (stima)</span><strong>{eur(estimate.distributionCost)}</strong></div>
-                <div className="vp-s1-summary-row"><span>Totale stimato</span><strong>{estimate.printUnknown ? eur(estimate.distributionCost) : eur(estimate.total)}</strong></div>
-                <small>Il costo distribuzione è una stima: viene calcolato dopo l'analisi territoriale nello Step 2. Prezzi IVA esclusa.</small>
+                {/* Hand to Hand / Business: nessuna tariffa per 1.000 pubblicata (stessi testi della homepage). */}
+                <div className="vp-s1-summary-row"><span>Distribuzione</span><strong>{estimate.distributionNote || "Prezzo calcolato sulla tua zona"}</strong></div>
+                <div className="vp-s1-summary-row"><span>Totale stimato</span><strong>{estimate.printUnknown ? "Da verificare" : <><Amount value={estimate.printCost} /> + distribuzione</>}</strong></div>
+                <small>Il prezzo della distribuzione si calcola nel preventivo, in base a zona e servizio. Prezzi IVA esclusa.</small>
               </>
             )}
           </>

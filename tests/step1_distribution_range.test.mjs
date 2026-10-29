@@ -40,7 +40,7 @@ test("urgency and plan applied exactly like the final quote (calculateQuotePrici
 
 test("Step 1 summary shows the range for Door to Door; other services unchanged", () => {
   const step1 = read("src/pages/public/configurator/Step1.jsx");
-  assert.match(step1, /const d2dRange = \(data\.type \|\| "d2d"\) === "d2d" \? doorToDoorRangeBeforeZone\(activeQty, \{ urgency: data\.urgency, planDiscountPct: discPct \}\) : null;/);
+  assert.match(step1, /const d2dRange = serviceType === "d2d" \? doorToDoorRangeBeforeZone\(activeQty, \{ urgency: data\.urgency, planDiscountPct: discPct \}\) : null;/);
   assert.match(step1, /distributionRange: d2dRange/);
   const summary = read("src/components/Step1Summary.jsx");
   assert.ok(summary.includes("<span>Distribuzione</span><strong>da <Amount value={range.min} /> a <Amount value={range.max} /></strong>"));

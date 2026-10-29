@@ -1,4 +1,5 @@
 import { doorToDoorRangeBeforeZone } from "../../../lib/pricing/step1Estimate.js";
+import { PRINT_TIMING_NOTE, earliestStartWithPrint } from "../../../lib/printLeadTime.js";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
@@ -340,6 +341,10 @@ export function Step1({
       printing: { ...printing, format: fmt }
     });
   };
+  // Con la stampa l'urgenza vale per la distribuzione, dopo produzione e
+  // spedizione della stampa (printLeadTime.js).
+  const printChosen = data.hasFlyers === "no";
+  const printMinStart = printChosen ? earliestStartWithPrint() : "";
   const priorityOptions = [{
     id: "normal",
     label: "Standard",
@@ -348,12 +353,12 @@ export function Step1({
   }, {
     id: "urgent",
     label: "Urgente",
-    desc: "Avvio rapido in 24–48h ove disponibile • Maggiorazione +20%",
+    desc: printChosen ? "Distribuzione avviata in 24–48h dall'arrivo della stampa • Maggiorazione +20%" : "Avvio rapido in 24–48h ove disponibile • Maggiorazione +20%",
     badge: "Rapido"
   }, {
     id: "express",
     label: "Express",
-    desc: "Priorità massima immediata e dedicata • Maggiorazione +35%",
+    desc: printChosen ? "Priorità massima per la distribuzione dopo l'arrivo della stampa • Maggiorazione +35%" : "Priorità massima immediata e dedicata • Maggiorazione +35%",
     badge: "Prioritario"
   }];
   const planOptions = [{
@@ -377,30 +382,21 @@ export function Step1({
     subtitle: "Pianificazione 12 mesi",
     disc: 8
   }];
-  const baseRate = {
-    d2d: 18.5,
-    h2h: 22.0,
-    b2b: 35.0,
-    "business-distribution": 35.0
-  }[data.type || "d2d"] || 18.5;
   const activeQty = data.qty || 10000;
-  let distEst = activeQty / 1000 * baseRate;
-  // P1 PRICING ENGINE sezione 10/12: urgenza e sconto piano si applicano
-  // SOLO alla distribuzione, mai alla stampa (STAMPA: NON TOCCARE) — prima
-  // venivano applicati a distEst+printEst insieme.
-  if (data.urgency === "urgent") distEst *= 1.2;
-  if (data.urgency === "express") distEst *= 1.35;
   const discPct = {
     single: 0,
     monthly3: 3,
     monthly6: 5,
     monthly12: 8
   }[data.subscription] || 0;
-  if (discPct > 0) distEst = distEst * (1 - discPct / 100);
-  // Door to Door: la zona si sceglie nello Step 2, quindi qui si mostra
-  // l'intervallo reale della griglia territoriale (step1Estimate.js), mai la
-  // vecchia tariffa fissa sopra (18,50 €/1.000, sotto qualunque fascia).
-  const d2dRange = (data.type || "d2d") === "d2d" ? doorToDoorRangeBeforeZone(activeQty, { urgency: data.urgency, planDiscountPct: discPct }) : null;
+  // Distribuzione nello Step 1 (2026-10-29): nessuna tariffa fissa per 1.000
+  // (prima 18,50 / 22 / 35 €). Door to Door: intervallo reale della griglia
+  // territoriale (step1Estimate.js, urgenza e piano come nel preventivo);
+  // Hand to Hand: "Prezzo calcolato sulla tua zona" (tariffa da confermare);
+  // Business: "Su progetto". Stessi testi della homepage.
+  const serviceType = data.type || "d2d";
+  const d2dRange = serviceType === "d2d" ? doorToDoorRangeBeforeZone(activeQty, { urgency: data.urgency, planDiscountPct: discPct }) : null;
+  const distributionNote = serviceType === "h2h" ? "Prezzo calcolato sulla tua zona" : serviceType === "b2b" || serviceType === "business-distribution" ? "Su progetto" : null;
   // "Sì, voglio anche stampa" ⟺ hasFlyers === "no" (id fuorviante della card).
   const printActive = data.hasFlyers === "no";
   // Motore prezzi stampa centralizzato (src/lib/pricing/printPricing.js).
@@ -426,8 +422,6 @@ export function Step1({
   });
   const printEst = printActive && printPrice.customerPrice != null ? printPrice.customerPrice : 0;
   const printEstUnknown = printActive && printPrice.customerPrice == null;
-  const subtotalEst = distEst + printEst;
-  const totalEstFormatted = Math.round(subtotalEst).toLocaleString("it-IT");
   const eur2 = n => `€ ${Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const sidesLabel = { fronte: "solo fronte", fronte_retro_eq: "fronte/retro uguali", fronte_retro: "fronte/retro differenti" }[printing.sides] || "fronte/retro differenti";
   const printSpecLabel = `${String(printing.format || "A5").toUpperCase()} · ${new Intl.NumberFormat("it-IT").format(activeQty)} pz · ${String(printing.grammage || "130")}g · ${sidesLabel}`;
@@ -790,6 +784,8 @@ export function Step1({
   const isH2H = data.type === "h2h";
   const isB2B = data.type === "b2b" || data.type === "business-distribution";
   const dateError = !!(data.startDate && data.endDate && data.endDate < data.startDate);
+  // Con la stampa la distribuzione non puo' iniziare prima di produzione + spedizione.
+  const printDateError = !!(printMinStart && data.startDate && data.startDate < printMinStart);
   const currentServiceLabel = {
     d2d: "Door to Door",
     h2h: "Hand to Hand",
@@ -867,6 +863,9 @@ export function Step1({
   }, dateError && {
     id: "section-periodo",
     label: "Correggi il periodo selezionato"
+  }, printDateError && {
+    id: "section-periodo",
+    label: `Con la stampa la distribuzione può iniziare dal ${formatDateDisplay(printMinStart)}`
   }].filter(Boolean);
   const canContinueStep1 = step1Issues.length === 0 && !resolvingOperationalLocation;
   const quantityValue = Math.max(0, Number(data.businessMaterialQuantity ?? data.qty ?? 0) || 0);
@@ -1035,7 +1034,7 @@ export function Step1({
     complete: Boolean(data.subscription)
   }, {
     label: "Configurazione operativa",
-    complete: isH2H ? Boolean(data.promoterCount && data.timeSlot && data.serviceDurationHours && String(promoterAssignments[0]?.location || "").trim()) : isB2B ? Boolean(String(data.businessZone || "").trim() && data.businessCampaignObjective && data.businessDeliveryMethod && (data.businessMaterialLocation !== "pickup_client" || String(data.businessPickup?.address || "").trim())) : Boolean(data.urgency) && !dateError
+    complete: isH2H ? Boolean(data.promoterCount && data.timeSlot && data.serviceDurationHours && String(promoterAssignments[0]?.location || "").trim()) : isB2B ? Boolean(String(data.businessZone || "").trim() && data.businessCampaignObjective && data.businessDeliveryMethod && (data.businessMaterialLocation !== "pickup_client" || String(data.businessPickup?.address || "").trim())) : Boolean(data.urgency) && !dateError && !printDateError
   }];
   const s1Green = "#22C55E";
   const s1Panel = {
@@ -1247,9 +1246,9 @@ export function Step1({
           printCost: printEst,
           printUnknown: printEstUnknown,
           printSpecLabel,
-          distributionCost: Math.round(distEst),
-          total: Math.round(subtotalEst),
-          distributionRange: d2dRange
+          distributionRange: d2dRange,
+          distributionNote,
+          printTimingNote: PRINT_TIMING_NOTE
         }} />
         </aside>
         {/* Left Column: Configuration Sections */}
@@ -2070,7 +2069,7 @@ export function Step1({
                     }} className="vp-s1-input-modern" style={{
                       paddingRight: 44
                     }} />
-                          <input type="date" id={`date-picker-${field.key}`} value={val || ""} onChange={e => {
+                          <input type="date" id={`date-picker-${field.key}`} value={val || ""} min={printMinStart || undefined} onChange={e => {
                       const iso = e.target.value;
                       if (!iso) return;
                       updateData({
@@ -2107,7 +2106,7 @@ export function Step1({
                             <Step1Icon name="calendar" size={18} />
                           </span>
                         </div>
-                        {val && <div style={{
+                        {val && !(field.key === "startDate" && printDateError) && <div style={{
                     fontSize: 11,
                     color: "#22C55E",
                     marginTop: 4,
@@ -2131,6 +2130,16 @@ export function Step1({
             }}>
                     <Step1Icon name="warning" size={14} /> La data di fine precede la data di inizio. Per favore correggila.
                   </div>}
+                {printMinStart && <div style={{
+              marginTop: 12,
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: printDateError ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.04)",
+              border: printDateError ? "1px solid #EF4444" : "1px solid rgba(255,255,255,0.08)",
+              color: printDateError ? "#EF4444" : "#CBD5E1",
+              fontSize: 12,
+              fontWeight: 700
+            }}>{PRINT_TIMING_NOTE} Prima data di inizio possibile: {formatDateDisplay(printMinStart)}.</div>}
               </div>}
           </div>
 
@@ -2579,6 +2588,12 @@ export function Step1({
                   </button>;
             })}
             </div>
+            {printChosen && <p style={{
+            fontFamily: F.sans,
+            fontSize: 13,
+            color: "#CBD5E1",
+            margin: "16px 0 0"
+          }}>{PRINT_TIMING_NOTE} Urgente ed Express valgono per la distribuzione, dopo l'arrivo della stampa.</p>}
           </div>
 
           {/* Section 8: Piano */}
