@@ -443,8 +443,8 @@ export function printQuotePdf(rawData) {
       <tbody>
         ${(pricing.lines || []).map(l => `<tr>
           <td>${l.label}</td>
-          <td>${l.quantity ? fmt(l.quantity) + " volantini" : "—"}</td>
-          <td>${l.unitPrice ? cur(l.unitPrice, 4) : "—"}</td>
+          <td>${l.quantityLabel || (l.quantity ? fmt(l.quantity) + " volantini" : "—")}</td>
+          <td>${l.unitPriceLabel || (l.unitPrice ? cur(l.unitPrice, 4) : "—")}</td>
           <td>${cur(l.total)}</td>
         </tr>`).join("")}
         ${(pricing.extras || []).map(e => `<tr class="row-extra">
@@ -461,6 +461,7 @@ export function printQuotePdf(rawData) {
         </tr>` : ""}
       </tbody>
     </table>
+    ${(pricing.notes || []).map(note => `<div class="callout" style="margin-top:8px">${note}</div>`).join("")}
     ${pricing.printingLine ? `<div class="callout" style="margin-top:8px">Stampa indicativa ~${cur(pricing.printingLine.amount)} — da confermare con la tipografia. È inclusa nel totale complessivo qui sotto.</div>` : ""}
     <div class="total-box">
       <div>

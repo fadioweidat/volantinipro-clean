@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { calculateHandToHandPricing, handToHandOperatorHours } from "../../../lib/pricing/handToHandPricing.js";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
@@ -207,7 +208,9 @@ export function Step3({
   }[data.subscription] || "Campagna singola";
   const isContinuativePlan = data.subscription && data.subscription !== "single";
   const totalCampaigns = data.totalCampaigns || (data.campaignsPerMonth || 1) * (planMonths[data.subscription] || 1);
-  const realSmartPairingSlots = Array.isArray(data.smartPairingSlots) ? data.smartPairingSlots : [];
+  // Smart Pairing non si applica all'Hand to Hand (decisione 2026-10-29): nessun abbinamento.
+  const smartPairingNotForService = (data.type || "d2d") === "h2h";
+  const realSmartPairingSlots = smartPairingNotForService ? [] : Array.isArray(data.smartPairingSlots) ? data.smartPairingSlots : [];
   const realAvailabilityDates = Array.isArray(data.availableDates) ? data.availableDates : [];
   const pairs = Object.fromEntries(realSmartPairingSlots.map(slot => {
     const key = slot.date || slot.day || slot.giorno;
@@ -366,9 +369,13 @@ export function Step3({
   const step3DistributionZones = currentServiceType === "d2d"
     ? resolveConfiguratorDistributionZones(data, activeQty).zones
     : null;
-  const step3Pricing = calculateQuotePricing({ quantity: activeQty, pricePerThousand: step3PricePerThousand, distributionZones: step3DistributionZones });
+  // Hand to Hand: tariffa oraria (handToHandPricing.js) e niente Smart Pairing.
+  const isH2HStep3 = currentServiceType === "h2h";
+  const step3Pricing = isH2HStep3
+    ? calculateHandToHandPricing({ operatorHours: handToHandOperatorHours(data) })
+    : calculateQuotePricing({ quantity: activeQty, pricePerThousand: step3PricePerThousand, distributionZones: step3DistributionZones });
   const baseCost = step3Pricing.baseCost ?? 0;
-  const saved = baseCost * (averagePairingDiscount / 100);
+  const saved = isH2HStep3 ? 0 : baseCost * (averagePairingDiscount / 100);
   function toggle(d) {
     const k = calendarDateKey(year, month, d);
     if (!pairs[k] || !isSelectableCalendarDate(k, availableDates, pairs[k])) return;
@@ -823,7 +830,7 @@ export function Step3({
         lineHeight: 1.1,
         marginBottom: 14
       }}>
-          Riduci il costo della distribuzione fino al 40%.
+          {smartPairingNotForService ? "Scegli le date della distribuzione." : "Riduci il costo della distribuzione fino al 40%."}
         </h2>
         <p style={{
         fontFamily: F.sans,
@@ -898,7 +905,7 @@ export function Step3({
         }, {
           step: "5",
           title: isMultiPvCampaign ? "Verifica risparmio" : "Applica risparmio",
-          desc: isMultiPvCampaign ? "Disponibilità per la campagna" : "Fino al 40%",
+          desc: smartPairingNotForService ? "Non previsto per l'Hand to Hand" : isMultiPvCampaign ? "Disponibilità per la campagna" : "Fino al 40%",
           status: selDays.length > 0 ? "completed" : "future",
           highlight: true
         }] : [{
@@ -1017,8 +1024,8 @@ export function Step3({
         const bestDiscount = hasMatch ? Math.max(...realSmartPairingSlots.map(s => s.discountPercent)) : 0;
         return {
           label: hasMatch ? "Risparmio applicato" : "Risparmio disponibile",
-          val: hasMatch ? `${bestDiscount}%` : "Fino al 40%",
-          sub: hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
+          val: smartPairingNotForService ? "—" : hasMatch ? `${bestDiscount}%` : "Fino al 40%",
+          sub: smartPairingNotForService ? "Non previsto per l'Hand to Hand" : hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
           color: hasMatch ? C.green : C.yellow,
           tip: hasMatch ? "Risparmio assegnato dall'abbinamento confermato." : "Risparmio massimo previsto dalle regole Smart Pairing."
         };
@@ -1033,8 +1040,8 @@ export function Step3({
         const multiPvMatch = isMultiPvCampaign && hasMatch;
         return [{
           label: multiPvMatch ? "Smart Pairing disponibile" : hasMatch ? "Risparmio applicato" : "Risparmio disponibile",
-          val: isLoading ? "…" : isError ? "—" : multiPvMatch ? `Fino al ${bestDiscount}%` : hasMatch ? `${bestDiscount}%` : "Fino al 40%",
-          sub: isLoading ? "Verifica in corso" : isError ? "Non verificabile" : multiPvMatch ? "Verifica disponibilità per la campagna" : hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
+          val: smartPairingNotForService ? "—" : isLoading ? "…" : isError ? "—" : multiPvMatch ? `Fino al ${bestDiscount}%` : hasMatch ? `${bestDiscount}%` : "Fino al 40%",
+          sub: smartPairingNotForService ? "Non previsto per l'Hand to Hand" : isLoading ? "Verifica in corso" : isError ? "Non verificabile" : multiPvMatch ? "Verifica disponibilità per la campagna" : hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
           color: isError ? "rgba(255,255,255,0.4)" : hasMatch ? C.green : C.yellow,
           tip: multiPvMatch ? "Abbinamento trovato per uno dei punti vendita: il risparmio effettivo sull'intera campagna va verificato." : hasMatch ? "Risparmio assegnato dall'abbinamento confermato." : "Risparmio massimo previsto dalle regole Smart Pairing."
         }, {
@@ -1162,6 +1169,7 @@ export function Step3({
 
           {/* 4 & 9. CALENDARIO COMPATTO OPPURE CASO "NESSUNO SLOT" / ERRORE */}
           <Step3SmartPairingMainPanel
+            smartPairingAvailable={!smartPairingNotForService}
             availabilityStatus={availabilityStatus}
             setAvailabilityStatus={setAvailabilityStatus}
             setAvailabilityRetryCount={setAvailabilityRetryCount}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { handToHandFlyersRange } from "../lib/pricing/handToHandPricing.js";
 // TICKET — REGRESSION LEAFLET CDN: Leaflet dal pacchetto npm bundlato, MAI da
 // una CDN esterna a runtime (Edge Tracking Prevention bloccava/interferiva con
 // lo storage access della CDN). Stesso import gia' usato da tutti gli altri
@@ -1611,7 +1612,6 @@ function Step2MapImpl({
       const lat = Number(point.lat);
       const lng = Number(point.lng);
       const microRadius = Math.max(150, Number(point.microRadiusMeters || 400));
-      const assignedQuantity = Number(point.assignedQuantity || 0);
       const coordinateKey = `${lat.toFixed(5)}_${lng.toFixed(5)}`;
       const colocatedIndexes = coordinateGroups.get(coordinateKey) || [index];
       const colocatedPosition = colocatedIndexes.indexOf(index);
@@ -1647,7 +1647,7 @@ function Step2MapImpl({
           <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Tipo punto</span><span class="vp-promoter-map-card__value" style="color:${markerColor}">${pointTypeLabel}</span></div>
           <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Fascia oraria</span><span class="vp-promoter-map-card__value">${timeSlot}</span></div>
           <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Durata</span><span class="vp-promoter-map-card__value">${durationHours} ore</span></div>
-          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Capacità stimata</span><span class="vp-promoter-map-card__value">${formatItNumber(assignedQuantity)} pz.</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Volantini stimati</span><span class="vp-promoter-map-card__value">circa ${formatItNumber(handToHandFlyersRange([durationHours]).min)}–${formatItNumber(handToHandFlyersRange([durationHours]).max)}</span></div>
           <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Micro-zona</span><span class="vp-promoter-map-card__value">${formatItNumber(microRadius)} m</span></div>
           ${overlapNote}
         </div>

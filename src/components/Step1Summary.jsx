@@ -1,4 +1,5 @@
 import React from "react";
+import { formatFlyersRange } from "../lib/pricing/handToHandPricing.js";
 
 // it-IT non raggruppa i numeri di 4 cifre ("1087,12"): sempre "1.087,12".
 const eur = (n) => {
@@ -13,6 +14,14 @@ export const Step1Summary = React.memo(function Step1Summary({ rows, issues, isM
   const printActive = Boolean(estimate?.printActive);
   // Door to Door prima della zona: intervallo reale della griglia (min-max).
   const range = estimate?.distributionRange || null;
+  // Hand to Hand: tariffa oraria per operatore, prezzo calcolabile gia' nello Step 1.
+  const h2h = estimate?.h2h || null;
+  const h2hRows = h2h ? (
+    <>
+      <div className="vp-s1-summary-row"><span>Distribuzione<br /><small style={{ opacity: 0.7 }}>{h2h.operators} {h2h.operators === 1 ? "operatore" : "operatori"} · {h2h.totalHours} ore × {eur(h2h.rate).replace(",00", "")}/ora</small></span><strong><Amount value={h2h.total} /></strong></div>
+      <small>Volantini stimati: circa {formatFlyersRange(h2h.flyersRange)}, secondo luogo e orario. {h2h.travelNote}</small>
+    </>
+  ) : null;
   const content = (
     <div className="vp-s1-summary-body">
       <div className="vp-s1-summary-status">
@@ -31,7 +40,13 @@ export const Step1Summary = React.memo(function Step1Summary({ rows, issues, isM
           <>
             <div className="vp-s1-summary-row"><span>Stampa{estimate.printSpecLabel ? <><br /><small style={{ opacity: 0.7 }}>{estimate.printSpecLabel}</small></> : null}</span><strong>{estimate.printUnknown ? "Da verificare" : <Amount value={estimate.printCost} />}</strong></div>
             {estimate.printTimingNote && <small>{estimate.printTimingNote}</small>}
-            {range ? (
+            {h2h ? (
+              <>
+                {h2hRows}
+                <div className="vp-s1-summary-row"><span>Totale stimato</span><strong>{estimate.printUnknown ? <><Amount value={h2h.total} /> + stampa</> : <Amount value={h2h.total + estimate.printCost} />}</strong></div>
+                <small>Urgenza e piano, se scelti, sono già inclusi. Prezzi IVA esclusa.</small>
+              </>
+            ) : range ? (
               <>
                 <div className="vp-s1-summary-row"><span>Distribuzione</span><strong>da <Amount value={range.min} /> a <Amount value={range.max} /></strong></div>
                 <div className="vp-s1-summary-row"><span>Totale stimato</span><strong>{estimate.printUnknown ? <>da <Amount value={range.min} /> a <Amount value={range.max} /></> : <>da <Amount value={range.min + estimate.printCost} /> a <Amount value={range.max + estimate.printCost} /></>}</strong></div>
@@ -39,12 +54,17 @@ export const Step1Summary = React.memo(function Step1Summary({ rows, issues, isM
               </>
             ) : (
               <>
-                {/* Hand to Hand / Business: nessuna tariffa per 1.000 pubblicata (stessi testi della homepage). */}
+                {/* Business: nessuna tariffa per 1.000 pubblicata (stesso testo della homepage). */}
                 <div className="vp-s1-summary-row"><span>Distribuzione</span><strong>{estimate.distributionNote || "Prezzo calcolato sulla tua zona"}</strong></div>
                 <div className="vp-s1-summary-row"><span>Totale stimato</span><strong>{estimate.printUnknown ? "Da verificare" : <><Amount value={estimate.printCost} /> + distribuzione</>}</strong></div>
                 <small>Il prezzo della distribuzione si calcola nel preventivo, in base a zona e servizio. Prezzi IVA esclusa.</small>
               </>
             )}
+          </>
+        ) : h2h ? (
+          <>
+            {h2hRows}
+            <small>Urgenza e piano, se scelti, sono già inclusi. Prezzi IVA esclusa.</small>
           </>
         ) : (
           <>

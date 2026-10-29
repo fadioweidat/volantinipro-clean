@@ -1,4 +1,5 @@
 import { doorToDoorRangeBeforeZone } from "../../../lib/pricing/step1Estimate.js";
+import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_TRAVEL_NOTE, calculateHandToHandPricing, handToHandFlyersRange, handToHandOperatorHours, formatFlyersRange } from "../../../lib/pricing/handToHandPricing.js";
 import { PRINT_TIMING_NOTE, earliestStartWithPrint, isPeriodPresetUnavailableWithPrint } from "../../../lib/printLeadTime.js";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
@@ -394,11 +395,13 @@ export function Step1({
   // Distribuzione nello Step 1 (2026-10-29): nessuna tariffa fissa per 1.000
   // (prima 18,50 / 22 / 35 €). Door to Door: intervallo reale della griglia
   // territoriale (step1Estimate.js, urgenza e piano come nel preventivo);
-  // Hand to Hand: "Prezzo calcolato sulla tua zona" (tariffa da confermare);
-  // Business: "Su progetto". Stessi testi della homepage.
+  // Hand to Hand: tariffa oraria per operatore (handToHandPricing.js, urgenza e
+  // piano come il Door to Door, niente Smart Pairing); Business: "Su progetto".
   const serviceType = data.type || "d2d";
   const d2dRange = serviceType === "d2d" ? doorToDoorRangeBeforeZone(activeQty, { urgency: data.urgency, planDiscountPct: discPct }) : null;
-  const distributionNote = serviceType === "h2h" ? "Prezzo calcolato sulla tua zona" : serviceType === "b2b" || serviceType === "business-distribution" ? "Su progetto" : null;
+  const distributionNote = serviceType === "b2b" || serviceType === "business-distribution" ? "Su progetto" : null;
+  const h2hPricing = serviceType === "h2h" ? calculateHandToHandPricing({ operatorHours: handToHandOperatorHours(data), urgency: data.urgency, planDiscountPct: discPct }) : null;
+  const h2hEstimate = h2hPricing ? { total: h2hPricing.total, operators: h2hPricing.operators, totalHours: h2hPricing.totalHours, rate: H2H_HOURLY_RATE_EUR, flyersRange: h2hPricing.flyersRange, travelNote: `Fuori da Milano città: ${H2H_TRAVEL_NOTE.toLowerCase()}.` } : null;
   // "Sì, voglio anche stampa" ⟺ hasFlyers === "no" (id fuorviante della card).
   const printActive = data.hasFlyers === "no";
   // Motore prezzi stampa centralizzato (src/lib/pricing/printPricing.js).
@@ -714,7 +717,8 @@ export function Step1({
   const promoterAssignments = buildPromoterAssignments(data);
   const promoterCount = Math.max(1, Number(data.promoterCount || 1));
   const serviceDurationHours = Math.max(1, Number(data.serviceDurationHours || 4));
-  const estimatedH2HCapacity = promoterAssignments.reduce((total, assignment) => total + Math.max(1, Number(assignment.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0);
+  // Volantini stimati per il cliente: intervallo 250–350/ora per operatore (handToHandPricing.js).
+  const h2hTeamRange = handToHandFlyersRange(promoterAssignments.map(assignment => assignment.serviceDurationHours || serviceDurationHours));
   const selectedDistributionTargets = Array.isArray(data.distributionTargets) ? data.distributionTargets : [];
   const toggleDistributionTarget = target => {
     if (target === "all") {
@@ -1254,6 +1258,7 @@ export function Step1({
           printSpecLabel,
           distributionRange: d2dRange,
           distributionNote,
+          h2h: h2hEstimate,
           printTimingNote: PRINT_TIMING_NOTE
         }} />
         </aside>
@@ -1736,7 +1741,7 @@ export function Step1({
                       fontFamily: F.sans,
                       fontSize: 10,
                       color: "#4ADE80"
-                    }}>Capacità stimata: {(Math.max(1, Number(assignment.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR).toLocaleString("it-IT")} pz.</span>
+                    }}>Volantini stimati: circa {(() => { const r = handToHandFlyersRange([assignment.serviceDurationHours || serviceDurationHours]); return `${formatFlyersRange(r)}`; })()}</span>
                       </div>
                       <div style={{
                     display: "grid",
@@ -1807,15 +1812,15 @@ export function Step1({
                 marginTop: 12,
                 padding: "10px 12px",
                 borderRadius: 10,
-                background: data.qty > estimatedH2HCapacity ? "rgba(251,191,36,.08)" : "rgba(34,197,94,.08)",
-                border: `1px solid ${data.qty > estimatedH2HCapacity ? "rgba(251,191,36,.25)" : "rgba(34,197,94,.25)"}`,
+                background: data.qty > h2hTeamRange.max ? "rgba(251,191,36,.08)" : "rgba(34,197,94,.08)",
+                border: `1px solid ${data.qty > h2hTeamRange.max ? "rgba(251,191,36,.25)" : "rgba(34,197,94,.25)"}`,
                 fontFamily: F.sans,
                 fontSize: 11,
-                color: data.qty > estimatedH2HCapacity ? "#FDE68A" : "#86EFAC",
+                color: data.qty > h2hTeamRange.max ? "#FDE68A" : "#86EFAC",
                 lineHeight: 1.45
               }}>
-                  Capacità squadra stimata: <b>{estimatedH2HCapacity.toLocaleString("it-IT")} volantini</b> (somma degli orari dei {promoterCount} promoter × {H2H_FLYERS_PER_PROMOTER_HOUR}/ora).
-                  {data.qty > estimatedH2HCapacity ? ` Per distribuire ${Number(data.qty || 0).toLocaleString("it-IT")} volantini serviranno più ore, promoter o giornate.` : " La configurazione è coerente con la quantità inserita."}
+                  Volantini stimati per la squadra: <b>circa {formatFlyersRange(h2hTeamRange)}</b> ({H2H_FLYERS_ESTIMATE_NOTE}). Il prezzo dipende da operatori e ore, non dalla quantità.
+                  {data.qty > h2hTeamRange.max ? ` Per distribuire ${Number(data.qty || 0).toLocaleString("it-IT")} volantini potrebbero servire più ore, operatori o giornate.` : ""}
                 </div>
               </motion.div>}
 

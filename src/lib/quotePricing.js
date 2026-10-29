@@ -31,10 +31,13 @@ function urgencySurchargePct(urgency) {
 // funzione nuova introdotta qui, solo la sorgente di baseCost cambia
 // quando c'e' un dato territoriale reale da usare (mai per h2h/b2b, che
 // non passano mai distributionZones).
-export function calculateQuotePricing({ quantity, pricePerThousand, smartPairingDiscountPct = 0, urgency = "normal", planDiscountPct = 0, extras = [], distributionZones = null }) {
+// baseCostOverride (Hand to Hand, tariffa oraria in handToHandPricing.js): costo base gia'
+// calcolato, al posto di quantita' x tariffa per 1.000. Urgenza, piano ed extra restano qui.
+export function calculateQuotePricing({ quantity, pricePerThousand, smartPairingDiscountPct = 0, urgency = "normal", planDiscountPct = 0, extras = [], distributionZones = null, baseCostOverride = null }) {
   const normalizedQuantity = finiteNumber(quantity);
   const normalizedRate = finiteNumber(pricePerThousand);
-  if (normalizedQuantity === null || normalizedRate === null) {
+  const overrideBase = finiteNumber(baseCostOverride);
+  if (overrideBase === null && (normalizedQuantity === null || normalizedRate === null)) {
     return { quantity: normalizedQuantity, baseCost: null, smartPairingDiscount: null, urgencySurcharge: null, subtotalBeforePlan: null, planDiscountAmount: null, extraCost: null, total: null };
   }
   const smartPct = Math.max(0, Math.min(40, finiteNumber(smartPairingDiscountPct) ?? 0));
@@ -50,7 +53,7 @@ export function calculateQuotePricing({ quantity, pricePerThousand, smartPairing
   // dal motore a griglia (gia' arrotondato al centesimo) l'incoerenza tra un
   // numero "pulito" e uno con coda float diventa visibile — un solo punto di
   // arrotondamento per l'intera pipeline, come richiesto dal ticket pricing.
-  const baseCost = roundMoney(territorialSubtotal !== null ? territorialSubtotal : normalizedQuantity * (normalizedRate / 1000));
+  const baseCost = roundMoney(overrideBase !== null ? overrideBase : territorialSubtotal !== null ? territorialSubtotal : normalizedQuantity * (normalizedRate / 1000));
   const smartPairingDiscount = roundMoney(baseCost * (smartPct / 100));
   const urgencySurcharge = roundMoney(baseCost * (urgencySurchargePct(urgency) / 100));
   const subtotalBeforePlan = roundMoney(baseCost - smartPairingDiscount + urgencySurcharge);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { handToHandBaseCost, handToHandOperatorHours } from "../../../lib/pricing/handToHandPricing.js";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
@@ -75,6 +76,12 @@ import { ServiceExplanationCard } from "./step2/ServiceExplanationCard.jsx";
 import { SelectedZonesSummary } from "./step2/SelectedZonesSummary.jsx";
 import { activatePointOfSale, buildZoneKpiSnapshot, deleteAndActivatePointOfSale, getCampaignZoneLabel as getCampaignZoneQuoteLabel, getPointOfSaleName, isZoneAnalysisDataUsable, nextZoneAnalysisOwner, resolveNewZoneStartingQuantity, resolvePointOfSaleCoverageAddress, sanitizeStoreName, STORE_NAME_MAX_LENGTH, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
 import { projectStep2LegacyAliases } from "../../../lib/step2/buildStep2TruthModel.js";
+// Budget indicativo di zona: Hand to Hand a tariffa oraria (handToHandPricing.js),
+// gli altri servizi come prima (quantita' x tariffa per 1.000).
+function zoneBudget(svc, qty, data) {
+  return svc === "h2h" ? handToHandBaseCost(handToHandOperatorHours(data)) : qty * ((QUOTE_PRICES[svc] || 18.5) / 1000);
+}
+
 export function Step2({
   data,
   setData,
@@ -719,7 +726,7 @@ export function Step2({
         service_type: svcType,
         service_variant: data.flyerFormat || "a5",
         assigned_flyers: flyerQuantityFromStep1,
-        assigned_budget: flyerQuantityFromStep1 * ((QUOTE_PRICES[svcType] || 18.5) / 1000),
+        assigned_budget: zoneBudget(svcType, flyerQuantityFromStep1, data),
         coverage_percent: 100,
         recommended_flyers: flyerQuantityFromStep1,
         searchMode: index === 0 ? data.searchMode || "municipality" : "municipality",
@@ -1285,7 +1292,7 @@ export function Step2({
       service_type: nextSvc,
       service_variant: data.flyerFormat || "a5",
       assigned_flyers: startQty,
-      assigned_budget: startQty * ((QUOTE_PRICES[nextSvc] || 18.5) / 1000),
+      assigned_budget: zoneBudget(nextSvc, startQty, data),
       coverage_percent: 100,
       recommended_flyers: startQty,
       availableFlyers: startQty,
@@ -1323,7 +1330,7 @@ export function Step2({
         if (field === "assigned_flyers" || field === "service_type") {
           const qty = parseInt(newZ.assigned_flyers || 0);
           const svc = newZ.service_type || "d2d";
-          newZ.assigned_budget = qty * ((QUOTE_PRICES[svc] || 18.5) / 1000);
+          newZ.assigned_budget = zoneBudget(svc, qty, data);
         }
         return newZ;
       });

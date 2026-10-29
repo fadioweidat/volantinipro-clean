@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import Button from "../ui/Button.jsx";
 import { formatQuoteCurrency } from "../../lib/quotePricing.js";
 import { calculateHomepagePriceExample, getDoorToDoorCampaignMinimum, getStartingPricePerThousand } from "../../lib/pricing/homepagePricing.js";
+import { H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING } from "../../lib/pricing/handToHandPricing.js";
 
 const F = {
   serif: "'DM Sans', Inter, system-ui, sans-serif",
@@ -79,9 +80,9 @@ export const services = [
     key: "h2h",
     title: "Hand to Hand",
     subtitle: "Distribuzione a mano",
-    // H2H rate awaiting business confirmation: no starting price shown until then.
-    priceNote: "Prezzo calcolato sulla tua zona",
-    priceDetail: "Solo distribuzione, IVA esclusa",
+    // Hourly rate from the engine (handToHandPricing.js), never typed here.
+    priceNote: `${formatQuoteCurrency(H2H_HOURLY_RATE_EUR, 0)} l'ora per operatore`,
+    priceDetail: `Minimo ${H2H_MIN_HOURS_PER_OUTING} ore per uscita · IVA esclusa`,
     bullets: ["Alto passaggio pedonale", "Fasce orarie ottimali", "POI strategici inclusi"],
     cta: "Calcola Hand to Hand",
     icon: <UsersIcon />,

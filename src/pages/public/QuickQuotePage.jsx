@@ -27,6 +27,7 @@ import { formatOperationalMarginNote } from "../../lib/doorToDoorCoverage.js";
 import { submitPublicCampaign } from "../../lib/supabaseClient.js";
 import { sendQuoteAdminNotification, sendQuoteCustomerConfirmation } from "../../api/sendEmailConferma.js";
 import { trackQuoteCompleted } from "../../lib/analytics/siteEvents.js";
+import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOUR_OPTIONS, H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING, H2H_TRAVEL_NOTE, calculateHandToHandPricing, handToHandNeedsTravel, handToHandPlanningFlyers } from "../../lib/pricing/handToHandPricing.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -106,6 +107,9 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // salvato) — il Preventivo Rapido deve partire sempre pulito, senza una
   // quantita' ereditata che sembrerebbe gia' "decisa" dal territorio.
   const [qty, setQty] = useState(null);
+  // Hand to Hand: il cliente sceglie operatori e ore (tariffa oraria), non una quantita'.
+  const [h2hOperators, setH2hOperators] = useState(1);
+  const [h2hHours, setH2hHours] = useState(4);
   const [format, setFormat] = useState("A5");
   const [printed, setPrinted] = useState("true");
   const [timing, setTiming] = useState("asap");
@@ -409,11 +413,14 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // non ha inserito nulla ed e' disponibile una raccomandazione D2D o una
   // stima B2B, si usa quella. Altrimenti la quantita' inserita manualmente
   // (unico caso possibile per H2H, dato che recommendedQty resta sempre null).
-  const effectiveQuantity = qty != null ? qty : recommendedQty;
+  const isH2HQuick = service === "h2h";
+  const h2hOperatorHours = Array.from({ length: h2hOperators }, () => h2hHours);
+  // Quantita' Hand to Hand solo per pianificazione/materiale (250/ora), mai mostrata come garantita.
+  const effectiveQuantity = isH2HQuick ? h2hOperators * handToHandPlanningFlyers(h2hHours) : qty != null ? qty : recommendedQty;
   // canPrice: D2D invariato. B2B/H2H non attendono piu' il completamento di
   // tutti i comuni (progressive loading, sez. 3): basta una quantita'
   // effettiva valida, gia' derivata solo da comuni "matched" a monte.
-  const canPrice = service === "d2d"
+  const canPrice = isH2HQuick ? hasComuni : service === "d2d"
     ? (!territorialLoading && effectiveQuantity != null && effectiveQuantity > 0 && hasComuni && !territorialError)
     : (hasComuni && effectiveQuantity != null && effectiveQuantity > 0);
 
@@ -455,13 +462,20 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   const quickDistributionZones = service === "d2d" && comuni.length === 1 && pricingQty > 0
     ? resolveConfiguratorDistributionZones({ selectedComuni: comuni }, pricingQty).zones
     : null;
-  const quickPricing = calculateQuotePricing({
-    quantity: pricingQty,
-    pricePerThousand,
-    urgency,
-    extras: extraLineItems,
-    distributionZones: quickDistributionZones,
-  });
+  const quickPricing = isH2HQuick
+    ? calculateHandToHandPricing({ operatorHours: h2hOperatorHours, urgency, extras: extraLineItems })
+    : calculateQuotePricing({
+      quantity: pricingQty,
+      pricePerThousand,
+      urgency,
+      extras: extraLineItems,
+      distributionZones: quickDistributionZones,
+    });
+  const h2hQuickDetail = isH2HQuick ? {
+    label: `${h2hOperators} ${h2hOperators === 1 ? "operatore" : "operatori"} · ${h2hOperators * h2hHours} ore`,
+    range: quickPricing.flyersRange,
+    travel: hasComuni && handToHandNeedsTravel(comuni),
+  } : null;
   const baseCost = quickPricing.baseCost ?? 0;
   const urgencySurcharge = quickPricing.urgencySurcharge ?? 0;
   const urgencySurchargePctLabel = baseCost > 0 ? Math.round((urgencySurcharge / baseCost) * 100) : 0;
@@ -663,9 +677,9 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
           lines: [
             {
               label: `Distribuzione ${serviceLabel}`,
-              detail: `${n(effectiveQuantity)} volantini`,
+              detail: h2hQuickDetail ? h2hQuickDetail.label : `${n(effectiveQuantity)} volantini`,
               quantity: effectiveQuantity,
-              unitPrice: pricePerThousand / 1000,
+              ...(h2hQuickDetail ? { quantityLabel: h2hQuickDetail.label, unitPrice: H2H_HOURLY_RATE_EUR, unitPriceLabel: `${money(H2H_HOURLY_RATE_EUR)}/ora` } : { unitPrice: pricePerThousand / 1000 }),
               total: baseCost,
             },
             ...(urgencySurcharge > 0 ? [{ label: `Maggiorazione urgenza (+${urgencySurchargePctLabel}%)`, quantity: null, unitPrice: null, total: urgencySurcharge }] : []),
@@ -674,6 +688,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
           extras: extraIds.map((id) => ({ label: registryById[id]?.head, amount: registryById[id]?.price || 0, status: "Selezionato" })),
           discounts: [],
           total: totalAmount,
+          notes: h2hQuickDetail ? [`Volantini stimati: circa ${n(h2hQuickDetail.range.min)}–${n(h2hQuickDetail.range.max)} (${H2H_FLYERS_ESTIMATE_NOTE}).`, ...(h2hQuickDetail.travel ? [`${H2H_TRAVEL_NOTE}: il totale non lo comprende.`] : [])] : [],
         },
         sources: campaign.allMatched ? ["Analisi territoriale GIS/NIL"] : [],
       };
@@ -832,8 +847,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                 <span style={{ color: C.white, fontWeight: 700, textAlign: "right", maxWidth: 280 }}>{comuni.map((c) => c.name).join(", ")}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)" }}>
-                <span>Quantità:</span>
-                <span style={{ color: C.white, fontWeight: 700 }}>{n(effectiveQuantity)} volantini</span>
+                <span>{h2hQuickDetail ? "Operatori e ore:" : "Quantità:"}</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>{h2hQuickDetail ? h2hQuickDetail.label : `${n(effectiveQuantity)} volantini`}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)" }}>
                 <span>Formato / Stampa:</span>
@@ -1113,7 +1128,33 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               )}
             </div>
 
+            {/* 3. HAND TO HAND: OPERATORI E ORE (tariffa oraria, al posto della quantita') */}
+            {isH2HQuick && (
+            <div style={{ marginBottom: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+              <FieldLabel>3. Operatori e ore</FieldLabel>
+              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
+                {money(H2H_HOURLY_RATE_EUR)} l'ora per operatore, minimo {H2H_MIN_HOURS_PER_OUTING} ore per uscita. Volantini stimati: {H2H_FLYERS_ESTIMATE_NOTE}.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <label style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>Operatori
+                  <select value={h2hOperators} onChange={(e) => setH2hOperators(Number(e.target.value))} style={{ ...inputStyle, marginTop: 6 }}>
+                    {[1, 2, 3, 4, 5, 6].map((v) => <option key={v} value={v}>{v} {v === 1 ? "operatore" : "operatori"}</option>)}
+                  </select>
+                </label>
+                <label style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>Ore per operatore
+                  <select value={h2hHours} onChange={(e) => setH2hHours(Number(e.target.value))} style={{ ...inputStyle, marginTop: 6 }}>
+                    {H2H_HOUR_OPTIONS.map((v) => <option key={v} value={v}>{v} ore</option>)}
+                  </select>
+                </label>
+              </div>
+              <div style={{ marginTop: 10, fontFamily: F.sans, fontSize: 12, color: C.green }}>
+                Volantini stimati: circa {n(quickPricing.flyersRange?.min || 0)}–{n(quickPricing.flyersRange?.max || 0)}, secondo luogo e orario.
+              </div>
+            </div>
+            )}
+
             {/* 3. QUANTITÀ VOLANTINI */}
+            {!isH2HQuick && (
             <div style={{ marginBottom: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.06)" }}>
               <FieldLabel>3. Quantità volantini</FieldLabel>
               <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
@@ -1196,6 +1237,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                 </div>
               )}
             </div>
+            )}
 
             {/* 4. MATERIALE (FORMATO & STAMPA) SU STESSA RIGA */}
             <div style={{ marginBottom: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.06)" }}>
@@ -1442,9 +1484,9 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
-                <span>Quantità:</span>
+                <span>{h2hQuickDetail ? "Operatori e ore:" : "Quantità:"}</span>
                 <span style={{ color: "#F8FAFC", fontWeight: 700 }}>
-                  {effectiveQuantity ? `${n(effectiveQuantity)} pz` : d2dUnmatched.length ? "Da inserire" : (hasComuni ? "In calcolo…" : "In attesa")}
+                  {h2hQuickDetail ? h2hQuickDetail.label : effectiveQuantity ? `${n(effectiveQuantity)} pz` : d2dUnmatched.length ? "Da inserire" : (hasComuni ? "In calcolo…" : "In attesa")}
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
@@ -1491,9 +1533,14 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                 {canPrice && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
-                      <span>Distribuzione ({n(effectiveQuantity)} pz)</span>
+                      <span>{h2hQuickDetail ? `Distribuzione (${h2hQuickDetail.label} × ${money(H2H_HOURLY_RATE_EUR)}/ora)` : `Distribuzione (${n(effectiveQuantity)} pz)`}</span>
                       <span>{money(baseCost)}</span>
                     </div>
+                    {h2hQuickDetail && (
+                      <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.5)", lineHeight: 1.5 }}>
+                        Volantini stimati: circa {n(h2hQuickDetail.range.min)}–{n(h2hQuickDetail.range.max)}, secondo luogo e orario.{h2hQuickDetail.travel ? ` ${H2H_TRAVEL_NOTE}: il totale non lo comprende.` : ""}
+                      </div>
+                    )}
                     {urgencySurcharge > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.red }}>
                         <span>Urgenza (+{urgencySurchargePctLabel}%)</span>

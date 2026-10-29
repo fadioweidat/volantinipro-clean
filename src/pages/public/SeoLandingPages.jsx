@@ -3,6 +3,7 @@ import PublicNavLink from "../../components/common/PublicNavLink.jsx";
 import { C, F } from "../../lib/constants.js";
 import Button from "../../components/ui/Button.jsx";
 import { pricesPageContent as prices } from "../../lib/seo/pricesPageContent.js";
+import { H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING } from "../../lib/pricing/handToHandPricing.js";
 import { CITY_PAGES, ISTAT_SOURCE, cityFacts, formatEuro, formatInt } from "../../lib/seo/cityPagesData.js";
 
 // SEO — pagina prezzi e pagine citta' (2026-10-25). Stesso design system della
@@ -206,6 +207,17 @@ export function PricesPage({ onNav }) {
           </div>
         </Section>
 
+        <Section title="Hand to Hand: tariffa oraria">
+          <p style={pStyle}><strong style={{ color: C.white }}>{prices.handToHand.rate}</strong>. {prices.handToHand.minimum}</p>
+          <PriceTable
+            caption="Esempi calcolati con il motore di calcolo, IVA esclusa."
+            head={["Squadra", "Prezzo", "Volantini stimati"]}
+            rows={prices.handToHand.examples.map((e) => [e.label, e.price, e.flyers])}
+          />
+          <p style={{ ...pStyle, marginTop: 12 }}>{prices.handToHand.flyers}</p>
+          <p style={pStyle}>{prices.handToHand.travel} {prices.handToHand.adjustments}</p>
+        </Section>
+
         <Section title="Distribuzione a mano e per aziende">
           <div style={{ display: "grid", gap: 12 }}>
             {prices.otherServices.map((s) => (
@@ -250,7 +262,7 @@ export function CityLandingPage({ pageKey, onNav }) {
           <div style={{ display: "grid", gap: 12 }}>
             {[
               { ...SERVICE_LINKS[0], text: "Volantini nelle cassette postali di condomini e abitazioni, con il prezzo della tabella sopra." },
-              { ...SERVICE_LINKS[1], text: "Consegna a mano in punti di passaggio. Prezzo calcolato sulla tua zona." },
+              { ...SERVICE_LINKS[1], text: `Consegna a mano in punti di passaggio: ${formatEuro(H2H_HOURLY_RATE_EUR)} l'ora per operatore, minimo ${H2H_MIN_HOURS_PER_OUTING} ore. Fuori da Milano città lo spostamento è calcolato nel preventivo.` },
               { ...SERVICE_LINKS[2], text: "Distribuzione mirata a negozi e uffici. Su progetto." },
             ].map((s) => (
               <div key={s.pageKey} style={card}>

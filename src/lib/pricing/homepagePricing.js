@@ -14,7 +14,7 @@ const REFERENCE_QUANTITY = 1000;
  * Lowest real price per 1.000 flyers for a service.
  * D2D: lowest per-1.000 rate reached on the territorial grid (high volumes;
  * grid quantities only, never the extrapolation beyond the last tier).
- * H2H: flat configurator rate for 1.000 pz. Business: null — "su progetto".
+ * H2H: null — hourly rate per operator (handToHandPricing.js). Business: null — "su progetto".
  * @returns {number|null}
  */
 export function getStartingPricePerThousand(service) {
@@ -27,9 +27,7 @@ export function getStartingPricePerThousand(service) {
     ).filter((rate) => rate !== null);
     return rates.length ? roundMoney(Math.min(...rates)) : null;
   }
-  if (service === 'h2h') {
-    return calculateQuotePricing({ quantity: REFERENCE_QUANTITY, pricePerThousand: QUOTE_PRICES.h2h }).baseCost;
-  }
+  // Hand to Hand: tariffa oraria (handToHandPricing.js), nessun prezzo per 1.000.
   return null;
 }
 

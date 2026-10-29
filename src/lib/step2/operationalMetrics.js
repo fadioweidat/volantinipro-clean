@@ -1,5 +1,7 @@
 export const D2D_DAILY_CAPACITY = 4000;
-export const H2H_FLYERS_PER_PROMOTER_HOUR = 200;
+// Pianificazione interna Hand to Hand (250/ora, minimo dell'intervallo 250–350):
+// mai mostrato al cliente come quantita' garantita (handToHandPricing.js).
+export { H2H_PLANNING_FLYERS_PER_HOUR as H2H_FLYERS_PER_PROMOTER_HOUR } from "../pricing/handToHandPricing.js";
 
 export const OPERATIONAL_SCORE_THRESHOLDS = Object.freeze({ high: 78, medium: 58 });
 

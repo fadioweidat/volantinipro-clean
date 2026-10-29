@@ -1,6 +1,6 @@
-// 2026-10-29 (approved): Step 1 no longer shows a flat rate per 1.000 for Hand to Hand (€22,
-// rate awaiting confirmation) or Business (€35): "Prezzo calcolato sulla tua zona" / "Su
-// progetto", as on the homepage. With printing chosen, urgency applies to distribution after the
+// 2026-10-29 (approved): Step 1 no longer shows a flat rate per 1.000 for Hand to Hand (€22)
+// or Business (€35). Business: "Su progetto"; Hand to Hand: hourly rate per operator
+// (handToHandPricing.js, later the same day). With printing chosen, urgency applies to distribution after the
 // print arrives, and "Scelgo la data" starts no earlier than production + shipping.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,8 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8").re
 test("no flat distribution rate left in Step 1; H2H/B2B notes as on the homepage", () => {
   const step1 = read("src/pages/public/configurator/Step1.jsx");
   assert.doesNotMatch(step1, /baseRate|distEst|18\.5|h2h: 22\.0|b2b: 35\.0/);
-  assert.match(step1, /const distributionNote = serviceType === "h2h" \? "Prezzo calcolato sulla tua zona" : serviceType === "b2b" \|\| serviceType === "business-distribution" \? "Su progetto" : null;/);
+  assert.ok(step1.includes('const distributionNote = serviceType === "b2b" || serviceType === "business-distribution" ? "Su progetto" : null;'));
+  assert.ok(step1.includes("const h2hPricing = serviceType === \"h2h\" ? calculateHandToHandPricing({ operatorHours: handToHandOperatorHours(data), urgency: data.urgency, planDiscountPct: discPct }) : null;"));
   const summary = read("src/components/Step1Summary.jsx");
   assert.doesNotMatch(summary, /distributionCost|estimate\.total/);
   assert.ok(summary.includes('<strong>{estimate.distributionNote || "Prezzo calcolato sulla tua zona"}</strong>'));

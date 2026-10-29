@@ -1,8 +1,9 @@
 import React from "react";
+import { formatFlyersRange } from "../../../../lib/pricing/handToHandPricing.js";
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { C, F } from "../../../../lib/constants.js";
 
-export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc, smartPairingDiscount, data, urgencySurchargePctLabel, urgSurch, subDiscPct, planDiscountAmount, isQuick, total, flyerQty, svcType, kpis, totF, printingExtra, printingEstimatedPrice, printPriceKnown = true, printingSelected = false, printingLinePrice = 0, artworkRequired = false, artworkSelected = false, graphicLinePrice = 0, graphicServicePrice = 79, grandTotal, eur }) {
+export function Step4PricingSummaryPanel({ tLabel, baseCost, h2hDetail = null, serviceExtras, disc, smartPairingDiscount, data, urgencySurchargePctLabel, urgSurch, subDiscPct, planDiscountAmount, isQuick, total, flyerQty, svcType, kpis, totF, printingExtra, printingEstimatedPrice, printPriceKnown = true, printingSelected = false, printingLinePrice = 0, artworkRequired = false, artworkSelected = false, graphicLinePrice = 0, graphicServicePrice = 79, grandTotal, eur }) {
   const extrasSubtotal = (serviceExtras || []).reduce((sum, e) => {
     const n = typeof e.raw === "number" ? e.raw : Number(String(e.v || "").replace(/[^0-9.,-]/g, "").replace(",", "."));
     return sum + (Number.isFinite(n) ? n : 0);
@@ -35,7 +36,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
                 fontFamily: F.sans,
                 fontSize: 12,
                 color: "rgba(255,255,255,.45)"
-              }}>Distribuzione {tLabel}</span>
+              }}>Distribuzione {tLabel}{h2hDetail && <><br /><span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>{h2hDetail.operators} {h2hDetail.operators === 1 ? "operatore" : "operatori"} · {h2hDetail.totalHours} ore × {eur(h2hDetail.rate)}/ora</span></>}</span>
                 <span style={{
                 fontFamily: F.sans,
                 fontSize: 12,
@@ -43,6 +44,10 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
                 color: "rgba(255,255,255,.72)"
               }}>{eur(baseCost)}</span>
               </div>
+              {/* Hand to Hand: volantini stimati come intervallo, spostamento fuori Milano senza importo. */}
+              {h2hDetail && <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)", lineHeight: 1.5, paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                Volantini stimati: circa {formatFlyersRange(h2hDetail.flyersRange)}, secondo luogo e orario.{h2hDetail.travelNote ? ` ${h2hDetail.travelNote}: il totale non lo comprende.` : ""}
+              </div>}
               {serviceExtras.map(({
               l,
               v,
@@ -193,14 +198,14 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
                   fontFamily: F.sans,
                   fontSize: 11,
                   color: "rgba(255,255,255,.42)"
-                }}>Costo per 1.000 volantini</span>
+                }}>{h2hDetail ? "Prezzo all'ora per operatore" : "Costo per 1.000 volantini"}</span>
                   <span style={{
                   fontFamily: F.sans,
                   fontSize: 12,
                   fontWeight: 700,
                   color: "rgba(255,255,255,.75)"
                 }}>
-                    {flyerQty > 0 ? eur(total / flyerQty * 1000) : "—"}
+                    {h2hDetail ? eur(h2hDetail.rate) : flyerQty > 0 ? eur(total / flyerQty * 1000) : "—"}
                   </span>
                 </div>
                 {svcType === "d2d" && (kpis.families ?? totF) > 0 && <div style={{

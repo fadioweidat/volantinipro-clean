@@ -58,7 +58,9 @@ test("prices page: typical quantities in evidence, 'da €30' only for large vol
   assert.deepEqual(pricesPageContent.typical[1].prices, ["€350", "€420", "€520", "€750"]);
   assert.equal(getStartingPricePerThousand("d2d"), 30);
   assert.match(pricesPageContent.largeVolumesNote, /^Da €30 ogni 1\.000 volantini solo per grandi quantità: è il prezzo di 50\.000 volantini nella fascia «Milano città»\./);
-  assert.deepEqual(pricesPageContent.otherServices.map((s) => s.price), ["Prezzo calcolato sulla tua zona", "Su progetto"]);
+  // 2026-10-29: Hand to Hand a tariffa oraria (€25/ora per operatore, minimo 3 ore).
+  assert.deepEqual(pricesPageContent.otherServices.map((s) => s.price), ["€25 l'ora per operatore, minimo 3 ore per uscita (IVA esclusa)", "Su progetto"]);
+  assert.deepEqual(pricesPageContent.handToHand.examples.map((e) => e.price), ["€75", "€200", "€600"]);
   assert.doesNotMatch(JSON.stringify(pricesPageContent), /€22(?!\d)|22 ogni/);
 });
 

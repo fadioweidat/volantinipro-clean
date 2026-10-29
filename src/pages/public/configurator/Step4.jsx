@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_TRAVEL_NOTE, calculateHandToHandPricing, handToHandNeedsTravel, handToHandOperatorHours, handToHandStartComuni, formatFlyersRange } from "../../../lib/pricing/handToHandPricing.js";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
@@ -114,6 +115,11 @@ export function Step4({
   } : null;
   const pricePerThousand = QUOTE_PRICES[svcType] || 18.5;
   const unitPricePerFlyer = pricePerThousand / 1000;
+  // Hand to Hand: tariffa oraria per operatore (handToHandPricing.js), niente
+  // Smart Pairing; fuori da Milano citta' "spostamento calcolato nel preventivo".
+  const isHandToHandQuote = svcType === "h2h";
+  const h2hOperatorHours = isHandToHandQuote ? handToHandOperatorHours(data) : null;
+  const h2hNeedsTravel = isHandToHandQuote && handToHandNeedsTravel(handToHandStartComuni(data));
   // P0 WIRING REALE — griglia territoriale attiva SOLO per D2D (sezione 9
   // del ticket precedente + sezione 9 di questo: "NON applicare
   // automaticamente questa griglia a... ALTRI SERVIZI"). h2h/b2b restano
@@ -163,7 +169,7 @@ export function Step4({
     }];
   }).filter(Boolean));
   const realSelectedPairingDiscounts = selDays.map(k => realStep3Pairs[k]?.disc).filter(v => Number(v) > 0);
-  const disc = realSelectedPairingDiscounts.length ? Math.round(realSelectedPairingDiscounts.reduce((a, v) => a + v, 0) / realSelectedPairingDiscounts.length) : 0;
+  const disc = !isHandToHandQuote && realSelectedPairingDiscounts.length ? Math.round(realSelectedPairingDiscounts.reduce((a, v) => a + v, 0) / realSelectedPairingDiscounts.length) : 0;
   const alreadyPrinted = data.alreadyPrinted ?? data.hasFlyers === "yes";
   const productionServices = [...new Set([...(data.printServices || []), ...(data.extraServices || [])])].filter(s => ["stampa", "grafica"].includes(s));
   // Unica fonte dati per i servizi extra: estratta in
@@ -501,7 +507,16 @@ export function Step4({
   });
   const printPriceKnown = printQuote.customerPrice != null;
   const printingEstimatedPrice = printPriceKnown ? printQuote.customerPrice : 0;
-  const pricing = calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
+  const pricing = isHandToHandQuote
+    ? calculateHandToHandPricing({ operatorHours: h2hOperatorHours, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras })
+    : calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
+  const h2hQuoteDetail = isHandToHandQuote ? {
+    operators: pricing.operators,
+    totalHours: pricing.totalHours,
+    rate: H2H_HOURLY_RATE_EUR,
+    flyersRange: pricing.flyersRange,
+    travelNote: h2hNeedsTravel ? H2H_TRAVEL_NOTE : null
+  } : null;
   const { baseCost, smartPairingDiscount, urgencySurcharge: urgSurch, subtotalBeforePlan, planDiscountAmount, extraCost, total } = pricing;
 
   // STAMPA e GRAFICA — voci SEPARATE, mai dentro il motore distribuzione
@@ -689,7 +704,7 @@ export function Step4({
     useGrouping: true
   })} volantini disponibili per estensione zona o scorta operativa.` : `La quantità inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT", {
     useGrouping: true
-  })} volantini per raggiungere la copertura stimata.` : svcType === "h2h" ? `La campagna Hand to Hand assegna ${formatNumber(kpis.promoterCount || data.promoterCount || 1)} promoter a ${formatNumber(kpis.selectedPointCount || data.selectedOperationalPois?.length || data.operationalPoints?.length || 1)} punti operativi, con una capacità stimata di ${formatNumber(kpis.estimatedCapacity || data.h2hEstimatedCapacity || requiredQty)} volantini per turno.` : isB2B ? `La campagna Business comprende ${formatNumber(step4BusinessMaterialPlan?.selectedActivities || data.selectedOperationalPois?.length || 0)} attività selezionate nell'area di ${mainAreaLabel}, ${step4BusinessMaterialPlan?.materialsRequired == null ? "materiali da definire" : `${formatNumber(step4BusinessMaterialPlan.materialsRequired)} materiali necessari`} e ${step4BusinessOperationalPlan?.calculable ? `${formatNumber(step4BusinessOperationalPlan.operatorDays)} giornate-addetto stimate` : "capacità operativa da definire"}.` : `La campagna copre ${mainAreaLabel} con i dati operativi disponibili per il servizio selezionato.`;
+  })} volantini per raggiungere la copertura stimata.` : svcType === "h2h" ? `La campagna Hand to Hand assegna ${formatNumber(kpis.promoterCount || data.promoterCount || 1)} promoter a ${formatNumber(kpis.selectedPointCount || data.selectedOperationalPois?.length || data.operationalPoints?.length || 1)} punti operativi, con ${`circa ${formatFlyersRange(h2hQuoteDetail.flyersRange)}`} volantini stimati per turno, secondo luogo e orario.` : isB2B ? `La campagna Business comprende ${formatNumber(step4BusinessMaterialPlan?.selectedActivities || data.selectedOperationalPois?.length || 0)} attività selezionate nell'area di ${mainAreaLabel}, ${step4BusinessMaterialPlan?.materialsRequired == null ? "materiali da definire" : `${formatNumber(step4BusinessMaterialPlan.materialsRequired)} materiali necessari`} e ${step4BusinessOperationalPlan?.calculable ? `${formatNumber(step4BusinessOperationalPlan.operatorDays)} giornate-addetto stimate` : "capacità operativa da definire"}.` : `La campagna copre ${mainAreaLabel} con i dati operativi disponibili per il servizio selezionato.`;
   const selectedDatesLabel = selDays.length ? selDays.map(k => {
     const pts = k.split("-");
     return `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1])]}`;
@@ -835,9 +850,9 @@ export function Step4({
         src: "Selezione Step 2",
         c: C.blue
       }, {
-        l: "Capacità del turno",
-        v: formatNumber(kpis.estimatedCapacity || data.h2hEstimatedCapacity || requiredQty),
-        src: "Promoter × ore × 200/ora",
+        l: "Volantini stimati per turno",
+        v: h2hQuoteDetail ? `circa ${formatFlyersRange(h2hQuoteDetail.flyersRange)}` : formatNumber(kpis.estimatedCapacity || data.h2hEstimatedCapacity || requiredQty),
+        src: "Operatori × ore × 250–350/ora",
         c: C.green
       }, {
         l: "POI rilevanti",
@@ -1209,7 +1224,15 @@ export function Step4({
       compatibleZone: pdfPlanningRows.find(r => r.pair)?.pair ? `${pdfPlanningRows.find(r => r.pair).pair.zone} – ${pdfPlanningRows.find(r => r.pair).pair.type === "same" ? "stessa zona" : "zona vicina"}` : null
     },
     pricing: {
-      lines: [{
+      lines: [h2hQuoteDetail ? {
+        label: `Distribuzione ${tLabel}`,
+        detail: `${h2hQuoteDetail.operators} ${h2hQuoteDetail.operators === 1 ? "operatore" : "operatori"} · ${h2hQuoteDetail.totalHours} ore × ${formatQuoteCurrency(H2H_HOURLY_RATE_EUR, 2)}/ora`,
+        quantity: h2hQuoteDetail.totalHours,
+        quantityLabel: `${h2hQuoteDetail.operators} ${h2hQuoteDetail.operators === 1 ? "operatore" : "operatori"} · ${h2hQuoteDetail.totalHours} ore`,
+        unitPrice: H2H_HOURLY_RATE_EUR,
+        unitPriceLabel: `${formatQuoteCurrency(H2H_HOURLY_RATE_EUR, 2)}/ora`,
+        total: baseCost
+      } : {
         label: `Distribuzione ${tLabel}`,
         detail: `${flyerQty.toLocaleString("it-IT", {
           useGrouping: true
@@ -1218,6 +1241,7 @@ export function Step4({
         unitPrice: unitPricePerFlyer,
         total: baseCost
       }],
+      notes: h2hQuoteDetail ? [`Volantini stimati: circa ${formatFlyersRange(h2hQuoteDetail.flyersRange)} (${H2H_FLYERS_ESTIMATE_NOTE}).`, ...(h2hQuoteDetail.travelNote ? [`${h2hQuoteDetail.travelNote}: il totale non lo comprende.`] : [])] : [],
       subtotal: baseCost,
       extras: distributionExtras.map(e => ({
         label: e.label,
@@ -2228,8 +2252,8 @@ export function Step4({
               c: C.blue
             }, isH2H && {
               icon: "",
-              l: "Capacità turno",
-              v: `${Number(data.h2hEstimatedCapacity || kpis.estimatedCapacity || 0).toLocaleString("it-IT")} pz.`,
+              l: "Volantini stimati per turno",
+              v: h2hQuoteDetail ? `circa ${formatFlyersRange(h2hQuoteDetail.flyersRange)}` : `${Number(data.h2hEstimatedCapacity || kpis.estimatedCapacity || 0).toLocaleString("it-IT")} pz.`,
               c: C.green
             }, isB2B && {
               icon: "",
@@ -2719,7 +2743,7 @@ export function Step4({
               const ratingCol = quantityIsSufficient && cov >= 70 ? C.green : quantityIsSufficient || cov >= 40 ? "#F59E0B" : col;
               const tips = [quantityIsSufficient == null ? "Copertura non disponibile: completa l'analisi territoriale nello Step 2." : quantityIsSufficient ? `Configurazione coerente: la quantità copre l'intera area selezionata.` : `Copertura parziale: ${missingQty.toLocaleString("it-IT", {
                 useGrouping: true
-              })} volantini aggiuntivi porterebbero alla copertura completa.`, `Budget adeguato per ${summaryMunicipalityCount > 1 ? `${summaryMunicipalityCount} comuni selezionati` : mainAreaLabel}.`, disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
+              })} volantini aggiuntivi porterebbero alla copertura completa.`, `Budget adeguato per ${summaryMunicipalityCount > 1 ? `${summaryMunicipalityCount} comuni selezionati` : mainAreaLabel}.`, isHandToHandQuote ? "Hand to Hand: tariffa oraria per operatore, lo Smart Pairing non si applica." : disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
                 useGrouping: true
               })} volantini aggiuntivi.` : cov >= 40 ? "Copertura iniziale buona per misurare l'efficacia della campagna nel territorio." : "Copertura base: ideale per un primo test dell'area prima di scalare."];
               return <motion.div initial={{
@@ -2995,6 +3019,7 @@ export function Step4({
             <Step4PricingSummaryPanel
               tLabel={tLabel}
               baseCost={baseCost}
+              h2hDetail={h2hQuoteDetail}
               serviceExtras={serviceExtras}
               disc={disc}
               smartPairingDiscount={smartPairingDiscount}

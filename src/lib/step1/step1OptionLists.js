@@ -1,3 +1,4 @@
+import { H2H_HOUR_OPTIONS } from "../pricing/handToHandPricing.js";
 // Dropdown option lists for Step1's H2H promoter staffing panel and the
 // flyer-format picker. Renamed from the source's minified identifiers
 // (Bv, Mv, Fv, Nv, Uv) to descriptive names — values/labels unchanged.
@@ -36,13 +37,11 @@ export const PROMOTER_TIME_SLOT_OPTIONS = [{
   label: "Sera / Aperitivo (18:00 - 22:00)"
 }];
 
-export const PROMOTER_SHIFT_DURATION_OPTIONS = [{
-  value: 4,
-  label: "4 Ore (Mezza giornata)"
-}, {
-  value: 8,
-  label: "8 Ore (Giornata intera)"
-}];
+// Hand to Hand: ore per operatore da 3 (minimo per uscita) a 8 (handToHandPricing.js).
+export const PROMOTER_SHIFT_DURATION_OPTIONS = H2H_HOUR_OPTIONS.map(value => ({
+  value,
+  label: value === 4 ? "4 ore (mezza giornata)" : value === 8 ? "8 ore (giornata intera)" : `${value} ore`
+}));
 
 export const PROMOTER_LOCATION_TYPE_OPTIONS = [{
   value: "stazione",

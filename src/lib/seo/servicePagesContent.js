@@ -9,6 +9,8 @@
 // (ServicesSection.jsx, src/lib/constants.js "z"): nessun testo nuovo
 // inventato, solo riorganizzato per una pagina dedicata.
 
+import { H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING, H2H_FLYERS_ESTIMATE_NOTE } from "../pricing/handToHandPricing.js";
+
 export const doorToDoorContent = {
   pageKey: "service-door-to-door",
   shortName: "Door to Door",
@@ -79,7 +81,7 @@ export const handToHandContent = {
       paragraphs: [
         "I punti di distribuzione vengono scelti tra i POI rilevanti dell'area (fermate di metro/bus/treno, scuole, università, zone con eventi) e le fasce orarie operative vengono valutate in fase di pianificazione in base al punto scelto.",
       ],
-      bullets: ["POI rilevanti", "Fermate metro/bus/treno", "Scuole, università, eventi", "Flusso potenziale", "Smart Pairing opzionale"],
+      bullets: ["POI rilevanti", "Fermate metro/bus/treno", "Scuole, università, eventi", "Flusso potenziale", "Tariffa oraria per operatore"],
     },
     {
       h2: "Prove operative",
@@ -90,7 +92,8 @@ export const handToHandContent = {
     {
       h2: "Come viene calcolato il preventivo",
       paragraphs: [
-        "Il preventivo viene calcolato in base a zona/punti selezionati, quantità di volantini e servizi aggiuntivi come stampa e grafica — lo stesso motore di calcolo del configuratore online.",
+        `L'Hand to Hand si paga a ore: €${H2H_HOURLY_RATE_EUR} l'ora per operatore, IVA esclusa, minimo ${H2H_MIN_HOURS_PER_OUTING} ore per uscita. Scegli quanti operatori e per quante ore; i volantini distribuiti sono stimati in ${H2H_FLYERS_ESTIMATE_NOTE}. Fuori da Milano città lo spostamento è calcolato nel preventivo.`,
+        "Urgenza, piani continuativi, stampa e grafica si aggiungono nel preventivo — lo stesso motore di calcolo del configuratore online.",
       ],
     },
   ],

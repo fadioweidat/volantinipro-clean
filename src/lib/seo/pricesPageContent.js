@@ -14,6 +14,7 @@ import {
   calculateDistributionZonePrice,
 } from "../pricing/distributionPricing.js";
 import { getStartingPricePerThousand } from "../pricing/homepagePricing.js";
+import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING, calculateHandToHandPricing } from "../pricing/handToHandPricing.js";
 import { ALL_CITY_SLUGS, PUBLIC_TIER_LABELS, cityFacts, cityPageKey, cityPath, formatEuro, formatInt } from "./cityPagesData.js";
 
 const TIERS = [
@@ -75,9 +76,22 @@ export const pricesPageContent = {
   ],
 
   otherServices: [
-    { title: "Hand to Hand (a mano)", price: "Prezzo calcolato sulla tua zona", pageKey: "service-hand-to-hand", href: "/servizi/hand-to-hand" },
+    { title: "Hand to Hand (a mano)", price: `${formatEuro(H2H_HOURLY_RATE_EUR)} l'ora per operatore, minimo ${H2H_MIN_HOURS_PER_OUTING} ore per uscita (IVA esclusa)`, pageKey: "service-hand-to-hand", href: "/servizi/hand-to-hand" },
     { title: "Business (aziende e negozi)", price: "Su progetto", pageKey: "service-business", href: "/servizi/business" },
   ],
+
+  // Hand to Hand a tariffa oraria (handToHandPricing.js): esempi calcolati dal motore.
+  handToHand: {
+    rate: `${formatEuro(H2H_HOURLY_RATE_EUR)} l'ora per operatore`,
+    minimum: `Minimo ${H2H_MIN_HOURS_PER_OUTING} ore per uscita, IVA esclusa.`,
+    flyers: `Volantini stimati: ${H2H_FLYERS_ESTIMATE_NOTE}. È una stima, non un numero garantito.`,
+    travel: "Fuori da Milano città lo spostamento è calcolato nel preventivo.",
+    adjustments: "Urgenza e piani continuativi come per il Door to Door. Lo Smart Pairing non si applica all'Hand to Hand.",
+    examples: [[1, 3], [2, 4], [3, 8]].map(([operators, hours]) => {
+      const p = calculateHandToHandPricing({ operatorHours: Array.from({ length: operators }, () => hours) });
+      return { label: `${operators} ${operators === 1 ? "operatore" : "operatori"} × ${hours} ore`, price: formatEuro(p.total), flyers: `circa ${formatInt(p.flyersRange.min)}–${formatInt(p.flyersRange.max)}` };
+    }),
+  },
 
   faqs: [
     {
@@ -91,6 +105,10 @@ export const pricesPageContent = {
     {
       q: `Il prezzo di ${formatEuro(lowestRate)} ogni 1.000 vale sempre?`,
       a: `No: vale per grandi quantità (${formatInt(lowestRatePoint.qty)} volantini nella fascia «${PUBLIC_TIER_LABELS[lowestRatePoint.tier]}»). Per quantità tipiche guarda la tabella con 5.000 e 10.000 volantini.`,
+    },
+    {
+      q: "Quanto costa la distribuzione a mano (Hand to Hand)?",
+      a: `${formatEuro(H2H_HOURLY_RATE_EUR)} l'ora per operatore, IVA esclusa, con un minimo di ${H2H_MIN_HOURS_PER_OUTING} ore per uscita. Fuori da Milano città lo spostamento è calcolato nel preventivo.`,
     },
     {
       q: "I prezzi includono la stampa?",

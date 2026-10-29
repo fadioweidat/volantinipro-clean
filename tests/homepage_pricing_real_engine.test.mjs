@@ -27,7 +27,9 @@ test("D2D campaign minimum is the lowest per-territory minimum of the engine", (
 });
 
 test("H2H starting price is the configurator flat rate for 1.000 flyers; Business has no public price", () => {
-  assert.equal(getStartingPricePerThousand("h2h"), calculateQuotePricing({ quantity: 1000, pricePerThousand: QUOTE_PRICES.h2h }).baseCost);
+  // 2026-10-29: Hand to Hand a tariffa oraria (handToHandPricing.js), nessun prezzo per 1.000.
+  assert.equal(getStartingPricePerThousand("h2h"), null);
+  assert.equal(QUOTE_PRICES.h2h, undefined);
   assert.equal(getStartingPricePerThousand("b2b"), null);
 });
 
@@ -45,7 +47,8 @@ test("pricing cards carry no hardcoded price and label the example visibly", () 
   assert.match(source, /startingPriceNote\("d2d"\)/);
   // H2H: no starting price until the rate is confirmed (engine untouched).
   assert.doesNotMatch(source, /startingPriceNote\("h2h"\)/);
-  assert.match(source, /priceNote: "Prezzo calcolato sulla tua zona"/);
+  assert.ok(source.includes("priceNote: `${formatQuoteCurrency(H2H_HOURLY_RATE_EUR, 0)} l'ora per operatore`,"));
+  assert.ok(source.includes("priceDetail: `Minimo ${H2H_MIN_HOURS_PER_OUTING} ore per uscita · IVA esclusa`,"));
   assert.match(source, /Minimo campagna da \$\{formatQuoteCurrency\(D2D_MINIMUM, 0\)\} · IVA esclusa/);
   assert.match(source, /getDoorToDoorCampaignMinimum\(\)/);
   assert.match(source, /Su progetto/);

@@ -505,8 +505,8 @@ function renderPdf(model) {
   section(w, "7. Preventivo e costo", "Calcolo economico stimato");
   table(w, ["Voce", "Quantit\u00e0", "Prezzo unitario", "Totale"], [...model.pricing.lines.map(l => [
       l.label,
-      l.quantity ? `${formatNumberIT(l.quantity)} volantini` : "-",
-      l.unitPrice ? formatCurrencyIT(l.unitPrice, 4) : "-",
+      l.quantityLabel || (l.quantity ? `${formatNumberIT(l.quantity)} volantini` : "-"),
+      l.unitPriceLabel || (l.unitPrice ? formatCurrencyIT(l.unitPrice, 4) : "-"),
       formatCurrencyIT(l.total),
     ]),...(model.pricing.extras || []).map(e => [
       e.label,
@@ -520,6 +520,8 @@ function renderPdf(model) {
   w.textAt("Totale stimato", PAGE.margin + 12, w.y - 25, 12, COLORS.ink, "F2");
   w.textAt(formatCurrencyIT(model.pricing.total), PAGE.w - PAGE.margin - 120, w.y - 25, 16, COLORS.orange, "F2");
   w.move(54);
+  // Note di prezzo (es. Hand to Hand: volantini stimati, spostamento fuori Milano senza importo).
+  (model.pricing.notes || []).forEach((note) => paragraph(w, note));
 
   section(w, "8. Fonti dati", "Origine dei dati utilizzati");
   paragraph(w, model.sources.join(" - ") || "Fonti non disponibili");

@@ -5,7 +5,7 @@ import { C, F } from "../../../../lib/constants.js";
 import { calendarDateKey } from "../../../../lib/smartPairingAvailability.js";
 import { MONTHS_FULL } from "../../../../lib/appConstants.js";
 
-export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailabilityStatus, setAvailabilityRetryCount, realSmartPairingSlots, availableDates, isMobile, handleContinueToStep4, shouldShowContinueToStep4, handleSkipPairing, month, setMonth, year, setYear, selDays, setSelDays, isSelectableCalendarDate, preferredPeriod, updatePreferredPeriod, togglePreferredWeekday, showRequest, setShowRequest, form, setForm, formError, setFormError, formSent, setFormSent, handleRequestSubmit, setSmartPairingRegistered, dateMode, pairs, toggle, sanitizeWhatsAppLocal, isSubmittingWaitlist = false }) {
+export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailabilityStatus, setAvailabilityRetryCount, realSmartPairingSlots, availableDates, isMobile, handleContinueToStep4, shouldShowContinueToStep4, handleSkipPairing, month, setMonth, year, setYear, selDays, setSelDays, isSelectableCalendarDate, preferredPeriod, updatePreferredPeriod, togglePreferredWeekday, showRequest, setShowRequest, form, setForm, formError, setFormError, formSent, setFormSent, handleRequestSubmit, setSmartPairingRegistered, dateMode, pairs, toggle, sanitizeWhatsAppLocal, isSubmittingWaitlist = false, smartPairingAvailable = true }) {
   const DI = ["Lu", "Ma", "Me", "Gi", "Ve", "Sa", "Do"];
   const dim = (m, y) => new Date(y, m + 1, 0).getDate();
   const fdow = (m, y) => {
@@ -621,6 +621,8 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                   </div>}
 
                 {/* 5. PERCHÉ CONVIENE */}
+                {/* Hand to Hand: Smart Pairing non previsto, niente sezioni promozionali (2026-10-29). */}
+                {smartPairingAvailable && (
                 <div style={{
                 background: "rgba(255,255,255,0.025)",
                 borderRadius: 18,
@@ -661,9 +663,10 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                     }}>{adv}</span>
                       </div>)}
                   </div>
-                </div>
+                </div>)}
 
                 {/* 6. COME FUNZIONA */}
+                {smartPairingAvailable && (
                 <div id="smart-pairing-how" style={{
                 background: "rgba(255,255,255,0.025)",
                 borderRadius: 18,
@@ -743,9 +746,10 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                 }}>
                     Successivamente crea automaticamente gruppi di distribuzione compatibili, abbattendo i costi di uscita logistica.
                   </div>
-                </div>
+                </div>)}
 
                 {/* 10. MIGLIORARE LA FIDUCIA */}
+                {smartPairingAvailable && (
                 <div style={{
                 background: "rgba(255,255,255,0.025)",
                 borderRadius: 18,
@@ -789,7 +793,7 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                   }} />
                     <span><b>Garanzia trasparenza:</b> Il risparmio mostrato deriva esclusivamente da campagne realmente compatibili. <b>Non vengono utilizzati dati casuali.</b></span>
                   </div>
-                </div>
+                </div>)}
 
 
     </>
