@@ -3,8 +3,7 @@
 // spedizione della stampa.
 // - Produzione: 5 giorni lavorativi = tariffa "Fast 120" (120 h) di
 //   Pixartprinting, la stessa dei prezzi in printPricing.js.
-// - Spedizione: 2 giorni lavorativi, valore operativo prudente da confermare con
-//   il fornitore (non e' un dato Pixart letto).
+// - Spedizione: 2 giorni lavorativi (confermato il 2026-10-29).
 // Giorni lavorativi = lunedi'-venerdi' (festivita' non considerate).
 export const PRINT_PRODUCTION_WORKING_DAYS = 5;
 export const PRINT_SHIPPING_WORKING_DAYS = 2;
@@ -28,4 +27,15 @@ export function addWorkingDays(from, days) {
 /** Prima data utile di inizio distribuzione con la stampa (ISO yyyy-mm-dd). */
 export function earliestStartWithPrint(today = new Date()) {
   return toIso(addWorkingDays(today, PRINT_PRODUCTION_WORKING_DAYS + PRINT_SHIPPING_WORKING_DAYS));
+}
+
+// "Entro 7/15 giorni" (giorni di calendario da oggi): con la stampa la scelta
+// non e' disponibile se la prima data utile cade oltre la finestra.
+export const PERIOD_PRESET_WINDOW_DAYS = { within7: 7, within15: 15 };
+
+export function isPeriodPresetUnavailableWithPrint(presetId, minStartIso, today = new Date()) {
+  const days = PERIOD_PRESET_WINDOW_DAYS[presetId];
+  if (!days || !minStartIso) return false;
+  const limit = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days);
+  return minStartIso > toIso(limit);
 }

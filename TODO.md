@@ -62,4 +62,4 @@
   tentativo (tabella edge_idempotency_keys gia' esistente); la funzione in produzione (v12) va prima riallineata al repo.
 
 - Ricontrollare i prezzi Pixart della tabella printPricing.js ogni 3 mesi (ultimo rilievo 28/08/2026).
-  Con l'occasione confermare anche i giorni di spedizione della stampa usati per la data minima nello Step 1 (src/lib/printLeadTime.js: 5 giorni lavorativi di produzione "Fast 120" + 2 di spedizione, valore prudente).
+  Data minima con la stampa nello Step 1: src/lib/printLeadTime.js (5 giorni lavorativi di produzione "Fast 120" + 2 di spedizione, confermati il 29/10/2026).

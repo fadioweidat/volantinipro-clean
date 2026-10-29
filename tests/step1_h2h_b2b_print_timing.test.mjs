@@ -46,3 +46,19 @@ test("Step 1 with printing: urgency texts, note, calendar minimum and validation
 test("an invalid start date is not shown as confirmed", () => {
   assert.ok(read("src/pages/public/configurator/Step1.jsx").includes('{val && !(field.key === "startDate" && printDateError) && <div style={{'));
 });
+
+test("with printing, 'Entro 7 giorni' / 'Entro 15 giorni' only when the first useful date fits", async () => {
+  const { isPeriodPresetUnavailableWithPrint } = await import("../src/lib/printLeadTime.js");
+  const today = new Date(2026, 9, 29); // Thursday; first useful date with print: 09/11/2026
+  const min = earliestStartWithPrint(today);
+  assert.equal(isPeriodPresetUnavailableWithPrint("within7", min, today), true);   // limit 05/11
+  assert.equal(isPeriodPresetUnavailableWithPrint("within15", min, today), false); // limit 13/11
+  assert.equal(isPeriodPresetUnavailableWithPrint("within15", "2026-11-14", today), true);
+  assert.equal(isPeriodPresetUnavailableWithPrint("asap", min, today), false);
+  assert.equal(isPeriodPresetUnavailableWithPrint("within7", "", today), false); // no print
+  const step1 = read("src/pages/public/configurator/Step1.jsx");
+  assert.ok(step1.includes("const presetUnavailable = id => printChosen && isPeriodPresetUnavailableWithPrint(id, printMinStart);"));
+  assert.ok(step1.includes("disabled={unavailable} aria-disabled={unavailable} onClick={() => !unavailable && updateData({"));
+  assert.ok(step1.includes("{unavailable ? `Non disponibile con la stampa: la prima data utile è il ${formatDateDisplay(printMinStart)}` : p.desc}"));
+  assert.ok(step1.includes("Boolean(data.urgency) && !dateError && !printDateError && !printPresetError"));
+});

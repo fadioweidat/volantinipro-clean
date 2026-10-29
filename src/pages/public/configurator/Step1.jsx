@@ -1,5 +1,5 @@
 import { doorToDoorRangeBeforeZone } from "../../../lib/pricing/step1Estimate.js";
-import { PRINT_TIMING_NOTE, earliestStartWithPrint } from "../../../lib/printLeadTime.js";
+import { PRINT_TIMING_NOTE, earliestStartWithPrint, isPeriodPresetUnavailableWithPrint } from "../../../lib/printLeadTime.js";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
@@ -345,6 +345,8 @@ export function Step1({
   // spedizione della stampa (printLeadTime.js).
   const printChosen = data.hasFlyers === "no";
   const printMinStart = printChosen ? earliestStartWithPrint() : "";
+  // "Entro 7/15 giorni" non disponibili con la stampa se la prima data utile cade oltre.
+  const presetUnavailable = id => printChosen && isPeriodPresetUnavailableWithPrint(id, printMinStart);
   const priorityOptions = [{
     id: "normal",
     label: "Standard",
@@ -786,6 +788,7 @@ export function Step1({
   const dateError = !!(data.startDate && data.endDate && data.endDate < data.startDate);
   // Con la stampa la distribuzione non puo' iniziare prima di produzione + spedizione.
   const printDateError = !!(printMinStart && data.startDate && data.startDate < printMinStart);
+  const printPresetError = presetUnavailable(data.campaignPeriodPreset);
   const currentServiceLabel = {
     d2d: "Door to Door",
     h2h: "Hand to Hand",
@@ -863,6 +866,9 @@ export function Step1({
   }, dateError && {
     id: "section-periodo",
     label: "Correggi il periodo selezionato"
+  }, printPresetError && {
+    id: "section-periodo",
+    label: `Con la stampa scegli un altro periodo: la prima data utile è il ${formatDateDisplay(printMinStart)}`
   }, printDateError && {
     id: "section-periodo",
     label: `Con la stampa la distribuzione può iniziare dal ${formatDateDisplay(printMinStart)}`
@@ -1034,7 +1040,7 @@ export function Step1({
     complete: Boolean(data.subscription)
   }, {
     label: "Configurazione operativa",
-    complete: isH2H ? Boolean(data.promoterCount && data.timeSlot && data.serviceDurationHours && String(promoterAssignments[0]?.location || "").trim()) : isB2B ? Boolean(String(data.businessZone || "").trim() && data.businessCampaignObjective && data.businessDeliveryMethod && (data.businessMaterialLocation !== "pickup_client" || String(data.businessPickup?.address || "").trim())) : Boolean(data.urgency) && !dateError && !printDateError
+    complete: isH2H ? Boolean(data.promoterCount && data.timeSlot && data.serviceDurationHours && String(promoterAssignments[0]?.location || "").trim()) : isB2B ? Boolean(String(data.businessZone || "").trim() && data.businessCampaignObjective && data.businessDeliveryMethod && (data.businessMaterialLocation !== "pickup_client" || String(data.businessPickup?.address || "").trim())) : Boolean(data.urgency) && !dateError && !printDateError && !printPresetError
   }];
   const s1Green = "#22C55E";
   const s1Panel = {
@@ -1972,7 +1978,8 @@ export function Step1({
           }}>
               {periodPresets.map(p => {
               const active = (data.campaignPeriodPreset || "custom") === p.id;
-              return <button type="button" aria-pressed={active} key={p.id} onClick={() => updateData({
+              const unavailable = presetUnavailable(p.id);
+              return <button type="button" aria-pressed={active} key={p.id} disabled={unavailable} aria-disabled={unavailable} onClick={() => !unavailable && updateData({
                 campaignPeriodPreset: p.id,
                 ...(p.id !== "custom" ? {
                   startDate: "",
@@ -1984,7 +1991,8 @@ export function Step1({
                 padding: 20,
                 borderRadius: 16,
                 ...s1Card(active),
-                cursor: "pointer",
+                cursor: unavailable ? "not-allowed" : "pointer",
+                opacity: unavailable ? 0.55 : 1,
                 display: "flex",
                 alignItems: "flex-start",
                 gap: 14,
@@ -2007,7 +2015,7 @@ export function Step1({
                     fontSize: 13,
                     color: "#94A3B8",
                     lineHeight: 1.4
-                  }}>{p.desc}</div>
+                  }}>{unavailable ? `Non disponibile con la stampa: la prima data utile è il ${formatDateDisplay(printMinStart)}` : p.desc}</div>
                     </div>
                   </button>;
             })}
