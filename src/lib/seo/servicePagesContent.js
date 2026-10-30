@@ -1,3 +1,4 @@
+import { BUSINESS_RESPONSE_TIME } from "../business/businessOnProject.js";
 // Contenuto reale delle 3 pagine SEO servizio (/servizi/door-to-door,
 // /servizi/hand-to-hand, /servizi/business), separato dal template di
 // rendering (src/pages/public/ServicePages.jsx) cosi' SeoMeta.jsx (importato
@@ -110,7 +111,7 @@ export const businessContent = {
   eyebrow: "Distribuzione B2B",
   h1: "Distribuzione Volantini per Aziende e Negozi",
   intro: "Distribuzione mirata ad attività commerciali, uffici e zone business, con possibilità di coordinamento su più sedi.",
-  ctaLabel: "Calcola il tuo preventivo Business →",
+  ctaLabel: "Richiedi la tua proposta Business →",
   sections: [
     {
       h2: "Cos'è la Business Distribution",
@@ -138,9 +139,9 @@ export const businessContent = {
       ],
     },
     {
-      h2: "Come viene calcolato il preventivo",
+      h2: "Come funziona la proposta su progetto",
       paragraphs: [
-        "Il preventivo viene calcolato in base a zona/e selezionate, quantità di volantini e servizi aggiuntivi come stampa e grafica — lo stesso motore di calcolo del configuratore online.",
+        `Il Business non ha un prezzo automatico: rispondi a poche domande su zona, attività da raggiungere, quantità, tempi e stampa, poi ti ricontattiamo ${BUSINESS_RESPONSE_TIME} con una proposta.`,
       ],
     },
   ],

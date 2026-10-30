@@ -79,6 +79,18 @@ test("small towns: never more families or copies than the whole municipality", (
   assert.deepEqual(cityPriceQuantities(cityFacts("monza")), { quantities: [2500, 5000, 10000, 20000], wholeCity: null });
 });
 
+test("Business is described as on project on the Milano and service pages", () => {
+  const milano = read("src/lib/seo/milanoLandingContent.js");
+  assert.match(milano, /preventivo online per Door to Door e Hand to Hand; per il Business una proposta su progetto/);
+  assert.match(milano, /Business: rispondi a poche domande/);
+  assert.match(milano, /in base alle attività e alla zona indicate/);
+  assert.match(milano, /Per Door to Door e Hand to Hand: configura servizio/);
+  assert.doesNotMatch(milano, /Hand to Hand e Business\. Tracking|obiettivi indicati/);
+  const services = read("src/lib/seo/servicePagesContent.js");
+  assert.match(services, /Richiedi la tua proposta Business/);
+  assert.doesNotMatch(services, /preventivo Business|Il preventivo viene calcolato in base a zona\/e selezionate/);
+});
+
 test("city pages: unique text per city, real numbers, no invented claims", () => {
   const angles = new Set();
   for (const slug of CITY_SLUGS) {

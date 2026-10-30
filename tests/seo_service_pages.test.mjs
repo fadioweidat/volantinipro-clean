@@ -123,11 +123,15 @@ test("servicePagesContent.js: ogni pagina ha 3 FAQ fattuali (cos'è / verifica /
 });
 
 test("servicePagesContent.js: 'come viene calcolato il preventivo' non ricalcola nulla, rimanda al configuratore esistente", () => {
-  for (const content of [doorToDoorContent, handToHandContent, businessContent]) {
+  for (const content of [doorToDoorContent, handToHandContent]) {
     const pricingSection = content.sections.find((s) => s.h2.toLowerCase().includes("preventivo"));
     assert.ok(pricingSection, `manca la sezione preventivo per ${content.pageKey}`);
     assert.match(pricingSection.paragraphs.join(" "), /stesso motore di calcolo/);
   }
+  // Business: su progetto, nessun prezzo automatico.
+  const businessSection = businessContent.sections.find((s) => s.h2.toLowerCase().includes("proposta"));
+  assert.ok(businessSection);
+  assert.match(businessSection.paragraphs.join(" "), /non ha un prezzo automatico/);
 });
 
 // ── Internal linking: ogni pagina servizio linka le altre 2 + preventivo + contatti + come funziona ──

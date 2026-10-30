@@ -14,11 +14,13 @@
 // - Zone di Milano citate solo come esempi geografici, mai come lista SEO
 //   di quartieri con copertura promessa.
 
+import { BUSINESS_RESPONSE_TIME } from "../business/businessOnProject.js";
+
 export const milanoLandingContent = {
   pageKey: "milano-landing",
   h1: "Distribuzione volantini a Milano",
   intro:
-    "Vuoi distribuire volantini a Milano? VolantiniPro organizza campagne di volantinaggio a Milano con scelta delle zone, quantità e preventivo online per Door to Door, Hand to Hand e Business. Tracking GPS e report sono disponibili secondo il servizio scelto.",
+    "Vuoi distribuire volantini a Milano? VolantiniPro organizza campagne di volantinaggio a Milano con scelta delle zone, quantità e preventivo online per Door to Door e Hand to Hand; per il Business una proposta su progetto. Tracking GPS e report sono disponibili secondo il servizio scelto.",
   ctaLabel: "Calcola il preventivo",
 
   sections: [
@@ -71,7 +73,9 @@ export const milanoLandingContent = {
       h2: "Come richiedere la distribuzione di volantini a Milano",
       paragraphs: [
         "Per richiedere una distribuzione di volantini a Milano scegli prima il servizio (nelle cassette postali, a mano oppure presso attività commerciali), poi indica la quantità di materiale e l’area che vuoi raggiungere.",
-        "Nel configuratore puoi analizzare la zona sulla mappa, selezionare le date disponibili e ottenere il preventivo in base alle opzioni scelte. La pianificazione e la disponibilità effettiva vengono verificate prima dell’avvio del lavoro.",
+        "Door to Door e Hand to Hand: nel configuratore analizzi la zona sulla mappa, selezioni le date disponibili e ottieni il preventivo con PDF in base alle opzioni scelte.",
+        `Business: rispondi a poche domande su zona, attività da raggiungere, quantità, tempi e stampa, poi ti ricontattiamo ${BUSINESS_RESPONSE_TIME} con una proposta su progetto.`,
+        "La pianificazione e la disponibilità effettiva vengono verificate prima dell’avvio del lavoro.",
         "Hai già i volantini stampati? Puoi richiedere la sola distribuzione. Se hai bisogno anche della stampa o della grafica, puoi selezionare i servizi previsti dal preventivo.",
       ],
     },
@@ -79,7 +83,7 @@ export const milanoLandingContent = {
       h2: "Quanto costa distribuire volantini a Milano?",
       paragraphs: [
         "Il prezzo non è fisso: dipende da zona, quantità, servizio scelto, tempistiche ed eventuali servizi aggiuntivi come stampa e grafica.",
-        "Il preventivo viene calcolato online sulla tua campagna, con lo stesso motore di calcolo del configuratore usato per tutte le campagne VolantiniPro.",
+        "Per Door to Door e Hand to Hand il preventivo viene calcolato online sulla tua campagna, con lo stesso motore di calcolo del configuratore. Il Business è su progetto: nessun prezzo automatico, ti prepariamo una proposta.",
         "La tabella mostra i prezzi di quel motore per la sola distribuzione Door to Door a Milano, IVA esclusa.",
       ],
       cityPrices: true,
@@ -91,8 +95,8 @@ export const milanoLandingContent = {
         "Scegli come preparare la tua campagna di volantinaggio a Milano: in autonomia oppure con il nostro supporto.",
       ],
       quoteOptions: [
-        { title: "Preventivo online con PDF", text: "Configura servizio, quantità e zona, consulta il preventivo e scarica il PDF.", href: "/preventivo", pageKey: "preventivo" },
-        { title: "Preventivo rapido", text: "Inserisci i dati essenziali per ottenere una prima stima dei costi.", href: "/preventivo-rapido", pageKey: "quick" },
+        { title: "Preventivo online con PDF", text: "Per Door to Door e Hand to Hand: configura servizio, quantità e zona, consulta il preventivo e scarica il PDF.", href: "/preventivo", pageKey: "preventivo" },
+        { title: "Preventivo rapido", text: "Per Door to Door e Hand to Hand: inserisci i dati essenziali per ottenere una prima stima dei costi.", href: "/preventivo-rapido", pageKey: "quick" },
         { title: "Preventivo al telefono", text: "Lascia un messaggio a un consulente: ti ricontattiamo per preparare insieme il preventivo.", href: "/consulente", pageKey: "consultant" },
       ],
     },
@@ -130,7 +134,7 @@ export const milanoLandingContent = {
     },
     {
       q: "Posso richiedere una campagna per più zone?",
-      a: "Sì, è possibile pianificare una campagna Business su più zone di Milano; il progetto viene organizzato in base agli obiettivi indicati.",
+      a: "Sì, è possibile pianificare una campagna Business su più zone di Milano; il progetto viene organizzato in base alle attività e alla zona indicate.",
     },
   ],
 };
