@@ -113,10 +113,6 @@ export const milanoLandingContent = {
 
   faqs: [
     {
-      q: "Come posso richiedere la distribuzione di volantini a Milano?",
-      a: "Indica servizio, quantità e zona nel configuratore VolantiniPro. Puoi consultare le opzioni per le date e richiedere il preventivo online, oppure lasciare una richiesta per essere ricontattato.",
-    },
-    {
       q: "Quanto costa distribuire volantini a Milano?",
       a: "Il prezzo dipende da zona, quantità, servizio, tempistiche ed eventuali servizi aggiuntivi: si calcola direttamente nel configuratore in base alla tua campagna.",
     },
