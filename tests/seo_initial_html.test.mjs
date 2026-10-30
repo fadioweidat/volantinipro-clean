@@ -96,3 +96,16 @@ test('all SEO HTML references point to assets present in the same build', () => 
     }
   }
 });
+
+test('homepage exposes accessible standard favicon variants in prerendered HTML', () => {
+  const html = read('dist/index.html');
+  for (const [file, type] of [
+    ['favicon.ico', 'image/x-icon'],
+    ['favicon.png', 'image/png'],
+    ['favicon.svg', 'image/svg+xml'],
+  ]) {
+    assert.ok(fs.existsSync(new URL(`../dist/${file}`, import.meta.url)), `missing ${file}`);
+    assert.match(html, new RegExp(`<link rel="icon" type="${type}"[^>]*href="/${file.replace('.', '\\.')}">`));
+  }
+  assert.doesNotMatch(html, /rel="alternate icon"/);
+});
