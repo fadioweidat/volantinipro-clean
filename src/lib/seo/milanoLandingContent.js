@@ -18,7 +18,7 @@ export const milanoLandingContent = {
   pageKey: "milano-landing",
   h1: "Distribuzione volantini a Milano",
   intro:
-    "VolantiniPro organizza campagne di volantinaggio e distribuzione volantini a Milano con pianificazione territoriale, tracking GPS e report di attività, per Door to Door, Hand to Hand e progetti Business.",
+    "Vuoi distribuire volantini a Milano? VolantiniPro organizza campagne di volantinaggio a Milano con scelta delle zone, quantità e preventivo online per Door to Door, Hand to Hand e Business. Tracking GPS e report sono disponibili secondo il servizio scelto.",
   ctaLabel: "Calcola il preventivo",
 
   sections: [
@@ -68,6 +68,14 @@ export const milanoLandingContent = {
       ],
     },
     {
+      h2: "Come richiedere la distribuzione di volantini a Milano",
+      paragraphs: [
+        "Per richiedere una distribuzione di volantini a Milano scegli prima il servizio (nelle cassette postali, a mano oppure presso attività commerciali), poi indica la quantità di materiale e l’area che vuoi raggiungere.",
+        "Nel configuratore puoi analizzare la zona sulla mappa, selezionare le date disponibili e ottenere il preventivo in base alle opzioni scelte. La pianificazione e la disponibilità effettiva vengono verificate prima dell’avvio del lavoro.",
+        "Hai già i volantini stampati? Puoi richiedere la sola distribuzione. Se hai bisogno anche della stampa o della grafica, puoi selezionare i servizi previsti dal preventivo.",
+      ],
+    },
+    {
       h2: "Quanto costa distribuire volantini a Milano?",
       paragraphs: [
         "Il prezzo non è fisso: dipende da zona, quantità, servizio scelto, tempistiche ed eventuali servizi aggiuntivi come stampa e grafica.",
@@ -104,6 +112,10 @@ export const milanoLandingContent = {
   ],
 
   faqs: [
+    {
+      q: "Come posso richiedere la distribuzione di volantini a Milano?",
+      a: "Indica servizio, quantità e zona nel configuratore VolantiniPro. Puoi consultare le opzioni per le date e richiedere il preventivo online, oppure lasciare una richiesta per essere ricontattato.",
+    },
     {
       q: "Quanto costa distribuire volantini a Milano?",
       a: "Il prezzo dipende da zona, quantità, servizio, tempistiche ed eventuali servizi aggiuntivi: si calcola direttamente nel configuratore in base alla tua campagna.",
