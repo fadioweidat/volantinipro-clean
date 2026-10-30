@@ -1,3 +1,4 @@
+import { BUSINESS_RESPONSE_TIME, BUSINESS_CONFIRMATION, ON_PROJECT_LABEL, ON_PROJECT_PRICING_MODE } from "../../lib/business/businessOnProject.js";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
@@ -551,7 +552,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     setSubmitError("");
 
     const mainArea = comuni.map((c) => c.name).join(", ") || comuneInput || "Milano";
-    const totalAmount = Number(total.toFixed(2));
+    // Business: "Su progetto", mai un importo (ne' 0) in campagna, PDF o email.
+    const totalAmount = service === "b2b" ? null : Number(total.toFixed(2));
     const timingLabel = timing === "custom" && customDate ? `Data: ${customDate}` : timing === "urgent" ? "Urgente" : "Flessibile";
     const materialStatus = printed === "true" ? "già stampato" : "Da produrre";
     const extraLabels = extraIds.map((id) => registryById[id]?.head || id);
@@ -596,6 +598,10 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         is_public_request: true,
       },
     };
+    if (service === "b2b") {
+      payload.service_type = "business";
+      Object.assign(payload.metadata, { pricing_mode: ON_PROJECT_PRICING_MODE, subtotal: null, urgency_surcharge: null, extras_cost: null });
+    }
 
     let createdId = null;
     try {
@@ -693,7 +699,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         },
         sources: campaign.allMatched ? ["Analisi territoriale GIS/NIL"] : [],
       };
-      setSavedQuoteData(quotePdfData);
+      setSavedQuoteData(service === "b2b" ? null : quotePdfData);
 
       try {
         trackQuoteCompleted({
@@ -805,7 +811,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
 
             <p style={{ fontFamily: F.sans, fontSize: 14.5, color: "rgba(255,255,255,.7)", lineHeight: 1.6, maxWidth: 580, margin: "0 auto 24px" }}>
               {submitState === "success"
-                ? `Abbiamo registrato la tua richiesta e inviato un'email di riepilogo a ${clientForm.email}. Un consulente VolantiniPro analizzerà i dettagli territoriali e ti contatterà al più presto.`
+                ? `Abbiamo registrato la tua richiesta e inviato un'email di riepilogo a ${clientForm.email}. Un consulente VolantiniPro analizzerà i dettagli territoriali e ti ricontatterà ${BUSINESS_RESPONSE_TIME}.`
                 : `La tua richiesta è stata registrata correttamente nel sistema. La notifica email potrebbe richiedere qualche istante per essere recapitata.`
               }
             </p>
@@ -867,7 +873,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               )}
               <div style={{ borderTop: "1px solid rgba(255,255,255,.1)", paddingTop: 12, marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <span style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 700, color: C.white }}>Totale stimato:</span>
-                <span style={{ fontFamily: F.serif, fontSize: 24, fontWeight: 800, color: C.white }}>{money(total)} <span style={{ fontSize: 12, fontFamily: F.sans, color: "rgba(255,255,255,.5)" }}>+ IVA</span></span>
+                <span style={{ fontFamily: F.serif, fontSize: 24, fontWeight: 800, color: C.white }}>{service === "b2b" ? ON_PROJECT_LABEL : money(total)} <span style={{ fontSize: 12, fontFamily: F.sans, color: "rgba(255,255,255,.5)" }}>+ IVA</span></span>
               </div>
               <div style={{ borderTop: "1px dashed rgba(255,255,255,.08)", paddingTop: 10, marginTop: 2, display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)" }}>
                 <span>Intestato a:</span>
@@ -1523,15 +1529,17 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             ) : (
               <>
                 <div style={{ fontFamily: F.serif, fontSize: 34, color: C.white, marginBottom: 2, letterSpacing: "-0.5px" }}>
-                  {canPrice ? money(total) : "—"}
+                  {service === "b2b" ? ON_PROJECT_LABEL : canPrice ? money(total) : "—"}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}>
+                  {service === "b2b" ? <span style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.6)" }}>{BUSINESS_CONFIRMATION}.</span> : <>
                   <span style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.5)" }}>+ IVA</span>
                   <span style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.35)" }}>• Stima indicativa</span>
+                  </>}
                 </div>
 
                 {/* Scomposizione voci di costo */}
-                {canPrice && (
+                {canPrice && service !== "b2b" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
                       <span>{h2hQuickDetail ? `Distribuzione: ${h2hQuickDetail.calculation}` : `Distribuzione (${n(effectiveQuantity)} pz)`}</span>

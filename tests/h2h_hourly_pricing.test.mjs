@@ -90,5 +90,5 @@ test("readable calculation in summaries; 'Materiale' instead of 'Volantini'/'Qua
 test("Smart Pairing texts say the real maximum (40% same zone, on distribution)", () => {
   assert.ok(read("src/pages/public/ServiceCenter.jsx").includes("Riduci il costo della distribuzione fino al 40% senza rinunciare a nulla."));
   assert.doesNotMatch(read("src/pages/public/ServiceCenter.jsx"), /fino al 20%/);
-  assert.ok(read("src/components/home/FeatureSmartPairing.jsx").includes('{ label: "Risparmio fino al 40% sulla distribuzione", desc:'));
+  assert.ok(read("src/components/home/SmartPairingSection.jsx").includes("Risparmio fino al 40% sulla distribuzione"));
 });

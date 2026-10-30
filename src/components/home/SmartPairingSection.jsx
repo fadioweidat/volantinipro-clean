@@ -76,6 +76,9 @@ export default function SmartPairingSection({ onConfigure }) {
           <p style={{ fontFamily: F.sans, fontSize: 15, lineHeight: 1.6, color: "#94A3B8", margin: "0 0 24px", maxWidth: 460 }}>
             Quando esistono campagne compatibili nella tua zona o in zone vicine nello stesso periodo, ti proponiamo la finestra migliore per condividere i costi operativi.
           </p>
+          <p style={{ fontFamily: F.sans, fontSize: 17, fontWeight: 800, lineHeight: 1.4, color: "#F8FAFC", margin: "-10px 0 24px" }}>
+            Risparmio fino al 40% sulla distribuzione
+          </p>
 
           <div style={{ display: "grid", gap: 10 }} aria-label="Esempio di pianificazione">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -86,15 +89,9 @@ export default function SmartPairingSection({ onConfigure }) {
               <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "#8892A0", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Migliore finestra</div>
               <div style={{ fontFamily: F.serif, fontSize: 20, color: "#F8FAFC" }}>{example.windowLabel}</div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div style={{ padding: "14px 16px", borderRadius: 12, background: "#122036", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "#8892A0", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Capacità disponibile</div>
-                <div style={{ fontFamily: F.sans, fontSize: 17, fontWeight: 900, color: "#7FE3B4" }}>72%</div>
-              </div>
-              <div style={{ padding: "14px 16px", borderRadius: 12, background: "#122036", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "#8892A0", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Copertura consigliata</div>
-                <div style={{ fontFamily: F.sans, fontSize: 13.5, fontWeight: 800, color: "#F8FAFC" }}>Zona Nord-Ovest</div>
-              </div>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "#122036", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "#8892A0", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Copertura consigliata</div>
+              <div style={{ fontFamily: F.sans, fontSize: 13.5, fontWeight: 800, color: "#F8FAFC" }}>Zona Nord-Ovest</div>
             </div>
           </div>
 

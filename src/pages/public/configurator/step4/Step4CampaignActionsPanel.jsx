@@ -1,3 +1,4 @@
+import { BUSINESS_RESPONSE_TIME } from "../../../../lib/business/businessOnProject.js";
 import React from "react";
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { NavButton } from "../../../../components/NavButton.jsx";
@@ -412,7 +413,7 @@ export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, 
               letterSpacing: ".08em",
               marginBottom: 12
             }}>Cosa succede dopo?</div>
-                {["Riceveremo la tua richiesta.", "Verificheremo disponibilità e operatori.", "Ti confermeremo il calendario entro 24h.", "Potrai ancora modificare la configurazione prima dell'avvio."].map((step, i) => <div key={i} style={{
+                {["Riceveremo la tua richiesta.", "Verificheremo disponibilità e operatori.", `Ti ricontattiamo ${BUSINESS_RESPONSE_TIME} per confermare il calendario.`, "Potrai ancora modificare la configurazione prima dell'avvio."].map((step, i) => <div key={i} style={{
               display: "flex",
               gap: 8,
               alignItems: "flex-start",

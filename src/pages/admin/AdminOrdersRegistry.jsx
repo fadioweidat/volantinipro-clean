@@ -7,6 +7,7 @@ import { AdminActionMenu } from '../../components/admin/AdminActionMenu.jsx';
 import { AdminOrdersSummaryPanel } from './admin-orders/AdminOrdersSummaryPanel.jsx';
 import { AdminOrdersToolbar } from './admin-orders/AdminOrdersToolbar.jsx';
 import { kpiRows } from '../../lib/admin/clientsQuotesView.js';
+import { ON_PROJECT_LABEL, onProjectAmount } from '../../lib/business/businessOnProject.js';
 import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL } from '../../lib/services/driverAppDistribution.js';
 import {
   actionMenuCampaign,
@@ -86,7 +87,7 @@ const COLUMNS = [
   // total_amount esiste. Mostrati "—" invece di inventare una scomposizione.
   { key: 'basePrice', label: 'Prezzo base', sortable: false, essential: false, get: () => null },
   { key: 'extra', label: 'Extra', sortable: false, essential: false, get: () => null },
-  { key: 'total', label: 'Totale', sortable: true, essential: true, get: (r) => r.total, format: formatMoney },
+  { key: 'total', label: 'Totale', sortable: true, essential: true, get: (r) => r.total, format: formatMoney, render: (r) => rowAmount(r) ?? '—', csv: (r) => (r.onProject ? ON_PROJECT_LABEL : r.total) },
   { key: 'status', label: 'Stato preventivo', sortable: false, essential: false, get: (r) => STATUS_LABEL[r.status] || r.status },
   { key: 'paymentStatus', label: 'Stato pagamento', sortable: false, essential: true, render: (r) => <Badge {...PAYMENT_LABEL[r.paymentStatus]} />, csv: (r) => PAYMENT_LABEL[r.paymentStatus]?.text },
   { key: 'paymentDate', label: 'Data pagamento', sortable: false, essential: false, get: (r) => (r.metadata?.payment_confirmed_at || '').slice(0, 10) || null },
@@ -114,6 +115,9 @@ function shortId(id) {
 }
 function formatMoney(v) {
   return v != null ? `${Number(v).toLocaleString('it-IT')} €` : null;
+}
+function rowAmount(row) {
+  return onProjectAmount(row, (r) => formatMoney(r.total));
 }
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -410,7 +414,7 @@ function RowDrawer({ row, onClose, onNav, onChanged }) {
           <DrawerRow label="Data" value={row.date} />
           <DrawerRow label="Servizio" value={row.service?.toUpperCase()} />
           <DrawerRow label="Quantità" value={row.qty} />
-          <DrawerRow label="Prezzo (totale)" value={formatMoney(row.total)} />
+          <DrawerRow label="Prezzo (totale)" value={rowAmount(row)} />
         </DrawerSection>
 
         <DrawerSection title="CLIENTE">
@@ -426,7 +430,7 @@ function RowDrawer({ row, onClose, onNav, onChanged }) {
 
         <DrawerSection title="PAGAMENTO">
           <DrawerRow label="Stato" value={PAYMENT_LABEL[row.paymentStatus]?.text} />
-          <DrawerRow label="Importo" value={formatMoney(row.total)} />
+          <DrawerRow label="Importo" value={rowAmount(row)} />
           <DrawerRow label="Data conferma" value={(row.metadata?.payment_confirmed_at || '').slice(0, 10)} />
         </DrawerSection>
 

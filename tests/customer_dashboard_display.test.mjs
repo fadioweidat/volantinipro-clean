@@ -79,7 +79,7 @@ test("campaign page and list use the helpers (no raw codes, no toLocaleString mo
   assert.doesNotMatch(page, /campagna\.quantita\.toLocaleString/);
   assert.doesNotMatch(page, /\["D2D", C\.orange\]/);
   const panels = read("src/components/customer/CampaignHubPanels.jsx");
-  for (const re of [/value=\{serviceLabel\(campagna\?\.servizio\)\}/, /value=\{areaModeLabel\(quote\.area\?\.areaMode\)\}/, /value=\{variantLabel\(quote\.campaign\?\.variant\)\}/, /printSpecsLabel\(step4\)/, /graphicStatusLabel\(quote\.campaign\?\.graphicStatus\)/, /extraServiceLabel\(s\)/, /value=\{formatEuroIT\(campagna\?\.totale_euro\)\}/]) assert.match(panels, re);
+  for (const re of [/value=\{serviceLabel\(campagna\?\.servizio\)\}/, /value=\{areaModeLabel\(quote\.area\?\.areaMode\)\}/, /value=\{variantLabel\(quote\.campaign\?\.variant\)\}/, /printSpecsLabel\(step4\)/, /graphicStatusLabel\(quote\.campaign\?\.graphicStatus\)/, /extraServiceLabel\(s\)/, /value=\{campagna\?\.su_progetto \? ON_PROJECT_LABEL : formatEuroIT\(campagna\?\.totale_euro\)\}/]) assert.match(panels, re);
   const summary = read("src/components/customer/CampaignSettlementSummary.jsx");
   assert.match(summary, /formatEuroIT/);
   assert.match(summary, /color: 'rgba\(255,255,255,\.85\)'/);

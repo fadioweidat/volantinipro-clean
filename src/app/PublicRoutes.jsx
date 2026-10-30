@@ -87,10 +87,12 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     if (CITY_PAGE_KEYS.includes(page)) return <CityLandingPage pageKey={page} onNav={goTo} />;
     if (page === "supplier-landing") return <SupplierLandingPage onNav={goTo} />;
 
-    if (page === "step1") return <Step1 data={data} setData={setData} onNext={() => goTo("step2")} />;
-    if (page === "step2") return <Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} onAssistantContextChange={updateStep2AssistantContext} />;
+    // Business: Step 3 saltato, Step 2 facoltativo e raggiungibile dal riepilogo.
+    const isBusinessFlow = data.type === "b2b" || data.type === "business-distribution";
+    if (page === "step1") return <Step1 data={data} setData={setData} onNext={() => goTo(isBusinessFlow ? "step4" : "step2")} />;
+    if (page === "step2") return <Step2 data={data} setData={setData} onNext={() => goTo(isBusinessFlow ? "step4" : "step3")} onBack={() => goTo(isBusinessFlow ? "step4" : "step1")} onAssistantContextChange={updateStep2AssistantContext} />;
     if (page === "step3") return <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />;
-    if (page === "step4") return <Step4 data={data} setData={setData} onNav={goTo} onBack={() => goTo("step3")} onAssistantContextChange={updateStep4AssistantContext} />;
+    if (page === "step4") return <Step4 data={data} setData={setData} onNav={goTo} onBack={() => goTo(isBusinessFlow ? "step1" : "step3")} onAssistantContextChange={updateStep4AssistantContext} />;
 
     return null;
   })();

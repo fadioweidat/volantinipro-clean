@@ -55,9 +55,17 @@ export const Step1Summary = React.memo(function Step1Summary({ rows, issues, isM
             ) : (
               <>
                 {/* Business: nessuna tariffa per 1.000 pubblicata (stesso testo della homepage). */}
+                {estimate.distributionNote ? (
+                  <>
+                    <div className="vp-s1-summary-row"><span>Distribuzione</span><strong>{estimate.distributionNote}</strong></div>
+                    <div className="vp-s1-summary-row"><span>Totale</span><strong>{estimate.distributionNote}</strong></div>
+                    <small>{estimate.businessConfirmation}.</small>
+                  </>
+                ) : (<>
                 <div className="vp-s1-summary-row"><span>Distribuzione</span><strong>{estimate.distributionNote || "Prezzo calcolato sulla tua zona"}</strong></div>
                 <div className="vp-s1-summary-row"><span>Totale stimato</span><strong>{estimate.printUnknown ? "Da verificare" : <><Amount value={estimate.printCost} /> + distribuzione</>}</strong></div>
                 <small>Il prezzo della distribuzione si calcola nel preventivo, in base a zona e servizio. Prezzi IVA esclusa.</small>
+                </>)}
               </>
             )}
           </>
@@ -69,8 +77,8 @@ export const Step1Summary = React.memo(function Step1Summary({ rows, issues, isM
         ) : (
           <>
             <span>Preventivo</span>
-            <strong>In preparazione</strong>
-            <small>Il prezzo verrà calcolato dopo l'analisi territoriale.</small>
+            <strong>{estimate?.distributionNote || "In preparazione"}</strong>
+            <small>{estimate?.distributionNote ? `${estimate.businessConfirmation}.` : "Il prezzo verrà calcolato dopo l'analisi territoriale."}</small>
           </>
         )}
       </div>

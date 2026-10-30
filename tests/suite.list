@@ -219,3 +219,4 @@ tests/seo_vercel_rewrites.test.mjs
 tests/step1_distribution_range.test.mjs
 tests/step1_h2h_b2b_print_timing.test.mjs
 tests/h2h_hourly_pricing.test.mjs
+tests/business_on_project.test.mjs

@@ -43,7 +43,7 @@ export function buildCustomerDashboardNotes(campaigns, { loading = false, error 
   const notes = {};
   const missingPayments = campaigns.filter(row => getCustomerPaymentState(row.stato_pagamento) === CUSTOMER_PAYMENT_STATE.UNAVAILABLE).length;
   if (missingPayments) notes.payment = plural(missingPayments, 'campagna senza stato di pagamento', 'campagne senza stato di pagamento');
-  const missingAmounts = campaigns.filter(row => !isKnownNumber(row.totale_euro)).length;
+  const missingAmounts = campaigns.filter(row => !row.su_progetto && !isKnownNumber(row.totale_euro)).length;
   if (missingAmounts) notes.amount = plural(missingAmounts, 'campagna senza importo', 'campagne senza importo');
   const knownFlyers = campaigns.map(row => row.volantini_distribuiti).filter(isKnownNumber);
   const missingFlyers = campaigns.length - knownFlyers.length;

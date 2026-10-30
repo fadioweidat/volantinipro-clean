@@ -1,4 +1,5 @@
 import { PagamentoBonificoPage as FeasibilityCreditPaymentPage } from './src/pages/PagamentoBonifico.jsx';
+import { ON_PROJECT_LABEL, onProjectAmount } from './src/lib/business/businessOnProject.js';
 import { openFeasibility } from './src/lib/feasibility/entryPoint.js';
 import CampaignSettlementSummary from './src/components/customer/CampaignSettlementSummary.jsx';
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -4224,7 +4225,7 @@ export function AdminDashboard({
                     fontFamily: F.serif,
                     fontSize: 15,
                     color: C.orange
-                  }}>?{c.total.toFixed(2)}</div>
+                  }}>{onProjectAmount(c, (r) => (r.total == null ? "—" : `?${r.total.toFixed(2)}`))}</div>
                       {c.discount > 0 && <div style={{
                     fontFamily: F.sans,
                     fontSize: 9,
@@ -5761,7 +5762,7 @@ export function DashboardPage({
                     <div style={{
                 textAlign: "right"
               }}>
-                      {campagna.settlement && campagna.settlement.settlement_status !== "not_applicable" ? <CampaignSettlementSummary settlement={campagna.settlement}/> : campagna.totale_euro == null ? <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>Importo da definire</div> : <div style={{
+                      {campagna.settlement && campagna.settlement.settlement_status !== "not_applicable" ? <CampaignSettlementSummary settlement={campagna.settlement}/> : campagna.su_progetto ? <div style={{ fontFamily: F.serif, fontSize: 24, color: C.green }}>{ON_PROJECT_LABEL}</div> : campagna.totale_euro == null ? <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>Importo da definire</div> : <div style={{
                   fontFamily: F.serif,
                   fontSize: 24,
                   color: C.green
@@ -6098,8 +6099,8 @@ export function CampaignDashboardPage({
               fontWeight: 800
             }}>
                 <CampaignSettlementSummary settlement={campagna.settlement}/>{campagna.settlement?.application_id && <a href={`/customer/campaigns/${campagna.id}/payment`}>Apri saldo verificato</a>}
-                {campagna.settlement?.settlement_status === "settled_by_credit" ? "Saldo coperto da credito" : campagna.settlement?.settlement_status === "settled_by_verified_receipt" ? "Residuo verificato" : campagna.settlement?.settlement_status === "review_required" ? "Saldo da verificare" : campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "Pagamento da completare"}
-                {(!campagna.settlement || campagna.settlement.settlement_status === "not_applicable") && campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", {
+                {campagna.settlement?.settlement_status === "settled_by_credit" ? "Saldo coperto da credito" : campagna.settlement?.settlement_status === "settled_by_verified_receipt" ? "Residuo verificato" : campagna.settlement?.settlement_status === "review_required" ? "Saldo da verificare" : campagna.su_progetto ? `${ON_PROJECT_LABEL}: proposta in preparazione` : campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "Pagamento da completare"}
+                {(!campagna.settlement || campagna.settlement.settlement_status === "not_applicable") && !campagna.su_progetto && campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", {
                 campaignId: campagna.id
               })} style={{
                 marginLeft: 12,
@@ -6280,7 +6281,7 @@ export function CampaignDashboardPage({
                 letterSpacing: ".12em",
                 textTransform: "uppercase",
                 marginBottom: 12
-              }}>Riepilogo economico</div>{[["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], [isCampaignPaid(campagna) ? "Totale pagato" : "Totale da pagare", total]].map(([l, v]) => <div key={l} style={{
+              }}>Riepilogo economico</div>{(campagna.su_progetto ? [["Importo", ON_PROJECT_LABEL]] : [["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], [isCampaignPaid(campagna) ? "Totale pagato" : "Totale da pagare", total]]).map(([l, v]) => <div key={l} style={{
                 display: "flex",
                 justifyContent: "space-between",
                 padding: "9px 0",
@@ -6290,7 +6291,7 @@ export function CampaignDashboardPage({
                 color: "rgba(255,255,255,.58)"
               }}><span>{l}</span><b style={{
                   color: v < 0 ? C.green : C.white
-                }}>{formatEuroIT(Number(v || 0))}</b></div>)}</div>
+                }}>{typeof v === "string" ? v : formatEuroIT(Number(v || 0))}</b></div>)}</div>
               <div style={{
               background: "rgba(255,255,255,.045)",
               border: "1px solid rgba(255,255,255,.09)",
@@ -6704,7 +6705,7 @@ export function PagamentoBonificoPage({
           fontSize: 13,
           color: "rgba(255,255,255,.7)",
           lineHeight: 1.6
-        }}>{BANK_TRANSFER_UNAVAILABLE_MESSAGE}</div> : [["Intestatario", BONIFICO.intestatario], ["Banca", BONIFICO.banca], ["IBAN", BONIFICO.iban], ["Importo", campagna.totale_euro == null ? customerValue(null) : `€${Number(campagna.totale_euro).toLocaleString("it-IT", {
+        }}>{BANK_TRANSFER_UNAVAILABLE_MESSAGE}</div> : [["Intestatario", BONIFICO.intestatario], ["Banca", BONIFICO.banca], ["IBAN", BONIFICO.iban], ["Importo", campagna.su_progetto ? ON_PROJECT_LABEL : campagna.totale_euro == null ? customerValue(null) : `€${Number(campagna.totale_euro).toLocaleString("it-IT", {
           minimumFractionDigits: 2
         })}`], ["Causale", customerValue(campagna.causale_bonifico)]].map(([l, v]) => <div key={l} style={{
           display: "grid",

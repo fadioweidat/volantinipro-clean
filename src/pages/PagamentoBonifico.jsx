@@ -1,3 +1,4 @@
+import { onProjectAmount } from '../lib/business/businessOnProject.js';
 import './customer/feasibility/feasibility.css';
 import CampaignSettlementSummary from '../components/customer/CampaignSettlementSummary.jsx';
 import { isCreditSettled } from '../lib/campaignSettlement.js';
@@ -243,7 +244,7 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
             { label: 'Intestatario', value: BANK.intestatario },
             { label: 'Banca', value: BANK.banca },
             { label: 'IBAN', value: BANK.iban, copy: true },
-            { label: 'Importo', value: info.totale_euro == null ? customerValue(null) : `€${info.totale_euro.toFixed(2)}`, copy: info.totale_euro != null, valueToCopy: info.totale_euro?.toFixed(2) },
+            { label: 'Importo', value: onProjectAmount(info, (c) => (c.totale_euro == null ? customerValue(null) : `€${c.totale_euro.toFixed(2)}`)), copy: info.totale_euro != null, valueToCopy: info.totale_euro?.toFixed(2) },
             { label: 'Causale', value: customerValue(info.causale_bonifico), copy: Boolean(info.causale_bonifico), bold: true },
           ].map((row, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: i === 4 ? 'none' : '1px solid rgba(255,255,255,.04)' }}>

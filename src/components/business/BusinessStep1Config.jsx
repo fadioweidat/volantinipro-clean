@@ -9,6 +9,7 @@ import {
   businessOptionLabel,
   getBusinessDefaultCopies,
 } from '../../lib/business/business-config.js';
+import { BUSINESS_MACRO_TARGETS } from '../../lib/business/businessOnProject.js';
 
 const colors = {
   panel: '#122036', inner: 'rgba(5,12,24,.46)', white: '#F8FAFC',
@@ -128,10 +129,12 @@ function GroupedTargetGrid({ value, onChange, isMobile }) {
   );
 }
 
-export default function BusinessStep1Config({ data, updateData, isMobile }) {
+export default function BusinessStep1Config({ data, updateData, isMobile, activityOptions = [], planOptions = [], printMinStart = "", printMinStartLabel = "", printDateError = false }) {
   const targets = Array.isArray(data.distributionTargets) ? data.distributionTargets : [];
   const proofs = Array.isArray(data.businessProofs) ? data.businessProofs : [];
   const definitionMode = data.businessDefinitionMode || 'materials';
+  const amountMode = definitionMode === 'activities' ? 'activities' : 'materials';
+  const whenMode = data.campaignPeriodPreset === 'asap' ? 'asap' : data.campaignPeriodPreset === 'custom' ? 'custom' : '';
   const copiesMode = data.businessCopiesMode || 'fixed_1';
   const categoryCopies = data.businessCopiesByCategory || {};
   const gridColumns = isMobile ? 1 : 3;
@@ -149,6 +152,18 @@ export default function BusinessStep1Config({ data, updateData, isMobile }) {
     });
   };
 
+  // Categoria grande: attiva/disattiva tutti i valori dettagliati che raggruppa.
+  const macroActive = BUSINESS_MACRO_TARGETS.filter(macro => macro.values.some(value => targets.includes(value))).map(macro => macro.id);
+  const toggleMacro = (id) => {
+    const macro = BUSINESS_MACRO_TARGETS.find(item => item.id === id);
+    const withoutAll = targets.filter(item => item !== 'all');
+    const active = macro.values.some(value => withoutAll.includes(value));
+    updateData({
+      distributionTargets: active ? withoutAll.filter(item => !macro.values.includes(item)) : [...withoutAll, ...macro.values],
+      distributionTargetsExplicit: true,
+    });
+  };
+
   const toggleProof = (proof) => updateData({ businessProofs: proofs.includes(proof) ? proofs.filter(item => item !== proof) : [...proofs, proof] });
   const updatePickup = (patch) => updateData({ businessPickup: { ...(data.businessPickup || {}), ...patch } });
 
@@ -160,22 +175,18 @@ export default function BusinessStep1Config({ data, updateData, isMobile }) {
   return (
     <div id="section-business-config" style={{ marginTop: 24, padding: isMobile ? 17 : 24, borderRadius: 20, background: colors.panel, border: '1px solid rgba(255,255,255,.08)', borderTop: `2px solid ${colors.purple}` }}>
       <div style={{ marginBottom: 18 }}>
-        <div style={{ color: colors.purple, fontSize: 11, fontWeight: 900, letterSpacing: '.09em', textTransform: 'uppercase' }}>Configurazione distribuzione presso attività e aziende</div>
+        <div style={{ color: colors.purple, fontSize: 11, fontWeight: 900, letterSpacing: '.09em', textTransform: 'uppercase' }}>Distribuzione presso attività e aziende</div>
         <div style={{ color: 'rgba(255,255,255,.53)', fontSize: 11, lineHeight: 1.5, marginTop: 6, maxWidth: 760 }}>
-          Definisci il target commerciale, i materiali e le regole di consegna. Area, attività reali e piano operativo saranno calcolati nello Step 2.
+          Bastano poche risposte: il resto è facoltativo e lo definiamo insieme nella proposta.
         </div>
       </div>
 
       <div style={{ display: 'grid', gap: 12 }}>
-        <BusinessSection marker="A" title="Configurazione iniziale" description="Definisci il punto di partenza, le attività da raggiungere e l'obiettivo.">
-        <FieldGroup
-          title="Da quale comune vuoi partire?"
-          description="Il comune iniziale centra la mappa dello Step 2. Da lì potrai ampliare l’area, aggiungere altri comuni e scegliere le attività reali da visitare."
-        >
-          <label style={labelStyle} htmlFor="business-starting-area">Comune o zona di partenza *</label>
+        <FieldGroup title="1. Dove vuoi distribuire?">
+          <label style={labelStyle} htmlFor="business-starting-area">Comune o zona *</label>
           <input
             id="business-starting-area"
-            aria-label="Comune o zona di partenza Business"
+            aria-label="Comune o zona Business"
             autoComplete="address-level2"
             required
             value={data.businessZone || ''}
@@ -184,39 +195,59 @@ export default function BusinessStep1Config({ data, updateData, isMobile }) {
             style={inputStyle}
           />
         </FieldGroup>
-        <FieldGroup title="Quali attività vuoi raggiungere?" description="Seleziona le categorie di attività che vuoi raggiungere con la distribuzione.">
+
+        <FieldGroup title="2. Quali attività vuoi raggiungere?" description="Puoi sceglierne più di una.">
+          <ChoiceGrid options={BUSINESS_MACRO_TARGETS.map(macro => [macro.id, macro.label])} value={macroActive} onChange={toggleMacro} columns={isMobile ? 2 : 4} multiple ariaLabel="Categorie di attività Business" />
+        </FieldGroup>
+
+        <FieldGroup title="3. Quanti volantini o quante attività?">
+          <ChoiceGrid options={[['materials', 'Numero di volantini'], ['activities', 'Numero di attività']]} value={amountMode} onChange={value => updateData({ businessDefinitionMode: value })} columns={2} ariaLabel="Quantità o attività" />
+          <div style={{ marginTop: 12, maxWidth: 320 }}>
+            {amountMode === 'materials' ? (
+              <>
+                <label style={labelStyle} htmlFor="business-material-quantity">Quantità di volantini *</label>
+                <input id="business-material-quantity" type="number" min="1" inputMode="numeric" value={data.businessMaterialQuantity ?? ''} onChange={event => updateData({ businessMaterialQuantity: Number(event.target.value) || '', qty: Number(event.target.value) || '' })} style={inputStyle} />
+              </>
+            ) : (
+              <>
+                <label style={labelStyle} htmlFor="business-target-count">Numero di attività *</label>
+                <input id="business-target-count" type="number" min="1" inputMode="numeric" value={data.businessTargetCount || ''} onChange={event => updateData({ businessTargetCount: Number(event.target.value) || '' })} style={inputStyle} />
+              </>
+            )}
+          </div>
+        </FieldGroup>
+
+        <FieldGroup title="4. Quando vuoi partire?">
+          <ChoiceGrid options={[['asap', 'Prima possibile'], ['custom', 'Scelgo la data']]} value={whenMode} onChange={value => updateData({ campaignPeriodPreset: value, ...(value === 'asap' ? { startDate: '', startDateDraft: '', businessPreferredStartDate: '' } : {}) })} columns={2} ariaLabel="Quando vuoi partire" />
+          {whenMode === 'custom' && (
+            <div style={{ marginTop: 12, maxWidth: 320 }}>
+              <label style={labelStyle} htmlFor="business-start-date">Data di inizio *</label>
+              <input id="business-start-date" type="date" min={printMinStart || undefined} value={data.businessPreferredStartDate || data.startDate || ''} onChange={event => updateData({ businessPreferredStartDate: event.target.value, startDate: event.target.value })} style={inputStyle} />
+            </div>
+          )}
+          {printMinStart && whenMode === 'custom' && <div role={printDateError ? 'alert' : 'status'} style={{ marginTop: 9, color: printDateError ? '#FCA5A5' : colors.muted, fontSize: 11 }}>Con la stampa la prima data utile è il {printMinStartLabel}.</div>}
+        </FieldGroup>
+
+        <details id="business-optional-details" style={{ borderRadius: 17, background: 'rgba(8,17,31,.34)', border: '1px solid rgba(255,255,255,.08)', overflow: 'hidden' }}>
+          <summary style={{ cursor: 'pointer', padding: 18, color: colors.white, fontSize: 15, fontWeight: 900, listStylePosition: 'inside' }}>
+            Aggiungi dettagli (facoltativo)
+            <span style={{ display: 'block', margin: '5px 0 0 22px', color: colors.muted, fontSize: 10.5, fontWeight: 550 }}>Categorie dettagliate, obiettivo, copie, consegna, materiale, referente, orari, prove e note</span>
+          </summary>
+          <div style={{ display: 'grid', gap: 12, padding: '0 18px 18px' }}>
+        <FieldGroup title="Categorie dettagliate" description="Per affinare le categorie scelte sopra.">
           <GroupedTargetGrid value={targets} onChange={toggleTarget} isMobile={isMobile} />
           {targets.includes('altro') && <input aria-label="Specifica altro target Business" value={data.businessOtherTarget || ''} onChange={event => updateData({ businessOtherTarget: event.target.value })} placeholder="Specifica il tipo di attività" style={{ ...inputStyle, marginTop: 10 }} />}
         </FieldGroup>
 
+        <FieldGroup title="Il tuo settore">
+          <select aria-label="Settore della tua attività" value={data.activityType || ''} onChange={event => updateData({ activityType: event.target.value, businessSector: event.target.value })} style={inputStyle}>
+            <option value="">Non specificato</option>
+            {activityOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </FieldGroup>
+
         <FieldGroup title="Qual è il tuo obiettivo?">
           <ChoiceGrid options={BUSINESS_OBJECTIVE_MACROS} value={macroObjectiveValue} onChange={value => updateData({ businessCampaignObjective: value })} columns={gridColumns} ariaLabel="Obiettivo campagna Business" />
-          <div style={{ marginTop: 9, color: colors.muted, fontSize: 10.5 }}>I dettagli dell'obiettivo verranno affinati nello Step 2.</div>
-        </FieldGroup>
-        </BusinessSection>
-
-        <BusinessSection marker="B" title="Distribuzione" description="Definisci quantità, copie per attività e modalità operativa.">
-        <FieldGroup title="Come vuoi definire la campagna?" description="Materiali e attività sono grandezze distinte: una visita può prevedere più copie.">
-          <ChoiceGrid options={BUSINESS_DEFINITION_MODES} value={definitionMode} onChange={value => updateData({ businessDefinitionMode: value })} columns={gridColumns} ariaLabel="Definizione campagna Business" />
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginTop: 12 }}>
-            {['materials', 'both'].includes(definitionMode) && (
-              <div>
-                <label style={labelStyle} htmlFor="business-material-quantity">Quantità di brochure/materiali disponibili</label>
-                <input id="business-material-quantity" type="number" min="1" inputMode="numeric" value={data.businessMaterialQuantity ?? data.qty ?? ''} onChange={event => updateData({ businessMaterialQuantity: Number(event.target.value) || '', qty: Number(event.target.value) || '' })} style={inputStyle} />
-              </div>
-            )}
-            {['activities', 'both'].includes(definitionMode) && (
-              <div>
-                <label style={labelStyle} htmlFor="business-target-count">Numero desiderato di attività da visitare</label>
-                <input id="business-target-count" type="number" min="1" inputMode="numeric" value={data.businessTargetCount || ''} onChange={event => updateData({ businessTargetCount: Number(event.target.value) || '' })} style={inputStyle} />
-              </div>
-            )}
-          </div>
-          {['materials', 'both'].includes(definitionMode) && materialQty > 0 && (
-            <div role="status" style={{ marginTop: 10, padding: '9px 11px', borderRadius: 9, background: 'rgba(74,222,128,.07)', color: '#A7F3D0', fontSize: 11, lineHeight: 1.45 }}>
-              <strong>Quantità valida per procedere.</strong> La copertura reale verrà calcolata automaticamente nello Step 2.
-            </div>
-          )}
         </FieldGroup>
 
         <FieldGroup title="Quante copie vuoi lasciare per attività?">
@@ -257,9 +288,6 @@ export default function BusinessStep1Config({ data, updateData, isMobile }) {
             </div>
           )}
         </FieldGroup>
-        </BusinessSection>
-
-        <BusinessSection marker="C" title="Organizzazione" description="Imposta referente, periodo, orario e urgenza.">
         <FieldGroup title="Chi dovrebbe ricevere il materiale?" description="Campo facoltativo.">
           <select aria-label="Referente preferito" value={data.businessPreferredRecipient || 'any'} onChange={event => updateData({ businessPreferredRecipient: event.target.value })} style={inputStyle}>
             {BUSINESS_RECIPIENTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -267,22 +295,21 @@ export default function BusinessStep1Config({ data, updateData, isMobile }) {
           {data.businessPreferredRecipient === 'other' && <input aria-label="Specifica referente" value={data.businessOtherRecipient || ''} onChange={event => updateData({ businessOtherRecipient: event.target.value })} placeholder="Indica il referente" style={{ ...inputStyle, marginTop: 10 }} />}
         </FieldGroup>
 
-        <FieldGroup title="Periodo e urgenza" description="L’orario di visita è una preferenza, non una postazione obbligatoria.">
+
+        <FieldGroup title="Tempi e orari" description="L’orario di visita è una preferenza, non una postazione obbligatoria.">
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 12 }}>
-            <div><label style={labelStyle} htmlFor="business-start-date">Data di inizio preferita</label><input id="business-start-date" type="date" value={data.businessPreferredStartDate || data.startDate || ''} onChange={event => updateData({ businessPreferredStartDate: event.target.value, startDate: event.target.value })} style={inputStyle} /></div>
             <div><label style={labelStyle} htmlFor="business-complete-by">Data entro cui completare</label><input id="business-complete-by" type="date" value={data.businessCompleteBy || data.endDate || ''} onChange={event => updateData({ businessCompleteBy: event.target.value, endDate: event.target.value })} style={inputStyle} /></div>
             <div><label style={labelStyle} htmlFor="business-urgency">Urgenza</label><select id="business-urgency" value={data.urgency || 'normal'} onChange={event => updateData({ urgency: event.target.value })} style={inputStyle}><option value="normal">Standard</option><option value="urgent">Rapida</option><option value="express">Espressa</option></select></div>
-            <div><label style={labelStyle} htmlFor="business-preferred-time">Orario preferito per visitare le attività (facoltativo)</label><input id="business-preferred-time" value={data.businessPreferredVisitTime || ''} onChange={event => updateData({ businessPreferredVisitTime: event.target.value })} placeholder="es. 09:30–12:30, evitare pausa pranzo" style={inputStyle} /></div>
+            <div style={{ gridColumn: isMobile ? 'auto' : '1 / -1' }}><label style={labelStyle} htmlFor="business-preferred-time">Orario preferito per visitare le attività</label><input id="business-preferred-time" value={data.businessPreferredVisitTime || ''} onChange={event => updateData({ businessPreferredVisitTime: event.target.value })} placeholder="es. 09:30–12:30, evitare pausa pranzo" style={inputStyle} /></div>
           </div>
         </FieldGroup>
-        </BusinessSection>
 
-        <details style={{ borderRadius: 17, background: 'rgba(8,17,31,.34)', border: '1px solid rgba(255,255,255,.08)', overflow: 'hidden' }}>
-          <summary style={{ cursor: 'pointer', padding: 18, color: colors.white, fontSize: 15, fontWeight: 900, listStylePosition: 'inside' }}>
-            D · Dettagli avanzati
-            <span style={{ display: 'block', margin: '5px 0 0 22px', color: colors.muted, fontSize: 10.5, fontWeight: 550 }}>Prove di consegna, tracciamento e istruzioni opzionali</span>
-          </summary>
-          <div style={{ display: 'grid', gap: 12, padding: '0 18px 18px' }}>
+        <FieldGroup title="Piano">
+          <select aria-label="Piano Business" value={data.subscription || 'single'} onChange={event => updateData({ subscription: event.target.value })} style={inputStyle}>
+            {planOptions.map(plan => <option key={plan.id} value={plan.id}>{plan.label}</option>)}
+          </select>
+        </FieldGroup>
+
             <FieldGroup title="Prove di consegna" description="Le opzioni mantengono gli stessi valori operativi; sono separate per livello di servizio.">
               <div style={{ marginBottom: 14 }}>
                 <div style={{ color: colors.green, fontSize: 11, fontWeight: 900, marginBottom: 8 }}>Incluse</div>
@@ -301,10 +328,6 @@ export default function BusinessStep1Config({ data, updateData, isMobile }) {
             </FieldGroup>
           </div>
         </details>
-      </div>
-
-      <div style={{ marginTop: 12, color: 'rgba(255,255,255,.42)', fontSize: 10.5, lineHeight: 1.5 }}>
-        Riepilogo: {targets.length || 0} target · {businessOptionLabel(BUSINESS_OBJECTIVE_MACROS, macroObjectiveValue)} · {businessOptionLabel(BUSINESS_DELIVERY_METHODS, data.businessDeliveryMethod)}. Operatori e durata saranno stimati dopo la selezione delle attività.
       </div>
     </div>
   );

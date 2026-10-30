@@ -1,3 +1,5 @@
+import { isOnProjectCampaign } from './business/businessOnProject.js';
+
 export const CUSTOMER_DATA_UNAVAILABLE = 'Dato non disponibile';
 export const CUSTOMER_PAYMENT_STATE = Object.freeze({
   PAID: 'paid',
@@ -41,6 +43,7 @@ export function isMarketplaceCampaignStatus(rawStatus) {
 
 export function normalizeCustomerCampaign(row, zones = []) {
   if (!row || typeof row !== 'object') return null;
+  const onProject = isOnProjectCampaign(row);
   const metadata = objectValue(row.metadata);
   const zoneRows = Array.isArray(zones) ? zones : [];
   const zoneNames = zoneRows.map((zone) => nullableText(zone.zone_name ?? zone.zone_label ?? zone.municipality_name)).filter(Boolean);
@@ -57,12 +60,13 @@ export function normalizeCustomerCampaign(row, zones = []) {
     rawStatus,
     marketplaceStatus: isMarketplaceCampaignStatus(row.status) ? rawStatus : null,
     quantita: nullableNumber(row.quantity ?? row.target_quantity),
-    totale_euro: nullableNumber(row.total_amount ?? row.estimated_price),
+    totale_euro: onProject ? null : nullableNumber(row.total_amount ?? row.estimated_price),
+    su_progetto: onProject,
     data_inizio: nullableText(row.start_date ?? row.distribution_start_date),
     data_fine: nullableText(row.end_date ?? row.distribution_end_date),
     zona: nullableText(row.zone_name ?? row.city ?? row.address ?? row.address_input) ?? zoneNames[0] ?? null,
     comuni: zoneNames,
-    stato_pagamento: nullableText(metadata.payment_status ?? metadata.stato_pagamento),
+    stato_pagamento: onProject ? null : nullableText(metadata.payment_status ?? metadata.stato_pagamento),
     causale_bonifico: nullableText(metadata.payment_reference ?? metadata.causale_bonifico),
     smart_pairing_sconto: nullableNumber(metadata.smart_pairing_discount),
     volantini_distribuiti: nullableNumber(metadata.distributed_quantity ?? metadata.volantini_distribuiti),

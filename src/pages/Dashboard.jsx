@@ -1,3 +1,4 @@
+import { onProjectAmount } from '../lib/business/businessOnProject.js';
 import CampaignSettlementSummary from '../components/customer/CampaignSettlementSummary.jsx';
 import React from 'react'
 import { useCampagne } from '../hooks/useCampagne'
@@ -202,7 +203,7 @@ function CampaignRow({ campagna, onVedi }) {
 
         <div style={{ textAlign: 'right', minWidth: 80 }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: C.white }}>
-            €{campagna.totale_euro?.toFixed(2)}
+            {onProjectAmount(campagna, (c) => `€${c.totale_euro?.toFixed(2)}`)}
           </div>
         </div>
 

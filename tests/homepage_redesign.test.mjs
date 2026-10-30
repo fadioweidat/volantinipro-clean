@@ -64,7 +64,6 @@ test("SmartPairingSection: board di pianificazione reale (calendario, migliore f
   assert.match(src, /buildSmartPairingExampleMonth\(\)/);
   assert.match(src, /Migliore finestra/);
   assert.match(src, /\{example\.windowLabel\}/);
-  assert.match(src, /Capacità disponibile/);
   assert.match(src, /Copertura consigliata/);
   assert.match(src, /Consigliato/); // badge
   assert.match(src, />Esempio</); // dataset demo dichiarato in modo visibile

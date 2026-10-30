@@ -1,4 +1,5 @@
 import { campaignSettlement } from '../campaignSettlement.js';
+import { isOnProjectCampaign } from '../business/businessOnProject.js';
 import { ensureSupabaseSessionBridge, supabase } from '../../supabaseClient.js';
 import { deriveOperationAlerts } from '../operations/deriveOperationAlerts.js';
 import { buildDailyOperationsReport, localDayBounds } from '../operations/dailyOperationsReport.js';
@@ -480,7 +481,7 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
     // "da pagare", e' semplicemente un dato mancante da segnalare come tale.
     const paymentRaw = campaign.metadata?.payment_status;
     const settlement = settlements[campaignIndex];
-    const paymentStatus = settlement.settlement_status === 'not_applicable' ? (paymentRaw === 'pagato' ? 'pagato' : paymentRaw === 'in_attesa_pagamento' ? 'da_pagare' : 'non_disponibile') : settlement.settlement_status === 'awaiting_payment' ? 'da_pagare' : settlement.settlement_status;
+    const paymentStatus = isOnProjectCampaign(campaign) ? 'non_disponibile' : settlement.settlement_status === 'not_applicable' ? (paymentRaw === 'pagato' ? 'pagato' : paymentRaw === 'in_attesa_pagamento' ? 'da_pagare' : 'non_disponibile') : settlement.settlement_status === 'awaiting_payment' ? 'da_pagare' : settlement.settlement_status;
 
     const rawComp = rawAssignment?.metadata?.supplier_compensation ?? campaign.metadata?.supplier_compensation ?? null;
     const supplierCompNum = (rawComp != null && rawComp !== '') ? Number(rawComp) : null;
@@ -902,6 +903,7 @@ export function normalizeCampaign(row, source) {
   const rawStatus = String(row.status || row.stato || row.state || row.stato_pagamento || '').toLowerCase();
   const serviceSource = row.service_type || row.campaign_type || row.type || row.servizio || row.selected_service || row.service;
   const serviceRaw = String(serviceSource || '').toLowerCase();
+  const onProject = isOnProjectCampaign(row);
   const total = Number(row.total_amount);
   const qty = Number(row.quantity ?? row.target_quantity ?? row.total_flyers);
   const lat = Number(row.center_lat ?? row.lat ?? row.latitude ?? row.metadata?.center_lat ?? row.metadata?.lat);
@@ -915,7 +917,8 @@ export function normalizeCampaign(row, source) {
     qty: Number.isFinite(qty) && qty > 0 ? qty : 0,
     status: normalizeStatus(rawStatus),
     date: String(row.start_date || row.created_at || row.updated_at || '').slice(0, 10) || EMPTY,
-    total: row.total_amount != null && Number.isFinite(total) && total >= 0 ? total : null,
+    total: !onProject && row.total_amount != null && Number.isFinite(total) && total >= 0 ? total : null,
+    onProject,
     lat: Number.isFinite(lat) ? lat : null,
     lng: Number.isFinite(lng) ? lng : null,
     rawStatus,

@@ -1,3 +1,4 @@
+import { BUSINESS_RESPONSE_TIME } from "../../lib/business/businessOnProject.js";
 import { useState } from "react";
 import { saveSmartPairingWaitlist } from "../../lib/supabaseClient.js";
 
@@ -98,7 +99,7 @@ function EnterpriseContactModal({ onClose }) {
           <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(46,204,138,.12)", color: C.green, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px", fontSize: 26 }}>✓</div>
           <h3 style={{ fontFamily: F.serif, fontSize: 26, color: C.white, margin: "0 0 12px" }}>Richiesta ricevuta.</h3>
           <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 24px" }}>
-            Ti ricontatteremo a breve per definire il progetto su misura per la tua azienda.
+            Ti ricontattiamo {BUSINESS_RESPONSE_TIME} per definire il progetto su misura per la tua azienda.
           </p>
           <button type="button" onClick={onClose} style={{ background: C.orange, color: "#fff", border: "none", padding: "11px 24px", borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Chiudi</button>
         </div>

@@ -1,3 +1,4 @@
+import { onProjectAmount } from '../business/businessOnProject.js';
 // TICKET — ADMIN CLIENTI & PREVENTIVI: dashboard stati / filtri / riepilogo.
 // Logica PURA di sola presentazione: KPI, filtro rapido, ricerca estesa,
 // ordinamento, template WhatsApp Admin->Cliente, testo "Copia riepilogo".
@@ -198,7 +199,7 @@ export function buildAdminClientWhatsAppMessage(row) {
   const servizio = serviceLabel(row?.service);
   const zona = zoneLabel(row);
   const qty = qtyLabel(row?.qty);
-  const tot = euro(row?.total);
+  const tot = onProjectAmount(row, (r) => euro(r?.total));
   if (row?.settlement && row.settlement.settlement_status !== 'not_applicable') {
     const s = row.settlement;
     return [`Buongiorno ${nome},`, `ID campagna: ${id}`, `Totale verificato: ${euro(s.original_total_cents / 100)}`, `Credito Studio: ${euro(s.credit_cents / 100)}`, s.amount_due_cents == null ? 'Saldo da verificare con Admin.' : `Importo da versare: ${euro(s.amount_due_cents / 100)}`, s.settlement_status === 'settled_by_credit' ? 'Saldo coperto da credito.' : ''].filter(Boolean).join('\n');
@@ -275,7 +276,7 @@ export function buildClientsQuotesSummary(row) {
     `Servizio: ${serviceLabel(row?.service)}`,
     `Zona: ${zoneLabel(row) || 'n/d'}`,
     `Quantita: ${qtyLabel(row?.qty) || 'n/d'}`,
-    `Totale: ${euro(row?.total) || 'n/d'}`,
+    `Totale: ${onProjectAmount(row, (r) => euro(r?.total)) || 'n/d'}`,
     `Stato pagamento: ${paymentText}`,
   ].join('\n');
 }

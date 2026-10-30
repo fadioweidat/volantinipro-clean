@@ -12,7 +12,7 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8").re
 test("no flat distribution rate left in Step 1; H2H/B2B notes as on the homepage", () => {
   const step1 = read("src/pages/public/configurator/Step1.jsx");
   assert.doesNotMatch(step1, /baseRate|distEst|18\.5|h2h: 22\.0|b2b: 35\.0/);
-  assert.ok(step1.includes('const distributionNote = serviceType === "b2b" || serviceType === "business-distribution" ? "Su progetto" : null;'));
+  assert.ok(step1.includes('const distributionNote = serviceType === "b2b" || serviceType === "business-distribution" ? ON_PROJECT_LABEL : null;'));
   assert.ok(step1.includes("const h2hPricing = serviceType === \"h2h\" ? calculateHandToHandPricing({ operatorHours: handToHandOperatorHours(data), urgency: data.urgency, planDiscountPct: discPct }) : null;"));
   const summary = read("src/components/Step1Summary.jsx");
   assert.doesNotMatch(summary, /distributionCost|estimate\.total/);

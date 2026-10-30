@@ -43,6 +43,9 @@ import { buildQuoteAssistantStep4Context } from "../../../ai/context/buildQuoteA
 import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
+import { buildOnProjectPayload } from "../../../lib/business/businessOnProject.js";
+import { Step4BusinessRequest } from "./step4/Step4BusinessRequest.jsx";
+
 export function Step4({
   data,
   setData,
@@ -580,7 +583,7 @@ export function Step4({
   // Multi-zona: mai inviare una campagna con zone incomplete o con un
   // servizio per cui l'aggregazione multi-zona non esiste ancora.
   const multiZoneBlocked = multiZoneUnsupported || isMultiZoneQuote && !multiZoneSummary.allZonesReady;
-  const canConfirm = Boolean(svcType && (isB2B ? (data.selectedOperationalPois?.length || 0) > 0 : flyerQty != null && flyerQty > 0) && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked && !multiZoneBlocked);
+  const canConfirm = isB2B ? Boolean(hasZones) : Boolean(svcType && flyerQty != null && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked && !multiZoneBlocked);
   const confirmProblem = multiZoneUnsupported ? "Più zone disponibili solo per Door to Door" : isMultiZoneQuote && !multiZoneSummary.allZonesReady ? `Completa ${multiZoneSummary.incompleteZones.map(z => z.label).join(", ")} nello Step 2` : !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
   const pairingMonth = data.selectedMonth?.month ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getMonth() : new Date().getMonth());
   const pairingYear = data.selectedMonth?.year ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getFullYear() : new Date().getFullYear());
@@ -1422,7 +1425,7 @@ export function Step4({
             };
           });
 
-      const payload = {
+      const quotePayload = {
         title: `Campagna Preventivo (${clientForm.nome})`,
         service_type: svcType,
         status: "pending_review",
@@ -1507,6 +1510,8 @@ export function Step4({
           }
         }
       };
+
+      const payload = isB2B ? buildOnProjectPayload(quotePayload, data) : quotePayload;
 
       if (!hasSupabaseConfig()) {
         setSent(true);
@@ -1626,6 +1631,7 @@ export function Step4({
       }}>{sub}</div>
       </div>
     </div>;
+  if (isB2B) return <Step4BusinessRequest data={data} clientForm={clientForm} setClientForm={setClientForm} canConfirm={canConfirm} confirmProblem={confirmProblem} savingCampaign={savingCampaign} saveError={campaignSaveError} saveNotice={saveSlowNotice || confirmSyncStatus} sent={sent} onConfirm={handleConfirmCampaign} onBack={onBack} onViewMap={() => onNav?.("step2")} onHome={() => onNav?.("home")} />;
   return <div style={{
     maxWidth: 1200,
     margin: "0 auto",

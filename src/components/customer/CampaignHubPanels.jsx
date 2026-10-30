@@ -1,3 +1,4 @@
+import { ON_PROJECT_LABEL } from "../../lib/business/businessOnProject.js";
 import { useSingleFlightRefresh } from '../../hooks/useSingleFlightRefresh.js';
 import CampaignSettlementSummary from './CampaignSettlementSummary.jsx';
 import React, { useCallback, useEffect, useState } from "react";
@@ -88,7 +89,7 @@ export function CampaignConfigSection({ campagna }) {
         <Field label="Stampa" value={step4.format ? printSpecsLabel(step4) : (meta.printing?.enabled ? "Richiesta" : "Non richiesta")} />
         <Field label="Grafica" value={graphicStatusLabel(quote.campaign?.graphicStatus)} />
         <Field label="Servizi extra" value={(meta.extra_services || meta.servizi_extra || []).length ? (meta.extra_services || meta.servizi_extra).map((s) => (s && typeof s === "object" ? s.label || extraServiceLabel(s.id) : extraServiceLabel(s))).filter(Boolean).join(", ") : "Nessuno"} />
-        <Field label="Totale confermato" value={formatEuroIT(campagna?.totale_euro)} />
+        <Field label="Totale confermato" value={campagna?.su_progetto ? ON_PROJECT_LABEL : formatEuroIT(campagna?.totale_euro)} />
       </StepBlock>
 
       <CampaignSettlementSummary settlement={campagna?.settlement} />

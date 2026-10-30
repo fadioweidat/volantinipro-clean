@@ -36,7 +36,7 @@ async function computeSubmissionFingerprint(input: {
   clientEmail: string;
   cityName: string | null;
   quantity: number;
-  totalAmount: number;
+  totalAmount: number | null;
   zones: Array<{ zone_name: string | null; quantity_assigned: number | null }>;
 }) {
   const canonicalZones = [...input.zones]
@@ -97,7 +97,9 @@ serve(async (req) => {
 
     // Numeric bounding
     const quantity = body.total_flyers ?? body.flyer_quantity ?? 0;
-    const totalAmount = body.total_budget ?? body.total_amount ?? 0;
+    // Business "Su progetto": nessun prezzo, importo vuoto e mai 0.
+    const isOnProject = body.metadata?.pricing_mode === "on_project";
+    const totalAmount = isOnProject ? null : body.total_budget ?? body.total_amount ?? 0;
 
     if (isNaN(quantity) || quantity < 0 || quantity > 10000000) {
       return new Response(JSON.stringify({ error: "Quantità non valida" }), {
@@ -115,7 +117,7 @@ serve(async (req) => {
 
     // Service enum
     const rawService = body.service_type || body.type;
-    const allowedServices = ["d2d", "h2h", "business", "Door to Door", "Hand to Hand", "Business Distribution"];
+    const allowedServices = ["d2d", "h2h", "b2b", "business", "Door to Door", "Hand to Hand", "Business Distribution"];
     const serviceType = allowedServices.includes(rawService) ? rawService : "d2d";
 
     // Zone strutturate per comune (source of truth reale, non title/city):

@@ -37,7 +37,7 @@ test("hero and calculator say where families are counted", () => {
 });
 
 test("FAQ promises working hours", () => {
-  assert.match(read("src/components/home/FAQSection.jsx"), /rispondiamo entro 2 ore lavorative\./);
+  assert.match(read("src/components/home/FAQSection.jsx"), /rispondiamo \{BUSINESS_RESPONSE_TIME\}\./);
 });
 
 test("homepage uses sans for every text and heading (no serif, no handwritten font)", () => {

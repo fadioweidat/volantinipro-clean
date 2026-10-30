@@ -1,4 +1,5 @@
 import { doorToDoorRangeBeforeZone } from "../../../lib/pricing/step1Estimate.js";
+import { BUSINESS_CONFIRMATION, ON_PROJECT_LABEL, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
 import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_TRAVEL_NOTE, calculateHandToHandPricing, describeHandToHandCalculation, handToHandFlyersRange, handToHandOperatorHours, formatFlyersRange } from "../../../lib/pricing/handToHandPricing.js";
 import { PRINT_TIMING_NOTE, earliestStartWithPrint, isPeriodPresetUnavailableWithPrint } from "../../../lib/printLeadTime.js";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -399,7 +400,7 @@ export function Step1({
   // piano come il Door to Door, niente Smart Pairing); Business: "Su progetto".
   const serviceType = data.type || "d2d";
   const d2dRange = serviceType === "d2d" ? doorToDoorRangeBeforeZone(activeQty, { urgency: data.urgency, planDiscountPct: discPct }) : null;
-  const distributionNote = serviceType === "b2b" || serviceType === "business-distribution" ? "Su progetto" : null;
+  const distributionNote = serviceType === "b2b" || serviceType === "business-distribution" ? ON_PROJECT_LABEL : null;
   const h2hPricing = serviceType === "h2h" ? calculateHandToHandPricing({ operatorHours: handToHandOperatorHours(data), urgency: data.urgency, planDiscountPct: discPct }) : null;
   const h2hEstimate = h2hPricing ? { total: h2hPricing.total, calculation: describeHandToHandCalculation(h2hPricing.operatorHours), operators: h2hPricing.operators, totalHours: h2hPricing.totalHours, rate: H2H_HOURLY_RATE_EUR, flyersRange: h2hPricing.flyersRange, travelNote: `Fuori da Milano città: ${H2H_TRAVEL_NOTE.toLowerCase()}.` } : null;
   // "Sì, voglio anche stampa" ⟺ hasFlyers === "no" (id fuorviante della card).
@@ -599,66 +600,6 @@ export function Step1({
       setResolvingOperationalLocation(false);
     }
     if (data.type === "b2b" || data.type === "business-distribution") {
-      if (!String(data.businessZone || "").trim()) {
-        setOperationalLocationError("Inserisci il comune o la zona di partenza della campagna Business.");
-        document.getElementById("business-starting-area")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-        document.getElementById("business-starting-area")?.focus();
-        return;
-      }
-      if (!Array.isArray(data.distributionTargets) || data.distributionTargets.length === 0) {
-        setOperationalLocationError("Seleziona almeno un tipo di attività o luogo da visitare.");
-        document.getElementById("section-business-config")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-        return;
-      }
-      if (!data.businessCampaignObjective) {
-        setOperationalLocationError("Seleziona l’obiettivo della campagna Business.");
-        document.getElementById("section-business-config")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-        return;
-      }
-      const definitionMode = data.businessDefinitionMode || "materials";
-      const usesMaterials = definitionMode === "materials" || definitionMode === "both";
-      const usesActivities = definitionMode === "activities" || definitionMode === "both";
-      if (usesMaterials && Number(data.businessMaterialQuantity || data.qty || 0) < 1) {
-        setOperationalLocationError("Indica quante copie o materiali sono disponibili.");
-        document.getElementById("section-business-config")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-        return;
-      }
-      if (usesActivities && Number(data.businessTargetCount || 0) < 1) {
-        setOperationalLocationError("Indica quante attività vuoi raggiungere.");
-        document.getElementById("section-business-config")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-        return;
-      }
-      if (!data.businessDeliveryMethod) {
-        setOperationalLocationError("Seleziona la modalità di consegna Business.");
-        document.getElementById("section-business-config")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-        return;
-      }
-      if (!data.businessMaterialLocation) {
-        setOperationalLocationError("Indica dove si trova il materiale da distribuire.");
-        document.getElementById("section-business-config")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-        return;
-      }
       if (data.businessMaterialLocation === "pickup_client" && !String(data.businessPickup?.address || "").trim()) {
         setOperationalLocationError("Inserisci l’indirizzo per il ritiro del materiale.");
         document.getElementById("section-business-config")?.scrollIntoView({
@@ -668,7 +609,7 @@ export function Step1({
         return;
       }
       setOperationalLocationError("");
-      const materialQuantity = Math.max(0, Number(data.businessMaterialQuantity || data.qty || 0));
+      const materialQuantity = data.businessDefinitionMode === "activities" ? 0 : Math.max(0, Number(data.businessMaterialQuantity || 0));
       setResolvingOperationalLocation(true);
       let resolvedBusinessArea;
       try {
@@ -792,7 +733,7 @@ export function Step1({
   const dateError = !!(data.startDate && data.endDate && data.endDate < data.startDate);
   // Con la stampa la distribuzione non puo' iniziare prima di produzione + spedizione.
   const printDateError = !!(printMinStart && data.startDate && data.startDate < printMinStart);
-  const printPresetError = presetUnavailable(data.campaignPeriodPreset);
+  const printPresetError = !isB2B && presetUnavailable(data.campaignPeriodPreset);
   const currentServiceLabel = {
     d2d: "Door to Door",
     h2h: "Hand to Hand",
@@ -816,7 +757,7 @@ export function Step1({
   const step1Issues = [!data.type && {
     id: "section-servizio",
     label: "Scegli il servizio"
-  }, !data.activityType && {
+  }, !isB2B && !data.activityType && {
     id: "section-settore",
     label: "Indica il settore dell'attività"
   }, !isB2B && (!data.qty || Number(data.qty) < 1000) && {
@@ -825,13 +766,13 @@ export function Step1({
   }, !isB2B && !data.hasFlyers && {
     id: "section-formato",
     label: "Indica se il materiale è già stampato"
-  }, !data.flyerFormat && {
+  }, !isB2B && !data.flyerFormat && {
     id: "section-formato",
     label: "Scegli il formato"
   }, !isB2B && !data.urgency && {
     id: "section-urgenza",
     label: "Scegli la priorità"
-  }, !data.subscription && {
+  }, !isB2B && !data.subscription && {
     id: "section-piano",
     label: "Scegli il piano"
   }, isH2H && selectedDistributionTargets.length === 0 && {
@@ -843,28 +784,7 @@ export function Step1({
   }, isH2H && !String(promoterAssignments[0]?.location || "").trim() && {
     id: "section-h2h-config",
     label: "Inserisci il centro dell'area Hand to Hand"
-  }, isB2B && !String(data.businessZone || "").trim() && {
-    id: "section-business-config",
-    label: "Inserisci il comune Business"
-  }, isB2B && selectedDistributionTargets.length === 0 && {
-    id: "section-business-config",
-    label: "Scegli le attività Business"
-  }, isB2B && !data.businessCampaignObjective && {
-    id: "section-business-config",
-    label: "Scegli l'obiettivo Business"
-  }, isB2B && ["materials", "both"].includes(businessDefinitionMode) && Number(data.businessMaterialQuantity || data.qty || 0) < 1 && {
-    id: "section-business-config",
-    label: "Inserisci la quantità di materiali"
-  }, isB2B && ["activities", "both"].includes(businessDefinitionMode) && Number(data.businessTargetCount || 0) < 1 && {
-    id: "section-business-config",
-    label: "Inserisci il numero di attività"
-  }, isB2B && !data.businessDeliveryMethod && {
-    id: "section-business-config",
-    label: "Scegli la modalità di consegna"
-  }, isB2B && !data.businessMaterialLocation && {
-    id: "section-business-config",
-    label: "Indica dove si trova il materiale"
-  }, isB2B && data.businessMaterialLocation === "pickup_client" && !String(data.businessPickup?.address || "").trim() && {
+  }, ...(isB2B ? businessMissingAnswers(data) : []), isB2B && data.businessMaterialLocation === "pickup_client" && !String(data.businessPickup?.address || "").trim() && {
     id: "section-business-config",
     label: "Inserisci l'indirizzo di ritiro"
   }, dateError && {
@@ -874,7 +794,7 @@ export function Step1({
     id: "section-periodo",
     label: `Con la stampa scegli un altro periodo: la prima data utile è il ${formatDateDisplay(printMinStart)}`
   }, printDateError && {
-    id: "section-periodo",
+    id: isB2B ? "section-business-config" : "section-periodo",
     label: `Con la stampa la distribuzione può iniziare dal ${formatDateDisplay(printMinStart)}`
   }].filter(Boolean);
   const canContinueStep1 = step1Issues.length === 0 && !resolvingOperationalLocation;
@@ -1021,13 +941,25 @@ export function Step1({
     val: "Inclusi (+€35)"
   }] : [])];
   const startSummaryLabel = data.startDate ? formatDateDisplay(data.startDate) : periodPresets.find(p => p.id === (data.campaignPeriodPreset || "custom"))?.label;
-  const displaySummaryRows = [...summaryRows, ...(isB2B ? [
-    { label: "Zona", val: "Da selezionare nello Step 2" },
-    { label: "Formato materiale", val: currentFormatLabel },
-    { label: "Stampa", val: currentPrintLabel },
-    { label: "Urgenza", val: currentUrgencyLabel }
-  ] : []), { label: "Avvio/data", val: startSummaryLabel || "Da selezionare" }];
-  const ctaChecklist = [{
+  const businessMissing = isB2B ? businessMissingAnswers(data).map(item => item.key) : [];
+  const businessAmount = data.businessDefinitionMode === "activities"
+    ? (data.businessTargetCount ? `${new Intl.NumberFormat("it-IT", { useGrouping: "always" }).format(data.businessTargetCount)} attività` : "Da selezionare")
+    : (data.businessMaterialQuantity ? `${new Intl.NumberFormat("it-IT", { useGrouping: "always" }).format(data.businessMaterialQuantity)} volantini` : "Da selezionare");
+  const displaySummaryRows = isB2B ? [
+    { label: "Servizio", val: "Distribuzione Business" },
+    { label: "Comune o zona", val: data.businessZone || "Da selezionare" },
+    { label: "Attività", val: b2bTargetLabel },
+    { label: "Quantità", val: businessAmount },
+    { label: "Quando", val: businessMissing.includes("when") ? "Da selezionare" : data.startDate ? formatDateDisplay(data.startDate) : "Prima possibile" },
+    { label: "Stampa", val: currentPrintLabel }
+  ] : [...summaryRows, { label: "Avvio/data", val: startSummaryLabel || "Da selezionare" }];
+  const ctaChecklist = isB2B ? [
+    { label: "Comune o zona", complete: !businessMissing.includes("zone") },
+    { label: "Attività", complete: !businessMissing.includes("targets") },
+    { label: "Quantità", complete: !businessMissing.includes("amount") },
+    { label: "Quando", complete: !businessMissing.includes("when") },
+    { label: "Stampa", complete: !businessMissing.includes("print") }
+  ] : [{
     label: "Servizio",
     complete: Boolean(data.type)
   }, {
@@ -1233,7 +1165,7 @@ export function Step1({
         margin: 0,
         maxWidth: 640
       }}>
-          Scegli servizio, quantità e periodo. Nel passaggio successivo selezionerai la zona sulla mappa e vedrai famiglie e copertura in tempo reale.
+          {isB2B ? "Rispondi a poche domande: prepariamo noi una proposta su misura." : "Scegli servizio, quantità e periodo. Nel passaggio successivo selezionerai la zona sulla mappa e vedrai famiglie e copertura in tempo reale."}
         </p>
       </div>
 
@@ -1258,6 +1190,7 @@ export function Step1({
           printSpecLabel,
           distributionRange: d2dRange,
           distributionNote,
+          businessConfirmation: distributionNote ? BUSINESS_CONFIRMATION : null,
           h2h: h2hEstimate,
           printTimingNote: PRINT_TIMING_NOTE
         }} />
@@ -1440,7 +1373,10 @@ export function Step1({
           </div>
 
           {/* Section 2: Attività cliente */}
-          <div id="section-settore" style={s1Panel}>
+          <div id="section-settore" style={{
+          ...s1Panel,
+          display: isB2B ? "none" : undefined
+        }}>
             <div style={s1EyebrowStyle}>
               <span className="vp-s1-section-number">2</span>Settore o Attività
             </div>
@@ -1824,9 +1760,10 @@ export function Step1({
                 </div>
               </motion.div>}
 
-            {isB2B && <BusinessStep1Config data={data} updateData={updateData} isMobile={isMobile} />}
             </AnimatePresence>
           </div>
+
+          {isB2B && <BusinessStep1Config data={data} updateData={updateData} isMobile={isMobile} activityOptions={activityButtons} planOptions={planOptions} printMinStart={printMinStart} printMinStartLabel={formatDateDisplay(printMinStart)} printDateError={printDateError} />}
 
           {/* Section 3: Quantità volantini */}
           <div id="section-quantita" style={{
@@ -2470,6 +2407,7 @@ export function Step1({
 
             {/* Formato del materiale da distribuire — concetto separato dalla stampa */}
             <div style={{
+            display: isB2B && !printChosen ? "none" : undefined,
             borderTop: "1px solid rgba(255,255,255,0.08)",
             paddingTop: 24
           }}>
@@ -2610,7 +2548,10 @@ export function Step1({
           </div>
 
           {/* Section 8: Piano */}
-          <div id="section-piano" style={s1Panel}>
+          <div id="section-piano" style={{
+          ...s1Panel,
+          display: isB2B ? "none" : undefined
+        }}>
             <div style={s1EyebrowStyle}>
               <span className="vp-s1-section-number">7</span>Piano promozionale
             </div>
@@ -2782,14 +2723,14 @@ export function Step1({
           }}>
               Prossimo passaggio
             </h2>
-            <p className="vp-s1-finish-copy">{data.quickMode ? "Riceverai un preventivo immediato senza passare dalla mappa." : "Nel prossimo step selezionerai la zona sulla mappa e vedrai in tempo reale famiglie, copertura e prezzo."}</p>
+            <p className="vp-s1-finish-copy">{isB2B ? "Nel prossimo passaggio controlli il riepilogo e ci invii la richiesta." : data.quickMode ? "Riceverai un preventivo immediato senza passare dalla mappa." : "Nel prossimo step selezionerai la zona sulla mappa e vedrai in tempo reale famiglie, copertura e prezzo."}</p>
             <div className="vp-s1-choices"><strong>Le tue scelte</strong><div>
-              {[
+              {(isB2B ? displaySummaryRows.map(row => [row.label, row.val]) : [
                 ["Servizio", currentServiceLabel], ["Attività", b2bSectorLabel],
                 ["Quantità", `${new Intl.NumberFormat("it-IT").format(quantityValue || 0)} volantini`],
                 ["Piano", currentPlanLabel], ["Stampa", currentPrintLabel],
                 ["Urgenza", currentUrgencyLabel], ["Inizio", startSummaryLabel]
-              ].map(([label, value]) => <div key={label}><span aria-hidden="true">{!value || String(value).includes("Da selezionare") ? "○" : "✓"}</span><span>{label}: <b>{value}</b></span></div>)}
+              ]).map(([label, value]) => <div key={label}><span aria-hidden="true">{!value || String(value).includes("Da selezionare") ? "○" : "✓"}</span><span>{label}: <b>{value}</b></span></div>)}
             </div></div>
 
             {/* CTA Button & Note */}
@@ -2848,7 +2789,7 @@ export function Step1({
               justifyContent: "center",
               gap: 12
             }}>
-                <span>{resolvingOperationalLocation ? isB2B ? "Localizzo il comune..." : "Localizzo il punto operativo..." : data.quickMode ? "Calcola Preventivo Rapido" : "Continua allo Step 2"}</span>
+                <span>{resolvingOperationalLocation ? isB2B ? "Localizzo il comune..." : "Localizzo il punto operativo..." : isB2B ? "Continua al riepilogo" : data.quickMode ? "Calcola Preventivo Rapido" : "Continua allo Step 2"}</span>
                 <span style={{
                 fontSize: 22
               }}>➔</span>

@@ -1,3 +1,4 @@
+import { onProjectAmount } from '../../lib/business/businessOnProject.js';
 import { ProgramRecipientSummary } from './assign-work/ProgramRecipient.jsx';
 import CampaignSettlementSummary from '../../components/customer/CampaignSettlementSummary.jsx';
 import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
@@ -276,7 +277,7 @@ export function ClientsQuotes({ onNav, embedded = false, showTest = false }) {
                   <p style={{ margin: '4px 0 0', color: C.gray, fontSize: 12 }}>
                     {row.qty ? `${row.qty.toLocaleString('it-IT')} volantini` : 'Quantita non disponibile'}
                     {' · '}
-                    {row.total != null ? `${row.total.toLocaleString('it-IT')} €` : 'Importo non disponibile'}
+                    {onProjectAmount(row, (r) => (r.total != null ? `${r.total.toLocaleString('it-IT')} €` : 'Importo non disponibile'))}
                   </p>
                 </div>
 
@@ -350,7 +351,7 @@ export function ClientsQuotes({ onNav, embedded = false, showTest = false }) {
               <Row label="Cliente" value={paymentConfirmRow.client} />
               <Row label="Campagna" value={paymentConfirmRow.name || paymentConfirmRow.client} />
               <Row label="Comuni" value={(paymentConfirmRow.comuni || []).length > 0 ? paymentConfirmRow.comuni.join(', ') : (paymentConfirmRow.zone || 'Comuni non disponibili')} />
-              <Row label="Importo" value={paymentConfirmRow.total != null ? `${paymentConfirmRow.total.toLocaleString('it-IT')} €` : 'Importo non disponibile'} />
+              <Row label="Importo" value={onProjectAmount(paymentConfirmRow, (r) => (r.total != null ? `${r.total.toLocaleString('it-IT')} €` : 'Importo non disponibile'))} />
             </div>
             {paymentConfirmError && (
               <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', color: '#ef4444', padding: 10, borderRadius: 6, marginBottom: 14, fontSize: 13 }}>

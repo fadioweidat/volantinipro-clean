@@ -1,3 +1,4 @@
+import { BUSINESS_RESPONSE_TIME } from "../../lib/business/businessOnProject.js";
 import { useState } from "react";
 import { TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
 import { trackConsultationRequested } from "../../lib/analytics/siteEvents.js";
@@ -334,7 +335,7 @@ export default function ConsultantPage({ onStart, data }) {
                 fontFamily: F.sans, fontSize: 13, color: C.green, lineHeight: 1.5,
               }}
             >
-              ✓ Richiesta inviata correttamente. Ti ricontatteremo al più presto.
+              ✓ Richiesta inviata correttamente. Ti ricontattiamo {BUSINESS_RESPONSE_TIME}.
             </div>
           )}
 
