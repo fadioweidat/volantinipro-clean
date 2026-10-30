@@ -2,6 +2,13 @@
 
 - Smart Pairing: aggiungere esclusione abbinamento tra campagne dello stesso settore merceologico
 
+- Admin: mostrare le risposte facoltative delle richieste Business
+  Sono salvate in campaigns.metadata.business_request, ma nessuna vista admin le mostra ancora.
+
+- Valutare le modifiche territoriali di submit-campaign-request (branch wip)
+  Branch wip/submit-campaign-territorial: territory_type/parent_municipality e insert con colonne esplicite, mai pubblicati.
+  Integration ora coincide con la v12 online piu' le correzioni b2b e importo vuoto.
+
 - Copertura "media semplice" (da affrontare in un branch separato DOPO il merge della homepage; NON in feat/homepage-real-data-polish).
   Correzione prevista: copertura pesata sulle famiglie direttamente in analysis-istat
   (somma famiglie nel raggio / somma famiglie totali delle zone coinvolte), poi ridistribuire la Edge Function.

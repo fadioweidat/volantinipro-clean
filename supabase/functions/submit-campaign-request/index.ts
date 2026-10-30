@@ -148,8 +148,6 @@ serve(async (req) => {
           center_lng: Number.isFinite(Number(z?.lng)) ? Number(z.lng) : 0,
           radius_m: z?.radius_m != null && Number.isFinite(Number(z.radius_m)) && Number(z.radius_m) > 0 ? Math.round(Number(z.radius_m)) : null,
           polygon_geojson: parseZonePolygon(z?.polygon_geojson),
-          territory_type: typeof z?.territory_type === "string" ? z.territory_type : (Number(z?.radius_m) > 0 ? "radius" : "comune"),
-          parent_municipality: typeof z?.parent_municipality === "string" ? z.parent_municipality : null,
           address_label: typeof z?.address_label === "string" ? z.address_label : null,
         };
       })
@@ -261,17 +259,7 @@ serve(async (req) => {
     if (validatedZones.length > 0) {
       const { error: zonesInsertError } = await supabase
         .from("campaign_zones")
-        .insert(validatedZones.map((z) => ({
-          campaign_id: campaign.id,
-          zone_name: z.zone_name,
-          quantity_assigned: z.quantity_assigned,
-          priority: z.priority,
-          center_lat: z.center_lat,
-          center_lng: z.center_lng,
-          radius_m: z.radius_m,
-          polygon_geojson: z.polygon_geojson,
-          address_label: z.address_label,
-        })));
+        .insert(validatedZones.map((z) => ({ ...z, campaign_id: campaign.id })));
       if (zonesInsertError) {
         console.error("Errore inserimento in campaign_zones, rollback campagna:", zonesInsertError);
         await supabase.from("campaigns").delete().eq("id", campaign.id);
