@@ -9,6 +9,11 @@ export const ON_PROJECT_PRICING_MODE = "on_project";
 export const BUSINESS_RESPONSE_TIME = "entro la giornata lavorativa (lun–ven)";
 export const BUSINESS_CONFIRMATION = `${ON_PROJECT_LABEL}: ti ricontattiamo ${BUSINESS_RESPONSE_TIME} con una proposta`;
 
+// Unico ingresso alla richiesta Business: configuratore con Business gia' scelto.
+export const BUSINESS_REQUEST_LABEL = "Richiedi la tua proposta Business";
+export const BUSINESS_REQUEST_HREF = "/configuratore?service=b2b";
+export const goToBusinessRequest = (onNav) => onNav?.("step1", { service: "b2b" });
+
 // Le 8 categorie grandi dello Step 1: ognuna raggruppa i valori gia' usati da
 // Step 2 e admin, cosi' non cambia nessun dato a valle.
 export const BUSINESS_MACRO_TARGETS = [

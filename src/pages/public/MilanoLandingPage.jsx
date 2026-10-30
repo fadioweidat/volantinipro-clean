@@ -3,7 +3,7 @@ import PublicNavLink from '../../components/common/PublicNavLink.jsx';
 import { C, F } from "../../lib/constants.js";
 import Button from "../../components/ui/Button.jsx";
 import { milanoLandingContent as content } from "../../lib/seo/milanoLandingContent.js";
-import { CityNumbersSection, CityPriceTable } from "./SeoLandingPages.jsx";
+import { BusinessRequestLink, CityNumbersSection, CityPriceTable } from "./SeoLandingPages.jsx";
 
 // TICKET — SEO LOCAL PAGE PILOTA MILANO: unica pagina locale pilota
 // (/distribuzione-volantini-milano), stesso meccanismo di route reale delle
@@ -73,6 +73,7 @@ export function MilanoLandingPage({ onNav }) {
                   <div key={s.pageKey} style={{ padding: 16, borderRadius: 12, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 6 }}>{s.title}</div>
                     <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)", lineHeight: 1.6, marginBottom: 10 }}>{s.text}</div>
+                    {s.pageKey === "service-business" && <BusinessRequestLink onNav={onNav} />}
                     <Button as={PublicNavLink} href={`/servizi/${s.pageKey.replace('service-', '')}`} variant="ghost" onClick={() => onNav(s.pageKey)} style={{ color: C.orange, fontSize: 13, padding: 0 }}>
                       Scopri {s.title} →
                     </Button>

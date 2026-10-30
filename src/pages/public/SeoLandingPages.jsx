@@ -1,3 +1,4 @@
+import { BUSINESS_REQUEST_HREF, BUSINESS_REQUEST_LABEL, goToBusinessRequest } from "../../lib/business/businessOnProject.js";
 import React from "react";
 import PublicNavLink from "../../components/common/PublicNavLink.jsx";
 import { C, F } from "../../lib/constants.js";
@@ -88,6 +89,15 @@ function QuoteCta({ text, onNav }) {
         <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")}>Calcola il preventivo</Button>
         <Button as={PublicNavLink} href="/consulente" variant="secondary" onClick={() => onNav("consultant")}>Parla con noi</Button>
       </div>
+    </div>
+  );
+}
+
+/** Azione diretta sulle schede Business: il link "Scopri" resta per la pagina servizio. */
+export function BusinessRequestLink({ onNav }) {
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <Button as={PublicNavLink} href={BUSINESS_REQUEST_HREF} variant="ghost" onClick={() => goToBusinessRequest(onNav)} style={{ color: C.white, fontSize: 13, fontWeight: 800, padding: 0 }}>{BUSINESS_REQUEST_LABEL} →</Button>
     </div>
   );
 }
@@ -230,6 +240,7 @@ export function PricesPage({ onNav }) {
               <div key={s.pageKey} style={card}>
                 <h3 style={{ fontFamily: F.sans, fontSize: 15, color: C.white, margin: "0 0 6px" }}>{s.title}</h3>
                 <p style={{ ...pStyle, marginBottom: 6 }}>{s.price}</p>
+                {s.pageKey === "service-business" && <BusinessRequestLink onNav={onNav} />}
                 <Button as={PublicNavLink} href={s.href} variant="ghost" onClick={() => onNav(s.pageKey)} style={{ color: C.orange, fontSize: 13, padding: 0 }}>Scopri il servizio →</Button>
               </div>
             ))}
@@ -274,6 +285,7 @@ export function CityLandingPage({ pageKey, onNav }) {
               <div key={s.pageKey} style={card}>
                 <h3 style={{ fontFamily: F.sans, fontSize: 15, color: C.white, margin: "0 0 6px" }}>{s.label}</h3>
                 <p style={{ ...pStyle, marginBottom: 6 }}>{s.text}</p>
+                {s.pageKey === "service-business" && <BusinessRequestLink onNav={onNav} />}
                 <Button as={PublicNavLink} href={s.href} variant="ghost" onClick={() => onNav(s.pageKey)} style={{ color: C.orange, fontSize: 13, padding: 0 }}>Scopri il servizio →</Button>
               </div>
             ))}

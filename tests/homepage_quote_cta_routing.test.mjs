@@ -89,6 +89,6 @@ test("Preventivo Rapido pre-fills the comune from ?comune= through the shared se
 test("services cards and Business CTA are not rerouted", () => {
   const services = read("src/components/home/ServicesSection.jsx");
   assert.match(services, /cta: "Calcola Door to Door"/);
-  assert.match(services, /cta: "Richiedi progetto Business"/);
+  assert.match(services, /cta: BUSINESS_REQUEST_LABEL/);
   assert.doesNotMatch(services, /quoteComuneParam|buildQuoteSelectionHref/);
 });

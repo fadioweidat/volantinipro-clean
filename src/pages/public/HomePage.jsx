@@ -1,3 +1,4 @@
+import { goToBusinessRequest } from "../../lib/business/businessOnProject.js";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../lib/constants.js";
@@ -241,6 +242,7 @@ export function HomePage({
       onConfigure: () => n("preventivo")
     }), _jsx(ServicesSection, {
       onConfigure: () => n("preventivo"),
+      onBusiness: () => goToBusinessRequest(n),
       onServiceLink: (pageKey) => n(pageKey)
     }), _jsx(SmartPairingSection, {
       onConfigure: () => n("preventivo")

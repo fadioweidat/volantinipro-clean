@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { TERRITORY_TIERS, calculateDistributionZonePrice, classifyTerritory } from "../src/lib/pricing/distributionPricing.js";
 import { getStartingPricePerThousand } from "../src/lib/pricing/homepagePricing.js";
+import { BUSINESS_REQUEST_HREF, goToBusinessRequest } from "../src/lib/business/businessOnProject.js";
+import { businessContent } from "../src/lib/seo/servicePagesContent.js";
 import { CITY_PAGES, cityFacts, cityPriceQuantities, cityReachSentence } from "../src/lib/seo/cityPagesData.js";
 import { pricesPageContent } from "../src/lib/seo/pricesPageContent.js";
 import { SEO_ROUTES, getRouteMetadata } from "../src/lib/seo/routePolicy.js";
@@ -87,8 +89,20 @@ test("Business is described as on project on the Milano and service pages", () =
   assert.match(milano, /Per Door to Door e Hand to Hand: configura servizio/);
   assert.doesNotMatch(milano, /Hand to Hand e Business\. Tracking|obiettivi indicati/);
   const services = read("src/lib/seo/servicePagesContent.js");
-  assert.match(services, /Richiedi la tua proposta Business/);
+  assert.equal(businessContent.ctaLabel, "Richiedi la tua proposta Business →");
   assert.doesNotMatch(services, /preventivo Business|Il preventivo viene calcolato in base a zona\/e selezionate/);
+});
+
+test("every Business action opens the configurator with Business selected", () => {
+  assert.equal(BUSINESS_REQUEST_HREF, "/configuratore?service=b2b");
+  const seen = [];
+  goToBusinessRequest((...args) => seen.push(args));
+  assert.deepEqual(seen, [["step1", { service: "b2b" }]]);
+  assert.equal(businessContent.ctaHref, BUSINESS_REQUEST_HREF);
+  assert.match(read("src/pages/public/ServicePages.jsx"), /goToBusinessRequest\(onNav\)/);
+  assert.match(read("src/pages/public/HomePage.jsx"), /onBusiness: \(\) => goToBusinessRequest\(n\)/);
+  assert.match(read("src/pages/public/SeoLandingPages.jsx"), /s\.pageKey === "service-business" && <BusinessRequestLink/);
+  assert.match(read("src/pages/public/MilanoLandingPage.jsx"), /<BusinessRequestLink/);
 });
 
 test("city pages: unique text per city, real numbers, no invented claims", () => {

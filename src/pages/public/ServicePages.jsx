@@ -1,3 +1,4 @@
+import { goToBusinessRequest } from "../../lib/business/businessOnProject.js";
 import PublicNavLink from '../../components/common/PublicNavLink.jsx';
 import React from "react";
 import { C, F } from "../../lib/constants.js";
@@ -28,6 +29,7 @@ function goToHowItWorks(onNav) {
 }
 
 function ServicePageTemplate({ content, onNav }) {
+  const goToCta = () => (content.ctaHref ? goToBusinessRequest(onNav) : onNav("preventivo"));
   return (
     <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
@@ -42,7 +44,7 @@ function ServicePageTemplate({ content, onNav }) {
           {content.intro}
         </p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 40 }}>
-          <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
+          <Button as={PublicNavLink} href={content.ctaHref || "/preventivo"} variant="primary" onClick={goToCta}>{content.ctaLabel}</Button>
           <Button as={PublicNavLink} href="/consulente" variant="secondary" onClick={() => onNav("consultant")}>Parla con un consulente</Button>
         </div>
 
@@ -90,7 +92,7 @@ function ServicePageTemplate({ content, onNav }) {
           <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.75)", marginBottom: 14 }}>
             Configura la tua campagna {content.shortName} e ricevi un preventivo online.
           </p>
-          <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
+          <Button as={PublicNavLink} href={content.ctaHref || "/preventivo"} variant="primary" onClick={goToCta}>{content.ctaLabel}</Button>
         </div>
 
         {/* Internal linking */}

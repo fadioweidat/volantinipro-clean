@@ -1,3 +1,4 @@
+import { BUSINESS_REQUEST_LABEL } from "../../lib/business/businessOnProject.js";
 import PublicNavLink from '../common/PublicNavLink.jsx';
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
@@ -94,9 +95,9 @@ export const services = [
     title: "Business Distribution",
     subtitle: "Distribuzione B2B",
     priceNote: "Su progetto",
-    priceDetail: "Preventivo dedicato in base al target",
+    priceDetail: "Proposta dedicata in base al target",
     bullets: ["Uffici e negozi mirati", "Categorie merceologiche", "Competitor mappati"],
-    cta: "Richiedi progetto Business",
+    cta: BUSINESS_REQUEST_LABEL,
     icon: <BriefcaseIcon />,
     accent: C.success,
     pageKey: "service-business",
@@ -105,11 +106,12 @@ export const services = [
 
 const PRICE_FACTORS = ["Zona", "Quantità", "Servizio", "Urgenza", "Extra"];
 
-export default function ServicesSection({ onConfigure, onConsultant, onServiceLink }) {
+export default function ServicesSection({ onConfigure, onBusiness, onConsultant, onServiceLink }) {
   const reduceMotion = useReducedMotion();
 
   const handleCardClick = (service) => {
     if (service.key === "b2b") {
+      if (typeof onBusiness === "function") return onBusiness();
       if (typeof onConsultant === "function") return onConsultant();
       if (typeof onConfigure === "function") return onConfigure("b2b");
       if (typeof onServiceLink === "function") return onServiceLink(service.pageKey);

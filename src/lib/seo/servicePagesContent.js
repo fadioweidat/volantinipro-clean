@@ -1,4 +1,4 @@
-import { BUSINESS_RESPONSE_TIME } from "../business/businessOnProject.js";
+import { BUSINESS_REQUEST_HREF, BUSINESS_REQUEST_LABEL, BUSINESS_RESPONSE_TIME } from "../business/businessOnProject.js";
 // Contenuto reale delle 3 pagine SEO servizio (/servizi/door-to-door,
 // /servizi/hand-to-hand, /servizi/business), separato dal template di
 // rendering (src/pages/public/ServicePages.jsx) cosi' SeoMeta.jsx (importato
@@ -111,7 +111,8 @@ export const businessContent = {
   eyebrow: "Distribuzione B2B",
   h1: "Distribuzione Volantini per Aziende e Negozi",
   intro: "Distribuzione mirata ad attività commerciali, uffici e zone business, con possibilità di coordinamento su più sedi.",
-  ctaLabel: "Richiedi la tua proposta Business →",
+  ctaLabel: `${BUSINESS_REQUEST_LABEL} →`,
+  ctaHref: BUSINESS_REQUEST_HREF,
   sections: [
     {
       h2: "Cos'è la Business Distribution",
