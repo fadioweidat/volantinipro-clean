@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
 import { buildConfiguratorHref, buildQuickQuoteHref, readComuneParam, readServiceParam } from "../../lib/quote/quoteComuneParam.js";
+import { BUSINESS_RESPONSE_TIME } from "../../lib/business/businessOnProject.js";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C = {
@@ -434,7 +435,7 @@ function QuoteSelectionHeader({ onNav, comune, service }) {
               </div>
               <button
                 onClick={startGuided}
-                style={{ background: C.indigo, color: C.white, border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 14px ${C.indigo}40` }}
+                style={{ background: "#CE4B15", color: C.white, border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 14px #CE4B1540" }}
               >
                 Inizia il percorso
               </button>
@@ -524,7 +525,7 @@ function QuoteSelectionHeader({ onNav, comune, service }) {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
               <div>
                 <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 4 }}>TEMPO MEDIO</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>Risposta in 24h</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{BUSINESS_RESPONSE_TIME[0].toUpperCase() + BUSINESS_RESPONSE_TIME.slice(1)}</div>
               </div>
               <button
                 onClick={() => onNav("consultant")}

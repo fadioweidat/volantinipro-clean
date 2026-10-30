@@ -103,3 +103,12 @@ test("services cards and Business CTA are not rerouted", () => {
   assert.match(services, /cta: BUSINESS_REQUEST_LABEL/);
   assert.doesNotMatch(services, /quoteComuneParam|buildQuoteSelectionHref/);
 });
+
+test("/preventivo uses the single response time and the orange primary button", () => {
+  const sc = read("src/pages/public/ServiceCenter.jsx");
+  assert.ok(sc.includes("BUSINESS_RESPONSE_TIME[0].toUpperCase()"));
+  assert.ok(!sc.includes("Risposta in 24h"));
+  const start = sc.slice(sc.indexOf("onClick={startGuided}"), sc.indexOf("Inizia il percorso"));
+  assert.ok(start.includes('background: "#CE4B15"'));
+  assert.ok(!start.includes("C.indigo"));
+});
