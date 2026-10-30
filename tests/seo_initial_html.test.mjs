@@ -16,6 +16,22 @@ const expectedH1 = {
   'city-brescia': /Distribuzione volantini a Brescia/, 'city-como': /Distribuzione volantini a Como/,
   'city-varese': /Distribuzione volantini a Varese/, 'city-sesto-san-giovanni': /Distribuzione volantini a Sesto San Giovanni/,
   'city-cinisello-balsamo': /Distribuzione volantini a Cinisello Balsamo/,
+  'city-cologno-monzese': /Distribuzione volantini a Cologno Monzese/,
+  'city-paderno-dugnano': /Distribuzione volantini a Paderno Dugnano/,
+  'city-bresso': /Distribuzione volantini a Bresso/,
+  'city-cormano': /Distribuzione volantini a Cormano/,
+  'city-bollate': /Distribuzione volantini a Bollate/,
+  'city-segrate': /Distribuzione volantini a Segrate/,
+  'city-pioltello': /Distribuzione volantini a Pioltello/,
+  'city-cernusco-sul-naviglio': /Distribuzione volantini a Cernusco sul Naviglio/,
+  'city-san-donato-milanese': /Distribuzione volantini a San Donato Milanese/,
+  'city-san-giuliano-milanese': /Distribuzione volantini a San Giuliano Milanese/,
+  'city-rozzano': /Distribuzione volantini a Rozzano/,
+  'city-corsico': /Distribuzione volantini a Corsico/,
+  'city-assago': /Distribuzione volantini ad Assago/,
+  'city-rho': /Distribuzione volantini a Rho/,
+  'city-pero': /Distribuzione volantini a Pero/,
+  'city-settimo-milanese': /Distribuzione volantini a Settimo Milanese/,
 };
 const bodyText = html => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 for (const [route, page] of SEO_ROUTES) {

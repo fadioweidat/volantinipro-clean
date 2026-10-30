@@ -15,7 +15,7 @@ import {
 } from "../pricing/distributionPricing.js";
 import { getStartingPricePerThousand } from "../pricing/homepagePricing.js";
 import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING, calculateHandToHandPricing } from "../pricing/handToHandPricing.js";
-import { ALL_CITY_SLUGS, PUBLIC_TIER_LABELS, cityFacts, cityPageKey, cityPath, formatEuro, formatInt } from "./cityPagesData.js";
+import { PUBLIC_TIER_LABELS, cityFacts, cityPageKey, cityPath, formatEuro, formatInt } from "./cityPagesData.js";
 
 const TIERS = [
   TERRITORY_TIERS.MILANO_CORE,
@@ -63,7 +63,8 @@ export const pricesPageContent = {
     "In una campagna su più comuni il prezzo è la somma delle zone: ogni comune con la propria quantità e la propria fascia.",
   ],
 
-  cityExamples: ALL_CITY_SLUGS.map((slug) => {
+  // Solo le citta' principali, una per riga: i comuni dell'hinterland hanno la loro pagina.
+  cityExamples: ["milano", "monza", "bergamo", "brescia", "como", "varese", "sesto-san-giovanni", "cinisello-balsamo"].map((slug) => {
     const f = cityFacts(slug);
     return { slug, name: f.name, href: cityPath(slug), pageKey: cityPageKey(slug), tierLabel: f.tierLabel, price5000: formatEuro(f.price5000), price10000: formatEuro(f.price10000) };
   }),

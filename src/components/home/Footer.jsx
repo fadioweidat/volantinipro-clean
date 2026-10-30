@@ -6,7 +6,7 @@ const C_ORANGE = "#E8571A";
 const GRAD = "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)";
 
 import { Logo } from "../common/Logo.jsx";
-import { PRICES_PATH, SERVED_CITIES } from "../../lib/seo/seoLandingRoutes.js";
+import { PRICES_PATH, SERVED_CITIES, SERVED_ZONE_GROUPS } from "../../lib/seo/seoLandingRoutes.js";
 
 function SocialIcon({ type }) {
   const common = { stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
@@ -47,10 +47,6 @@ const columns = [
       ["Distribuzione volantini a Milano", "milano-landing"],
       ["Prezzi distribuzione volantini", "prices"],
     ],
-  },
-  {
-    title: "Zone servite",
-    links: SERVED_CITIES.map((c) => [c.name, c.pageKey]),
   },
   {
     title: "Azienda",
@@ -136,6 +132,24 @@ export default function Footer({ onNav, onHowItWorks }) {
           ))}
         </div>
 
+        <div className="footer-zones">
+          <div style={columnTitleStyle}>Zone servite</div>
+          <div className="footer-zones-grid">
+            {SERVED_ZONE_GROUPS.map((group) => (
+              <div key={group.title}>
+                <div style={zoneTitleStyle}>{group.title}</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {group.cities.map((city) => (
+                    <PublicNavLink key={city.slug} href={publicHrefs[city.pageKey] || "/#contatti"} onClick={() => go(city.pageKey)} style={{ ...footerLinkStyle, fontSize: 14 }}>
+                      {city.name}
+                    </PublicNavLink>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="footer-bottom">
           <span>© 2026 · VolantiniPro · P.IVA 04856200615 · Operiamo a Milano e in Lombardia</span>
           <span style={{ ...languageStyle, cursor: "default" }}>Lingua: IT</span>
@@ -165,6 +179,14 @@ const columnTitleStyle = {
   textTransform: "uppercase",
   color: "#94A3B8",
   marginBottom: 18,
+};
+
+const zoneTitleStyle = {
+  fontFamily: F.sans,
+  fontSize: 13,
+  fontWeight: 700,
+  color: "#F8FAFC",
+  marginBottom: 10,
 };
 
 const footerLinkStyle = {

@@ -94,6 +94,70 @@
       "destination": "/distribuzione-volantini-cinisello-balsamo/index.html"
     },
     {
+      "source": "/distribuzione-volantini-cologno-monzese",
+      "destination": "/distribuzione-volantini-cologno-monzese/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-paderno-dugnano",
+      "destination": "/distribuzione-volantini-paderno-dugnano/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-bresso",
+      "destination": "/distribuzione-volantini-bresso/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-cormano",
+      "destination": "/distribuzione-volantini-cormano/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-bollate",
+      "destination": "/distribuzione-volantini-bollate/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-segrate",
+      "destination": "/distribuzione-volantini-segrate/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-pioltello",
+      "destination": "/distribuzione-volantini-pioltello/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-cernusco-sul-naviglio",
+      "destination": "/distribuzione-volantini-cernusco-sul-naviglio/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-san-donato-milanese",
+      "destination": "/distribuzione-volantini-san-donato-milanese/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-san-giuliano-milanese",
+      "destination": "/distribuzione-volantini-san-giuliano-milanese/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-rozzano",
+      "destination": "/distribuzione-volantini-rozzano/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-corsico",
+      "destination": "/distribuzione-volantini-corsico/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-assago",
+      "destination": "/distribuzione-volantini-assago/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-rho",
+      "destination": "/distribuzione-volantini-rho/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-pero",
+      "destination": "/distribuzione-volantini-pero/index.html"
+    },
+    {
+      "source": "/distribuzione-volantini-settimo-milanese",
+      "destination": "/distribuzione-volantini-settimo-milanese/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/app-shell.html"
     }

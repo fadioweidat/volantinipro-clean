@@ -7,10 +7,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { TERRITORY_TIERS, calculateDistributionZonePrice, classifyTerritory } from "../src/lib/pricing/distributionPricing.js";
 import { getStartingPricePerThousand } from "../src/lib/pricing/homepagePricing.js";
-import { CITY_PAGES, cityFacts } from "../src/lib/seo/cityPagesData.js";
+import { CITY_PAGES, cityFacts, cityPriceQuantities, cityReachSentence } from "../src/lib/seo/cityPagesData.js";
 import { pricesPageContent } from "../src/lib/seo/pricesPageContent.js";
 import { SEO_ROUTES, getRouteMetadata } from "../src/lib/seo/routePolicy.js";
-import { CITY_SLUGS, cityPath, seoLandingPageForPath } from "../src/lib/seo/seoLandingRoutes.js";
+import { CITY_SLUGS, SERVED_ZONE_GROUPS, cityPath, seoLandingPageForPath } from "../src/lib/seo/seoLandingRoutes.js";
 import { resolveAppRoute } from "../src/app/routeResolution.js";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
@@ -35,11 +35,54 @@ test("city figures are the ISTAT ones and prices/tier come from the engine", () 
   assert.equal(cityFacts("varese").tier, TERRITORY_TIERS.COMO_LECCO);
 });
 
+test("2026-10-30: 16 hinterland pages, ISTAT figures, each zone group lists every city once", () => {
+  const data = {
+    "cologno-monzese": [21600, 46994],
+    "paderno-dugnano": [21245, 47594],
+    "bresso": [12413, 26513],
+    "cormano": [9297, 20744],
+    "bollate": [16498, 36365],
+    "segrate": [16921, 37078],
+    "pioltello": [15627, 37184],
+    "cernusco-sul-naviglio": [15216, 34786],
+    "san-donato-milanese": [14830, 32161],
+    "san-giuliano-milanese": [17303, 39910],
+    "rozzano": [18549, 41559],
+    "corsico": [16334, 34694],
+    "assago": [4047, 9323],
+    "rho": [23897, 50879],
+    "pero": [5581, 11816],
+    "settimo-milanese": [8847, 19922],
+  };
+  for (const [slug, [households, population]] of Object.entries(data)) {
+    const f = cityFacts(slug);
+    assert.equal(f.households, households, slug);
+    assert.equal(f.population, population, slug);
+    assert.ok(CITY_SLUGS.includes(slug), slug);
+    assert.ok(CITY_PAGES[`city-${slug}`].nearby.length >= 3, slug);
+    assert.doesNotMatch(JSON.stringify(CITY_PAGES[`city-${slug}`]), /undefined|NaN/, slug);
+  }
+  assert.equal(CITY_SLUGS.length, 23);
+  const grouped = SERVED_ZONE_GROUPS.flatMap((g) => g.cities.map((c) => c.slug));
+  assert.deepEqual([...grouped].sort(), ["milano", ...CITY_SLUGS].sort());
+  assert.deepEqual(SERVED_ZONE_GROUPS.map((g) => g.title), ["Milano", "Nord", "Est", "Sud", "Ovest"]);
+  assert.equal(CITY_PAGES["city-assago"].h1, "Distribuzione volantini ad Assago");
+  assert.equal(new Set(Object.values(CITY_PAGES).map((c) => c.faqs[2].q)).size, 23);
+});
+
+test("small towns: never more families or copies than the whole municipality", () => {
+  assert.equal(cityReachSentence(cityFacts("assago")), "Di solito si sceglie una zona: con 2.500 volantini raggiungi circa 2.273 famiglie.");
+  assert.equal(cityReachSentence(cityFacts("pero")), "Di solito si sceglie una zona: con 2.500 volantini raggiungi circa 2.273 famiglie, con 5.000 circa 4.545.");
+  assert.equal(cityReachSentence(cityFacts("monza")), "Di solito si sceglie una zona: con 5.000 volantini raggiungi circa 4.545 famiglie, con 10.000 circa 9.091.");
+  assert.deepEqual(cityPriceQuantities(cityFacts("assago")), { quantities: [2500], wholeCity: 4452 });
+  assert.deepEqual(cityPriceQuantities(cityFacts("monza")), { quantities: [2500, 5000, 10000, 20000], wholeCity: null });
+});
+
 test("city pages: unique text per city, real numbers, no invented claims", () => {
   const angles = new Set();
   for (const slug of CITY_SLUGS) {
     const c = CITY_PAGES[`city-${slug}`];
-    assert.equal(c.h1, `Distribuzione volantini a ${c.facts.name}`);
+    assert.equal(c.h1, `Distribuzione volantini ${c.facts.at}`);
     assert.ok(!angles.has(c.angle.h2), slug);
     angles.add(c.angle.h2);
     assert.equal(c.faqs.length, 3);
@@ -88,7 +131,7 @@ test("structured data: Service with areaServed and real minimum, no LocalBusines
   assert.match(seo, /offers: minimumOffer\(getDoorToDoorCampaignMinimum\(\)\)/);
   assert.doesNotMatch(seo, /"@type":\s*"LocalBusiness"/);
   const footer = read("src/components/home/Footer.jsx");
-  assert.match(footer, /title: "Zone servite",\n    links: SERVED_CITIES\.map\(\(c\) => \[c\.name, c\.pageKey\]\),/);
+  assert.match(footer, /SERVED_ZONE_GROUPS\.map\(\(group\)/);
   assert.match(footer, /\["Prezzi distribuzione volantini", "prices"\],/);
   const milano = read("src/pages/public/MilanoLandingPage.jsx");
   assert.match(milano, /<CityNumbersSection slug="milano" onNav=\{onNav\} showPrices=\{false\} \/>/);
@@ -103,7 +146,7 @@ test("2026-10-28: footer without placeholder links, sans titles, no isolated Hom
   assert.match(pages, /const h1Style = \{ fontFamily: F\.sans, fontWeight: 800,/);
 });
 
-test("footer grid has room for 4 link columns (Prodotto, Zone servite, Azienda, Legale) in both CSS sources", () => {
-  assert.match(read("src/layouts/public/Bootstrap.jsx"), /\.footer-grid\{display:grid;grid-template-columns:1\.35fr repeat\(4,1fr\);gap:40px\}/);
-  assert.match(read("src/styles/app.css"), /\.footer-grid \{\n  display: grid;\n  grid-template-columns: 1\.35fr repeat\(4, 1fr\);/);
+test("footer grid has room for 3 link columns (Prodotto, Azienda, Legale) in both CSS sources, zones in their own row", () => {
+  assert.match(read("src/layouts/public/Bootstrap.jsx"), /\.footer-grid\{display:grid;grid-template-columns:1\.35fr repeat\(3,1fr\);gap:40px\}/);
+  assert.match(read("src/styles/app.css"), /\.footer-grid \{\n  display: grid;\n  grid-template-columns: 1\.35fr repeat\(3, 1fr\);/);
 });

@@ -4,7 +4,7 @@ import { C, F } from "../../lib/constants.js";
 import Button from "../../components/ui/Button.jsx";
 import { pricesPageContent as prices } from "../../lib/seo/pricesPageContent.js";
 import { H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING } from "../../lib/pricing/handToHandPricing.js";
-import { CITY_PAGES, ISTAT_SOURCE, cityFacts, formatEuro, formatInt } from "../../lib/seo/cityPagesData.js";
+import { CITY_PAGES, ISTAT_SOURCE, cityFacts, formatEuro, formatInt, cityPriceQuantities, cityReachSentence } from "../../lib/seo/cityPagesData.js";
 
 // SEO — pagina prezzi e pagine citta' (2026-10-25). Stesso design system della
 // pagina Milano (MilanoLandingPage.jsx). Contenuti in src/lib/seo/
@@ -122,15 +122,15 @@ export function CityNumbersSection({ slug, onNav, showPrices = true }) {
         </div>
         <p style={smallNote}>Fonte: {ISTAT_SOURCE}</p>
       </Section>
-      <Section title={`Quanti volantini servono a ${f.name}`}>
+      <Section title={`Quanti volantini servono ${f.at}`}>
         <p style={pStyle}>
           Il configuratore consiglia una quantità pari alle famiglie della zona più un margine operativo del 10%. Per tutta {f.name} sono circa <strong style={{ color: C.white }}>{formatInt(f.wholeCityFlyers)} volantini</strong>.
         </p>
         <p style={pStyle}>
-          Di solito si sceglie una zona: con 5.000 volantini raggiungi circa {formatInt(5000 / 1.1)} famiglie, con 10.000 circa {formatInt(10000 / 1.1)}. Nel configuratore vedi le famiglie ISTAT esatte del raggio o del comune che scegli.
+          {cityReachSentence(f)} Nel configuratore vedi le famiglie ISTAT esatte del raggio o del comune che scegli.
         </p>
       </Section>
-      {showPrices && <Section title={`Quanto costa a ${f.name}`}>
+      {showPrices && <Section title={`Quanto costa ${f.at}`}>
         <CityPriceTable slug={slug} onNav={onNav} />
       </Section>}
     </>
@@ -141,12 +141,18 @@ export function CityNumbersSection({ slug, onNav, showPrices = true }) {
 export function CityPriceTable({ slug, onNav }) {
   const f = cityFacts(slug);
   if (!f) return null;
+  const { quantities, wholeCity } = cityPriceQuantities(f);
+  const priceRow = (qty, label) => [label, formatEuro(f.price(qty)), formatEuro(Math.round(f.price(qty) / qty * 1000))];
+  const priceRows = [
+    ...quantities.map((qty) => priceRow(qty, `${formatInt(qty)} volantini`)),
+    ...(wholeCity ? [priceRow(wholeCity, `Tutto il comune, circa ${formatInt(wholeCity)} volantini`)] : []),
+  ];
   return (
     <>
         <PriceTable
           caption={`Solo distribuzione Door to Door, IVA esclusa · fascia «${f.tierLabel}»`}
           head={["Quantità", "Prezzo", "Ogni 1.000"]}
-          rows={[2500, 5000, 10000, 20000].map((qty) => [`${formatInt(qty)} volantini`, formatEuro(f.price(qty)), formatEuro(Math.round(f.price(qty) / qty * 1000))])}
+          rows={priceRows}
         />
         <p style={smallNote}>
           Minimo a campagna {formatEuro(f.minimum)}. Stampa, urgenza ed extra si aggiungono nel preventivo, che si calcola sulla tua zona.
@@ -279,10 +285,10 @@ export function CityLandingPage({ pageKey, onNav }) {
         </Section>
 
         <Faqs faqs={content.faqs} />
-        <QuoteCta onNav={onNav} text={`Configura la tua campagna a ${content.facts.name} e ricevi il preventivo online.`} />
+        <QuoteCta onNav={onNav} text={`Configura la tua campagna ${content.facts.at} e ricevi il preventivo online.`} />
 
         <Section title="Altre città">
-          <LinkRow onNav={onNav} links={content.nearby.map((c) => ({ label: `Distribuzione volantini a ${c.name}`, href: c.href, pageKey: c.pageKey }))} />
+          <LinkRow onNav={onNav} links={content.nearby.map((c) => ({ label: `Distribuzione volantini ${c.at}`, href: c.href, pageKey: c.pageKey }))} />
         </Section>
         <LinkRow onNav={onNav} links={[PRICES_LINK, ...SERVICE_LINKS]} />
       </div>

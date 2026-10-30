@@ -5,7 +5,25 @@ export const PRICES_PATH = "/prezzi-distribuzione-volantini";
 export const PRICES_PAGE_KEY = "prices";
 
 // Milano ha gia' la sua pagina (milano-landing): qui solo le citta' nuove.
-export const CITY_SLUGS = ["monza", "bergamo", "brescia", "como", "varese", "sesto-san-giovanni", "cinisello-balsamo"];
+export const CITY_SLUGS = [
+  "monza", "bergamo", "brescia", "como", "varese", "sesto-san-giovanni", "cinisello-balsamo",
+  "cologno-monzese",
+  "paderno-dugnano",
+  "bresso",
+  "cormano",
+  "bollate",
+  "segrate",
+  "pioltello",
+  "cernusco-sul-naviglio",
+  "san-donato-milanese",
+  "san-giuliano-milanese",
+  "rozzano",
+  "corsico",
+  "assago",
+  "rho",
+  "pero",
+  "settimo-milanese",
+];
 export const CITY_NAMES = {
   milano: "Milano",
   monza: "Monza",
@@ -15,6 +33,22 @@ export const CITY_NAMES = {
   varese: "Varese",
   "sesto-san-giovanni": "Sesto San Giovanni",
   "cinisello-balsamo": "Cinisello Balsamo",
+  "cologno-monzese": "Cologno Monzese",
+  "paderno-dugnano": "Paderno Dugnano",
+  bresso: "Bresso",
+  cormano: "Cormano",
+  bollate: "Bollate",
+  segrate: "Segrate",
+  pioltello: "Pioltello",
+  "cernusco-sul-naviglio": "Cernusco sul Naviglio",
+  "san-donato-milanese": "San Donato Milanese",
+  "san-giuliano-milanese": "San Giuliano Milanese",
+  rozzano: "Rozzano",
+  corsico: "Corsico",
+  assago: "Assago",
+  rho: "Rho",
+  pero: "Pero",
+  "settimo-milanese": "Settimo Milanese",
 };
 export const ALL_CITY_SLUGS = ["milano", ...CITY_SLUGS];
 
@@ -37,3 +71,13 @@ export function seoLandingPathForPage(page) {
 }
 
 export const SERVED_CITIES = ALL_CITY_SLUGS.map((slug) => ({ slug, name: CITY_NAMES[slug], href: cityPath(slug), pageKey: cityPageKey(slug) }));
+
+// Footer "Zone servite": raggruppate per zona rispetto a Milano.
+const ZONE_GROUPS = [
+  ["Milano", ["milano"]],
+  ["Nord", ["sesto-san-giovanni", "cinisello-balsamo", "bresso", "cormano", "paderno-dugnano", "bollate", "monza", "como", "varese"]],
+  ["Est", ["cologno-monzese", "segrate", "pioltello", "cernusco-sul-naviglio", "bergamo", "brescia"]],
+  ["Sud", ["san-donato-milanese", "san-giuliano-milanese", "rozzano", "assago"]],
+  ["Ovest", ["corsico", "rho", "pero", "settimo-milanese"]],
+];
+export const SERVED_ZONE_GROUPS = ZONE_GROUPS.map(([title, slugs]) => ({ title, cities: slugs.map((slug) => SERVED_CITIES.find((city) => city.slug === slug)) }));

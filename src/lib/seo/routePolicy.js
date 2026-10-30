@@ -8,8 +8,8 @@ export const SITE_URL = 'https://www.volantinipro.it';
 const cityMeta = (slug) => {
   const f = cityFacts(slug);
   return [
-    `Distribuzione volantini a ${f.name} | VolantiniPro`,
-    `Volantinaggio a ${f.name}: ${formatInt(f.households)} famiglie ISTAT, quantità consigliata e prezzi reali (10.000 volantini ${formatEuro(f.price10000)}, IVA esclusa). GPS e foto di prova.`,
+    `Distribuzione volantini ${f.at} | VolantiniPro`,
+    `Volantinaggio ${f.at}: ${formatInt(f.households)} famiglie ISTAT, quantità consigliata e prezzi reali (10.000 volantini ${formatEuro(f.price10000)}, IVA esclusa). GPS e foto di prova.`,
   ];
 };
 export const metaByPage = {
