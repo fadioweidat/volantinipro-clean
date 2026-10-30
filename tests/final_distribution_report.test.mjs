@@ -111,7 +111,7 @@ test('PDF: sezione GPS separa esplicitamente copertura GPS/manuale/finale e non 
   assert.match(source, /TRACCIAMENTO GPS E COPERTURA/);
   assert.match(source, /Copertura GPS reale: 65%/);
   assert.match(source, /Integrazione manuale Admin: 35%/);
-  assert.match(source, /Copertura finale certificata: 100%/);
+  assert.match(source, /Copertura finale: 100%/);
   // Nessuno screenshot passato (zoneSnapshots: []): deve comparire il
   // placeholder onesto, mai un'immagine finta o rotta.
   assert.match(source, /Mappa non disponibile per questa zona\.|Nessun tracciamento GPS disponibile per questa zona\./);

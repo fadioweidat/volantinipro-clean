@@ -198,7 +198,7 @@ export default function EnterpriseSection() {
   const blocks = [
     { t: "Multi-città e multi-sede", d: "Un unico progetto per più comuni, province, regioni o punti vendita." },
     { t: "Coordinamento centralizzato", d: "Un referente unico per organizzazione, operatori e avanzamento lavori." },
-    { t: "Prove di distribuzione", d: "Tracking GPS, foto geolocalizzate, verifiche operative e report centralizzati." },
+    { t: "Prove di distribuzione", d: "Verifiche operative e report centralizzati; tracking GPS e foto geolocalizzate come servizi aggiuntivi." },
     { t: "Piano personalizzato", d: "Quantità, calendario, aree e modalità operative costruite sulle esigenze dell'azienda." },
   ];
 
@@ -217,7 +217,7 @@ export default function EnterpriseSection() {
             Distribuzione su larga scala, multi-città e multi-sede.
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.6)", lineHeight: 1.6, maxWidth: 680, margin: "0 auto" }}>
-            Gestisci campagne complesse senza coordinare decine di fornitori. VolantiniPro organizza distribuzione, operatori, aree, tracking GPS, foto geolocalizzate, verifiche e report da un unico punto di controllo.
+            Gestisci campagne complesse senza coordinare decine di fornitori. VolantiniPro organizza distribuzione, operatori, aree, verifiche e report da un unico punto di controllo; tracking GPS e foto geolocalizzate si aggiungono come servizi a pagamento.
           </p>
         </div>
 

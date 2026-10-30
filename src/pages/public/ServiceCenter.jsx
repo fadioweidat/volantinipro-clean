@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
 import { buildConfiguratorHref, buildQuickQuoteHref, readComuneParam, readServiceParam } from "../../lib/quote/quoteComuneParam.js";
 import { BUSINESS_RESPONSE_TIME } from "../../lib/business/businessOnProject.js";
+import { PHOTO_PROOF_PRICE, PHOTO_REPORT_PRICE, TRACKING_GPS_PRICE } from "../../lib/extraServicePrices.js";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C = {
@@ -12,119 +13,9 @@ const C = {
   teal: "#14B8A6", slate: "#94A3B8",
 };
 
-/* ─── MINI CHARTS ─── */
-function Donut({ size = 72, col = C.orange, pct = 67 }) {
-  const cx = size / 2, cy = size / 2, R = size * 0.42, r = size * 0.26;
-  const sweep = (pct / 100) * 2 * Math.PI;
-  const a0 = -Math.PI / 2, a1 = a0 + sweep;
-  const x1 = cx + R * Math.cos(a0), y1 = cy + R * Math.sin(a0);
-  const x2 = cx + R * Math.cos(a1), y2 = cy + R * Math.sin(a1);
-  const x3 = cx + r * Math.cos(a1), y3 = cy + r * Math.sin(a1);
-  const x4 = cx + r * Math.cos(a0), y4 = cy + r * Math.sin(a0);
-  const lg = pct > 50 ? 1 : 0;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <path d={`M${x4},${y4}A${r},${r},0,${lg},1,${x3},${y3}A${R},${R},0,${lg},0,${x1},${y1}Z`} fill={`${col}18`} />
-      <path d={`M${x1},${y1}A${R},${R},0,${lg},1,${x2},${y2}L${x3},${y3}A${r},${r},0,${lg},0,${x4},${y4}Z`} fill={col} opacity={0.9} />
-      <text x={cx} y={cy + 5} textAnchor="middle" fill={col} fontSize={size * 0.2} fontWeight="800" fontFamily="DM Sans,sans-serif">{pct}%</text>
-    </svg>
-  );
-}
-
-function Gauge({ size = 72, col = C.green, pct = 78 }) {
-  const cx = size / 2, cy = size * 0.7, R = size * 0.36;
-  const fa = Math.PI + (pct / 100) * Math.PI;
-  const x1 = cx - R, y1 = cy, x2 = cx + R * Math.cos(fa), y2 = cy + R * Math.sin(fa), x3 = cx + R, y3 = cy;
-  return (
-    <svg width={size} height={size * 0.68} viewBox={`0 0 ${size} ${size * 0.68}`}>
-      <path d={`M${x1},${y1}A${R},${R},0,0,1,${x3},${y3}`} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth={7} strokeLinecap="round" />
-      <path d={`M${x1},${y1}A${R},${R},0,${pct > 50 ? 1 : 0},1,${x2},${y2}`} fill="none" stroke={col} strokeWidth={7} strokeLinecap="round" />
-      <text x={cx} y={cy - 3} textAnchor="middle" fill={col} fontSize={size * 0.2} fontWeight="800" fontFamily="DM Sans,sans-serif">{pct}%</text>
-    </svg>
-  );
-}
-
-function Bars({ size = 72, col = C.blue, vals = [60, 85, 45, 90, 70] }) {
-  const mx = Math.max(...vals);
-  const bw = Math.floor((size - 12) / vals.length) - 3;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {vals.map((v, i) => {
-        const h = Math.max(4, (v / mx) * (size - 16));
-        return <rect key={i} x={6 + i * (bw + 3)} y={size - h - 6} width={bw} height={h} rx={3} fill={col} opacity={0.65 + i * 0.07} />;
-      })}
-    </svg>
-  );
-}
-
-function Radar({ size = 72, col = C.purple, vals = [0.9, 0.7, 0.85, 0.6, 0.8, 0.75] }) {
-  const cx = size / 2, cy = size / 2, R = size * 0.38;
-  const n = vals.length;
-  const angle = i => (i * 2 * Math.PI / n) - Math.PI / 2;
-  const pts = vals.map((v, i) => `${cx + R * v * Math.cos(angle(i))},${cy + R * v * Math.sin(angle(i))}`).join(" ");
-  const grid = [0.33, 0.66, 1].map(s =>
-    Array.from({ length: n }, (_, i) => `${cx + R * s * Math.cos(angle(i))},${cy + R * s * Math.sin(angle(i))}`).join(" ")
-  );
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {grid.map((g, i) => <polygon key={i} points={g} fill="none" stroke={`${col}18`} strokeWidth={1} />)}
-      {Array.from({ length: n }, (_, i) => <line key={i} x1={cx} y1={cy} x2={cx + R * Math.cos(angle(i))} y2={cy + R * Math.sin(angle(i))} stroke={`${col}14`} strokeWidth={1} />)}
-      <polygon points={pts} fill={`${col}28`} stroke={col} strokeWidth={1.5} />
-    </svg>
-  );
-}
-
-function Line({ size = 72, col = C.indigo, id = "l" }) {
-  const raw = [18, 32, 24, 48, 38, 60, 50, 68, 62, 76];
-  const mn = Math.min(...raw), mx = Math.max(...raw), rng = mx - mn || 1;
-  const pts = raw.map((v, i) => ({ x: 4 + (i / (raw.length - 1)) * (size - 8), y: (size - 6) - ((v - mn) / rng) * (size - 18) + 4 }));
-  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <defs><linearGradient id={`gl-${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={col} stopOpacity="0.22" /><stop offset="100%" stopColor={col} stopOpacity="0" /></linearGradient></defs>
-      <path d={`${d} L${pts[pts.length-1].x},${size} L${pts[0].x},${size}Z`} fill={`url(#gl-${id})`} />
-      <path d={d} fill="none" stroke={col} strokeWidth={2} strokeLinejoin="round" />
-      <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r={3.5} fill={col} />
-    </svg>
-  );
-}
-
-function Heat({ size = 72, col = C.orange }) {
-  const c = 5, cs = (size - 8) / c;
-  const v = [.2,.6,.9,.4,.7, .5,.8,.3,.9,.6, .7,.4,.8,.2,.9, .3,.7,.5,.8,.4, .6,.9,.2,.7,.5];
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {v.slice(0, c*c).map((val, i) => (
-        <rect key={i} x={4 + (i % c) * cs} y={4 + Math.floor(i / c) * cs} width={cs - 2} height={cs - 2} rx={2} fill={col} opacity={val * 0.88} />
-      ))}
-    </svg>
-  );
-}
-
-function Ring({ size = 72, col = C.teal, pct = 82 }) {
-  const cx = size / 2, cy = size / 2, R = size * 0.36, circ = 2 * Math.PI * R;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={cx} cy={cy} r={R} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth={7} />
-      <circle cx={cx} cy={cy} r={R} fill="none" stroke={col} strokeWidth={7} strokeLinecap="round"
-        strokeDasharray={`${(pct / 100) * circ} ${circ}`} transform={`rotate(-90 ${cx} ${cy})`} />
-      <text x={cx} y={cy + 5} textAnchor="middle" fill={col} fontSize={size * 0.2} fontWeight="800" fontFamily="DM Sans,sans-serif">{pct}%</text>
-    </svg>
-  );
-}
-
-function MiniChart({ type, col, id }) {
-  if (type === "donut")  return <Donut  size={72} col={col} pct={67} />;
-  if (type === "gauge")  return <Gauge  size={72} col={col} pct={78} />;
-  if (type === "bars")   return <Bars   size={72} col={col} />;
-  if (type === "radar")  return <Radar  size={72} col={col} />;
-  if (type === "line")   return <Line   size={72} col={col} id={id} />;
-  if (type === "heat")   return <Heat   size={72} col={col} />;
-  if (type === "ring")   return <Ring   size={72} col={col} pct={82} />;
-  return <Gauge size={72} col={col} pct={75} />;
-}
-
 /* ─── SERVICE OUTPUT DATA ─── */
+const GPS_EXTRA = `Servizio aggiuntivo · +€${TRACKING_GPS_PRICE}`;
+const PHOTO_EXTRA = `Servizio aggiuntivo · Foto Proof +€${PHOTO_PROOF_PRICE} o Report fotografico +€${PHOTO_REPORT_PRICE}`;
 const SERVICES = [
   {
     id: "d2d",
@@ -136,57 +27,51 @@ const SERVICES = [
       {
         icon: "book",
         name: "Report PDF",
-        desc: "Documento completo della campagna: zona distribuita, quantità, percorso operatori e riepilogo dati.",
-        chart: "line", col: C.indigo,
+        desc: "Documento completo della campagna: zona distribuita, quantità e riepilogo dati.",
         benefit: "Hai la prova documentale completa da conservare o condividere con il tuo team.",
       },
       {
         icon: "pin",
         name: "Tracking GPS percorso",
-        desc: "Mappa interattiva con il percorso reale degli operatori, waypoint certificati e orari di passaggio.",
-        chart: "heat", col: C.green,
-        benefit: "Vedi esattamente dove e quando è avvenuta ogni consegna, senza possibilità di errore.",
+        extra: GPS_EXTRA,
+        desc: "Mappa interattiva con il percorso degli operatori, punti registrati e orari di passaggio.",
+        benefit: "Vedi dove e quando è avvenuta la distribuzione.",
       },
       {
         icon: "family",
         name: "Famiglie raggiungibili",
-        desc: "Stima certificata del numero di nuclei familiari presenti nell'area selezionata, elaborata su dati ufficiali.",
-        chart: "donut", col: C.orange,
-        benefit: "Sai quante famiglie riceveranno il tuo volantino prima ancora di iniziare la campagna.",
+        desc: "Stima delle famiglie presenti nell'area selezionata, su dati ISTAT.",
+        benefit: "Conosci la stima delle famiglie della zona prima di iniziare la campagna.",
       },
       {
         icon: "map",
         name: "Mappa di distribuzione",
         desc: "Visualizzazione geografica della zona coperta: comuni, quartieri e aree incluse nella campagna.",
-        chart: "heat", col: C.blue,
         benefit: "Vedi la tua campagna disegnata sulla mappa, zona per zona.",
       },
       {
         icon: "chart",
         name: "Copertura dell'area",
         desc: "Percentuale dell'area selezionata effettivamente raggiunta rispetto al totale delle abitazioni presenti.",
-        chart: "gauge", col: C.orange,
         benefit: "Conosci in numeri chiari quanta parte del territorio hai realmente coperto.",
       },
       {
         icon: "building",
         name: "Comuni coinvolti",
         desc: "Elenco dettagliato di tutti i comuni inclusi nella distribuzione, con dati per singolo territorio.",
-        chart: "bars", col: C.blue,
         benefit: "Pianifichi campagne successive sapendo già dove hai distribuito e con quali risultati.",
       },
       {
         icon: "camera",
         name: "Foto geolocalizzate",
-        desc: "30 o più fotografie scattate durante la distribuzione, ciascuna con coordinate GPS e timestamp certificato.",
-        chart: "ring", col: C.blue,
-        benefit: "Hai la prova visiva del lavoro svolto: ogni foto è georeferenziata e non modificabile.",
+        extra: PHOTO_EXTRA,
+        desc: "Fotografie scattate durante la distribuzione, ciascuna con coordinate GPS, data e ora di scatto.",
+        benefit: "Hai la prova visiva del lavoro svolto: ogni foto ha data, ora e posizione impresse sull'immagine.",
       },
       {
         icon: "link",
         name: "Smart Pairing",
-        desc: "Risparmio automatico quando la tua area coincide con un'altra campagna già programmata nella stessa data.",
-        chart: "gauge", col: C.green,
+        desc: "Risparmio possibile quando la tua area coincide con un'altra campagna già programmata nella stessa data.",
         benefit: "Riduci il costo della distribuzione fino al 40% senza rinunciare a nulla.",
       },
     ],
@@ -201,57 +86,52 @@ const SERVICES = [
       {
         icon: "book",
         name: "Report PDF",
-        desc: "Documento completo con punti di distribuzione, orari, contatti stimati e riepilogo operativo.",
-        chart: "line", col: C.indigo,
+        desc: "Documento completo con punti di distribuzione, orari e riepilogo operativo.",
         benefit: "Hai un documento professionale da condividere con clienti o stakeholder.",
       },
       {
         icon: "pin",
         name: "Tracking GPS percorso",
-        desc: "Mappa del percorso degli operatori con i punti di sosta, i tempi di distribuzione e i movimenti certificati.",
-        chart: "heat", col: C.green,
+        extra: GPS_EXTRA,
+        desc: "Mappa del percorso degli operatori con i punti di sosta, i tempi di distribuzione e i movimenti registrati.",
         benefit: "Verifica dove si sono fermati gli operatori e quanto tempo hanno dedicato a ogni punto.",
       },
       {
         icon: "user",
-        name: "Contatti stimati",
-        desc: "Stima del numero di persone fisicamente raggiunte dagli operatori in base ai flussi pedonali dell'area.",
-        chart: "gauge", col: C.blue,
-        benefit: "Conosci il pubblico effettivamente contattato, non solo la zona coperta.",
+        name: "Punti scelti",
+        desc: "Elenco dei punti scelti per la distribuzione: piazze, ingressi, fermate.",
+        benefit: "Sai in quali punti vengono distribuiti i tuoi volantini.",
       },
       {
         icon: "pin",
-        name: "Mappa hotspot",
-        desc: "Visualizzazione dei punti ad alto passaggio pedonale selezionati per la distribuzione: piazze, ingressi, fermate.",
-        chart: "heat", col: C.blue,
-        benefit: "Vedi esattamente i luoghi dove il tuo volantino è stato distribuito con maggiore intensità.",
+        name: "Mappa dei punti",
+        desc: "Visualizzazione sulla mappa dei punti scelti per la distribuzione.",
+        benefit: "Vedi sulla mappa i luoghi scelti per il tuo volantino.",
       },
       {
         icon: "clock",
-        name: "Fasce orarie distribuzione",
-        desc: "Dettaglio delle ore in cui è avvenuta la distribuzione, con indicazione del traffico pedonale per fascia.",
-        chart: "bars", col: C.orange,
-        benefit: "Distribuisci quando il tuo pubblico è presente: massimizzi ogni volantino consegnato.",
+        name: "Orari di distribuzione",
+        desc: "Dettaglio delle ore in cui è avvenuta la distribuzione.",
+        benefit: "Sai in quali orari gli operatori erano sul posto.",
       },
       {
         icon: "camera",
         name: "Foto geolocalizzate",
-        desc: "Fotografie scattate in ogni punto di distribuzione, con GPS e timestamp certificato per ogni immagine.",
-        chart: "ring", col: C.blue,
-        benefit: "Documenti il lavoro con prove visive che non possono essere contestate.",
+        extra: PHOTO_EXTRA,
+        desc: "Fotografie scattate nei punti di distribuzione, con posizione GPS, data e ora di scatto.",
+        benefit: "Documenti il lavoro con prove fotografiche con data, ora e posizione.",
       },
       {
         icon: "target",
-        name: "Heatmap pedonale",
-        desc: "Mappa a colori che mostra la densità di passaggio nelle aree selezionate nelle ore di distribuzione.",
-        chart: "heat", col: C.orange,
-        benefit: "Visualizzi in un colpo d'occhio dove la tua campagna ha avuto più impatto.",
+        name: "Percorso GPS",
+        extra: GPS_EXTRA,
+        desc: "Il tracciato GPS degli operatori nelle ore di distribuzione.",
+        benefit: "Vedi in un colpo d'occhio le aree percorse dagli operatori.",
       },
       {
         icon: "chart",
         name: "Report operativo finale",
-        desc: "Riepilogo completo dell'intera operazione: ore, punti, operatori, contatti, anomalie e note.",
-        chart: "bars", col: C.indigo,
+        desc: "Riepilogo dell'intera operazione: ore, punti, operatori, anomalie e note.",
         benefit: "Un documento completo che puoi usare per confrontare le campagne e ottimizzare le future.",
       },
     ],
@@ -267,57 +147,51 @@ const SERVICES = [
         icon: "book",
         name: "Report PDF",
         desc: "Documento professionale con attività visitate, categorie, zone coperte e dati aggregati per comune.",
-        chart: "line", col: C.indigo,
         benefit: "Hai una reportistica strutturata da consegnare a chi ha commissionato la campagna.",
       },
       {
         icon: "pin",
         name: "Tracking GPS percorso",
-        desc: "Mappa del percorso con le attività commerciali visitate, gli indirizzi e gli orari di passaggio certificati.",
-        chart: "heat", col: C.green,
+        extra: GPS_EXTRA,
+        desc: "Mappa del percorso con le attività commerciali visitate, gli indirizzi e gli orari di passaggio registrati.",
         benefit: "Verifica la copertura reale delle attività commerciali visitate dagli operatori.",
       },
       {
         icon: "shop",
         name: "Aziende raggiungibili",
         desc: "Elenco e conta delle attività commerciali, uffici e imprese presenti nella zona selezionata.",
-        chart: "bars", col: C.purple,
         benefit: "Sai quante e quali aziende puoi contattare ancora prima di avviare la campagna.",
       },
       {
         icon: "bag",
         name: "Categorie commerciali",
         desc: "Segmentazione delle attività per settore: ristorazione, retail, servizi, artigianato, uffici, ecc.",
-        chart: "radar", col: C.purple,
         benefit: "Selezioni solo le categorie rilevanti per il tuo prodotto, eliminando gli sprechi.",
       },
       {
         icon: "map",
         name: "Mappa zone business",
         desc: "Visualizzazione geografica delle aree commerciali con concentrazione di attività per quartiere o comune.",
-        chart: "heat", col: C.purple,
         benefit: "Vedi dove si concentra il tessuto commerciale prima di scegliere dove distribuire.",
       },
       {
         icon: "star",
         name: "Business score",
         desc: "Punteggio di priorità per ogni area o categoria di attività, basato su densità e potenziale commerciale.",
-        chart: "gauge", col: C.purple,
         benefit: "Sai quali zone e quali tipologie di attività vale più la pena raggiungere per prime.",
       },
       {
         icon: "search",
         name: "Competitor mappati",
         desc: "Mappa delle attività dello stesso settore nella zona, utile per capire la saturazione del mercato locale.",
-        chart: "radar", col: C.orange,
         benefit: "Conosci la concorrenza sul territorio prima ancora di distribuire il tuo volantino.",
       },
       {
         icon: "camera",
         name: "Foto geolocalizzate",
-        desc: "Fotografie di ogni consegna con GPS e timestamp: prova documentale per ogni attività visitata.",
-        chart: "ring", col: C.purple,
-        benefit: "Documenti ogni visita con prove fotografiche verificabili e archiviate per 90 giorni.",
+        extra: PHOTO_EXTRA,
+        desc: "Fotografie delle consegne con posizione GPS, data e ora di scatto.",
+        benefit: "Documenti le visite con prove fotografiche con data, ora e posizione.",
       },
     ],
   },
@@ -345,17 +219,15 @@ function OutputCard({ out, svcCol, index }) {
         <span style={{ flexShrink: 0, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Step1Icon name={out.icon} size={24} color={svcCol} />
         </span>
-        <div style={{ fontFamily: F.serif, fontSize: 17, color: C.white, letterSpacing: "-.2px", lineHeight: 1.2 }}>{out.name}</div>
+        <div>
+          <div style={{ fontFamily: F.serif, fontSize: 17, color: C.white, letterSpacing: "-.2px", lineHeight: 1.2 }}>{out.name}</div>
+          {out.extra ? <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, opacity: .78, lineHeight: 1.4, marginTop: 6 }}>{out.extra}</div> : null}
+        </div>
       </div>
 
       {/* Description */}
       <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", lineHeight: 1.65 }}>
         {out.desc}
-      </div>
-
-      {/* Chart */}
-      <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
-        <MiniChart type={out.chart} col={svcCol} id={`${out.name}-${index}`} />
       </div>
 
       {/* Benefit */}
@@ -568,7 +440,7 @@ export default function ServiceCenter({ onNav }) {
             Cosa ricevi con ogni servizio
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.5)", lineHeight: 1.65, maxWidth: 580, margin: 0 }}>
-            Seleziona un servizio per vedere tutti gli output reali che produce: report, mappe, GPS, foto, heatmap e tutto ciò che trovi nel tuo portale cliente.
+            Seleziona un servizio per vedere cosa trovi nel tuo portale cliente. Le schede con il prezzo sono servizi aggiuntivi a pagamento.
           </p>
         </div>
       </div>
@@ -651,7 +523,7 @@ export default function ServiceCenter({ onNav }) {
             Pronto a ricevere questi output?
           </div>
           <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.48)", maxWidth: 480, lineHeight: 1.65 }}>
-            Configura la tua campagna {svc.name}: scegli la zona, calcola quante famiglie raggiungi e ricevi tutti gli output sopra nel tuo portale.
+            Configura la tua campagna {svc.name}: scegli la zona, calcola quante famiglie raggiungi e aggiungi i servizi che ti servono.
           </div>
           <button
             onClick={() => onNav("step1", { service: svc.id === "biz" ? "b2b" : svc.id }, { newCampaign: true, protectDraft: true })}

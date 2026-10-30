@@ -45,7 +45,7 @@ function HeroIcon({type}) {
     {type==='families'?<><circle cx="14" cy="7" r="4"/><path d="M6 24v-5a8 8 0 0 1 16 0v5ZM4 6a3 3 0 0 0 0 6m20-6a3 3 0 0 1 0 6M2 23v-5q0-4 4-4m20 9v-5q0-4-4-4"/></>:type==='radius'?<><circle cx="14" cy="14" r="10"/><circle cx="14" cy="14" r="4"/><path d="M14 1v6m0 14v6M1 14h6m14 0h6"/></>:type==='municipalities'?<><path d="M3 25V3h12v22m0-15h10v15M7 7h1m3 0h1m-5 5h1m3 0h1m-5 5h1m3 0h1m8-2h2m-2 5h2M7 25v-4h4v4"/></>:type==='coverage'?<><path d="M3 26h23M6 21v-7h3v7Zm7 0V8h3v13Zm7 0V2h3v19Z"/></>:type==='check'?<><circle cx="14" cy="14" r="11"/><path d="m8 14 4 4 8-10"/></>:<><path d="M5 2h11l7 7v17H5Zm11 0v8h7M9 15h10m-10 5h10"/></>}
   </svg>;
 }
-const benefits=[['radius','Servizi di distribuzione per ogni tipo di campagna'],['coverage','Mappa operativa con zona, raggio e comuni coinvolti'],['report','GPS, prove fotografiche e report finale verificabile']];
+const benefits=[['radius','Servizi di distribuzione per ogni tipo di campagna'],['coverage','Mappa operativa con zona, raggio e comuni coinvolti'],['report','Report finale, con tracking GPS e report fotografico come servizi aggiuntivi']];
 // Same three services as the pricing cards, each to its own service page.
 const SERVICE_CHIPS=[['Door to Door','/servizi/door-to-door'],['Hand to Hand','/servizi/hand-to-hand'],['Business','/servizi/business']];
 

@@ -112,7 +112,7 @@ function buildPages(report, images, mapImageIndexByZone) {
   text(`Periodo di lavoro: ${dateOnly(report.periodStart)} - ${dateOnly(report.periodEnd)}`, { color: '0.36 0.40 0.49' });
   text(`Stato: ${report.status}${report.provisional ? ' - REPORT PROVVISORIO' : ''}`, { bold: true, color: report.provisional ? '0.72 0.35 0.05' : '0.05 0.50 0.32' });
   rule();
-  heading('Riepilogo verificabile');
+  heading('Riepilogo');
   text(`Quantita assegnata: ${number(report.totals.quantityAssigned)} volantini`);
   text(`Zone completate: ${report.totals.zonesCompleted} su ${report.totals.zonesTotal}`);
   text(`Sessioni operative: ${report.totals.sessionCount}`);
@@ -181,7 +181,7 @@ function buildPages(report, images, mapImageIndexByZone) {
       }
       text(`Copertura GPS reale: ${zone.gpsCoveragePercent != null ? zone.gpsCoveragePercent + '%' : 'Non disponibile'}`, { indent: 8 });
       text(`Integrazione manuale Admin: ${zone.manualCoveragePercent != null ? zone.manualCoveragePercent + '%' : 'Non disponibile'}`, { indent: 8 });
-      text(`Copertura finale certificata: ${zone.finalCoveragePercent != null ? zone.finalCoveragePercent + '%' : 'Non disponibile'}`, { indent: 8, bold: true });
+      text(`Copertura finale: ${zone.finalCoveragePercent != null ? zone.finalCoveragePercent + '%' : 'Non disponibile'}`, { indent: 8, bold: true });
       text(`Km GPS totali: ${zone.gpsDistanceKm != null ? zone.gpsDistanceKm + ' km' : 'Non disponibile'} | Punti GPS validi: ${zone.validGpsPoints != null ? number(zone.validGpsPoints) : 'Non disponibile'} | Durata sessioni: ${duration(zone.durationMs)}`, { indent: 8, size: 9, color: '0.30 0.34 0.41', max: 92 });
       text(`Stato finale: ${zone.finalStatus}`, { indent: 8, size: 9, color: '0.30 0.34 0.41' });
       y -= 6;

@@ -8,8 +8,8 @@ const C_ORANGE = "#E8571A";
 const features = [
   { label: "Risparmio fino al 40% sulla distribuzione", desc: "L'AI raggruppa campagne compatibili nella stessa zona per ottimizzare i costi di uscita." },
   { label: "Abbinamento intelligente AI", desc: "Confronta automaticamente zona, periodo, quantità e disponibilità delle squadre operative." },
-  { label: "Opportunità garantita o avviso", desc: "Se gli slot sono disponibili prenoti subito con sconto, altrimenti attivi la notifica prioritaria." },
-  { label: "Stesso report certificato", desc: "La qualità della distribuzione rimane identica, con tracking GPS completo e report dedicato." },
+  { label: "Opportunità o avviso", desc: "Se gli slot sono disponibili prenoti subito con sconto, altrimenti attivi la notifica prioritaria." },
+  { label: "Stesso report finale", desc: "La qualità della distribuzione rimane identica. Il tracking GPS resta un servizio aggiuntivo." },
 ];
 
 const statuses = [

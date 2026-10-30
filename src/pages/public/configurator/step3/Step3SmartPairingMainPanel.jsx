@@ -641,7 +641,7 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                   gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
                   gap: 12
                 }}>
-                    {["Risparmio economico fino al 40%", "Minore impatto ambientale", "Maggiore efficienza logistica", "Distribuzione ottimizzata in zona", "Stesso report finale certificato GPS"].map((adv, idx) => <div key={idx} style={{
+                    {["Risparmio economico fino al 40%", "Minore impatto ambientale", "Maggiore efficienza logistica", "Distribuzione ottimizzata in zona", "Stesso report finale"].map((adv, idx) => <div key={idx} style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 10,

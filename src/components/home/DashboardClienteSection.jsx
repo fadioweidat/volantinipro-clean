@@ -6,8 +6,8 @@ const C_ORANGE = "#E8571A";
 
 const CARDS = [
   { tag: "01", title: "Stato campagna", desc: "In preparazione, in distribuzione o conclusa." },
-  { tag: "02", title: "Tracking GPS", desc: "Percorso registrato e avanzamento zona per zona." },
-  { tag: "03", title: "Foto e prove", desc: "Fotografie geolocalizzate raccolte sul campo." },
+  { tag: "02", title: "Tracking GPS", desc: "Servizio aggiuntivo: percorso registrato e avanzamento zona per zona." },
+  { tag: "03", title: "Foto e prove", desc: "Servizio aggiuntivo: fotografie geolocalizzate raccolte sul campo." },
   { tag: "04", title: "Report finale", desc: "Mappa di copertura, zone servite e dati completi." },
 ];
 

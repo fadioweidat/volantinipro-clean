@@ -71,7 +71,7 @@ export const services = [
     subtitle: "Distribuzione residenziale",
     priceNote: startingPriceNote("d2d"),
     priceDetail: D2D_MINIMUM === null ? "IVA esclusa" : `Minimo campagna da ${formatQuoteCurrency(D2D_MINIMUM, 0)} · IVA esclusa`,
-    bullets: ["Cassette, condomini, ville", "GPS punto-per-punto", "Report foto e mappe"],
+    bullets: ["Cassette, condomini, ville", "Tracking GPS aggiuntivo", "Report fotografico aggiuntivo"],
     cta: "Calcola Door to Door",
     icon: <MailboxIcon />,
     accent: C.primary,

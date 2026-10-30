@@ -12,10 +12,10 @@ const read = (p) => fs.readFileSync(path.join(root, p), "utf8");
 test("A & B: TrustBar contains 'Analisi convenienza e ROI' and all 5 previous trust items", () => {
   const src = read("src/components/home/TrustBar.jsx");
   assert.match(src, /"Analisi convenienza e ROI"/);
-  assert.match(src, /"Report GPS verificabili"/);
+  assert.match(src, /"Tracking GPS come servizio aggiuntivo"/);
   assert.match(src, /"Analisi ISTAT demografica"/);
   assert.match(src, /"Cartografia GIS professionale"/);
-  assert.match(src, /"Preventivi e PDF certificati"/);
+  assert.match(src, /"Preventivi e PDF scaricabili"/);
   assert.match(src, /"Monitoraggio operativo sul campo"/);
 });
 

@@ -79,10 +79,10 @@ export function HomePage({
     }, {
       value: "Report",
       l: "Documento finale",
-      src: "Output verificabile",
+      src: "Riepilogo campagna",
       term: "Report PDF"
     }],
-    w = ["Dati ISTAT ufficiali", "GPS certificato", "No vincoli mensili"],
+    w = ["Dati ISTAT ufficiali", "Tracking GPS aggiuntivo", "No vincoli mensili"],
     j = ["Retail locale", "Food locale", "Casa e servizi", "Fitness locale", "Attività locale"],
     T = [{
       n: "01",
@@ -132,7 +132,7 @@ export function HomePage({
       n: "01",
       t: "Preventivo Guidato",
       d: "Analisi completa e configurazione step-by-step.",
-      benefits: ["Analisi ISTAT zona", "Mappa e copertura", "GPS e report verificabili", "Smart Pairing opzionale"],
+      benefits: ["Analisi ISTAT zona", "Mappa e copertura", "Tracking GPS e report fotografico aggiuntivi", "Smart Pairing opzionale"],
       cta: "Preventivo Guidato",
       c: C.orange,
       fn: () => n("step1")

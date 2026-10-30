@@ -3,8 +3,8 @@ import { motion, useReducedMotion } from 'framer-motion';
 
 const OPERATOR_IMAGE = '/images/home/distribution-operator-illustration.png';
 const FEATURES = [
-  { id: 'photo', title: 'Foto geolocalizzate', text: 'La prova fotografica della distribuzione, collegata al luogo.' },
-  { id: 'route', title: 'Percorso GPS', text: 'Il tragitto degli operatori, visibile sulla mappa.' },
+  { id: 'photo', title: 'Foto geolocalizzate', text: 'Servizio aggiuntivo: la prova fotografica della distribuzione, collegata al luogo.' },
+  { id: 'route', title: 'Percorso GPS', text: 'Servizio aggiuntivo: il tragitto degli operatori, visibile sulla mappa.' },
   { id: 'report', title: 'Report per Comune', text: 'Zone, percorso e prove raccolte in un unico report.' },
 ];
 

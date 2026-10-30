@@ -1,3 +1,4 @@
+import { PHOTO_REPORT_EXTRA, TRACKING_GPS_EXTRA } from "../../lib/extraServicePrices.js";
 import { BUSINESS_REQUEST_HREF, BUSINESS_REQUEST_LABEL, goToBusinessRequest } from "../../lib/business/businessOnProject.js";
 import React from "react";
 import PublicNavLink from "../../components/common/PublicNavLink.jsx";
@@ -293,7 +294,7 @@ export function CityLandingPage({ pageKey, onNav }) {
         </Section>
 
         <Section title="Come verifichi la distribuzione">
-          <p style={pStyle}>Quando previsto dal servizio scelto, gli operatori sono tracciati via GPS durante la distribuzione e puoi seguire l'avanzamento della campagna. Al termine ricevi foto come prova di consegna e un report finale.</p>
+          <p style={pStyle}>Al termine ricevi un report finale. Con i servizi aggiuntivi {TRACKING_GPS_EXTRA} e {PHOTO_REPORT_EXTRA} puoi seguire l'avanzamento degli operatori via GPS e ricevere foto come prova di consegna.</p>
         </Section>
 
         <Faqs faqs={content.faqs} />

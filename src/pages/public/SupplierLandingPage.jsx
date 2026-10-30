@@ -529,7 +529,7 @@ export function SupplierLandingPage({ onNav }) {
               <div style={{ fontSize: 28, marginBottom: 8 }}>💶</div>
               <h3 style={advTitleStyle}>Pagamenti e compensi certi</h3>
               <p style={advDescStyle}>
-                Accordi trasparenti, nessuna trattenuta nascosta e liquidazione puntuale al termine di ogni campagna certificata.
+                Accordi trasparenti, nessuna trattenuta nascosta e liquidazione puntuale al termine di ogni campagna completata.
               </p>
             </div>
             <div style={advantageCardStyle}>

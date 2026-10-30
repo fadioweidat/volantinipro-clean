@@ -7,10 +7,10 @@ const F = {
 };
 
 const trustItems = [
-  "Report GPS verificabili",
+  "Tracking GPS come servizio aggiuntivo",
   "Analisi ISTAT demografica",
   "Cartografia GIS professionale",
-  "Preventivi e PDF certificati",
+  "Preventivi e PDF scaricabili",
   "Monitoraggio operativo sul campo",
   "Analisi convenienza e ROI"
 ];

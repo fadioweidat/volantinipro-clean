@@ -9,7 +9,7 @@ const cityMeta = (slug) => {
   const f = cityFacts(slug);
   return [
     `Distribuzione volantini ${f.at} | VolantiniPro`,
-    `Volantinaggio ${f.at}: ${formatInt(f.households)} famiglie ISTAT, quantità consigliata e prezzi reali (10.000 volantini ${formatEuro(f.price10000)}, IVA esclusa). GPS e foto di prova.`,
+    `Volantinaggio ${f.at}: ${formatInt(f.households)} famiglie ISTAT, quantità consigliata e prezzi reali (10.000 volantini ${formatEuro(f.price10000)}, IVA esclusa). GPS e foto extra.`,
   ];
 };
 export const metaByPage = {
@@ -37,15 +37,15 @@ export const metaByPage = {
   cookie: ["Cookie Policy | VolantiniPro", "Informazioni sui cookie tecnici, analytics e preferenze del sito VolantiniPro."],
   "service-door-to-door": [
     "Distribuzione Volantini Door to Door | VolantiniPro",
-    "Distribuzione volantini nelle cassette postali di condomini e zone residenziali, con analisi territoriale, tracking GPS e report finale.",
+    "Distribuzione volantini nelle cassette postali di condomini e zone residenziali, con analisi territoriale e report finale. Tracking GPS come servizio aggiuntivo.",
   ],
   "service-hand-to-hand": [
     "Distribuzione Volantini Hand to Hand | VolantiniPro",
-    "Distribuzione volantini a mano in punti ad alto passaggio pedonale, con POI strategici, tracking GPS e report finale.",
+    "Distribuzione volantini a mano in punti ad alto passaggio pedonale, con POI strategici e report finale. Tracking GPS come servizio aggiuntivo.",
   ],
   "service-business": [
     "Distribuzione Volantini Business | VolantiniPro",
-    "Distribuzione volantini mirata ad aziende, negozi e uffici, con coordinamento multi-sede, tracking GPS e report finale.",
+    "Distribuzione volantini mirata ad aziende, negozi e uffici, con coordinamento multi-sede e report finale. Tracking GPS come opzione aggiuntiva.",
   ],
   [PRICES_PAGE_KEY]: [
     "Prezzi distribuzione volantini: tabella per zona | VolantiniPro",
@@ -54,7 +54,7 @@ export const metaByPage = {
   ...Object.fromEntries(CITY_SLUGS.map((slug) => [cityPageKey(slug), cityMeta(slug)])),
   "milano-landing": [
     "Volantinaggio Milano e distribuzione volantini | VolantiniPro",
-    "Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online.",
+    "Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business. Analisi territoriale e preventivo online; tracking GPS e prove fotografiche come servizi aggiuntivi.",
   ],
 };
 export const SEO_ROUTES = [

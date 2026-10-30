@@ -39,7 +39,7 @@ export function ClientCampaignReport({ campaignId }) {
             <span style={{ color: '#94a3b8' }}>›</span>
             <a href={campaignHref} style={breadcrumbLinkStyle}>Campagna {campaignTitle}</a>
             <span style={{ color: '#94a3b8' }}>›</span>
-            <span style={{ color: '#0f172a', fontWeight: 700 }}>Report Certificato</span>
+            <span style={{ color: '#0f172a', fontWeight: 700 }}>Report finale</span>
           </nav>
           <a href="/dashboard" style={brandStyle}>VolantiniPro</a>
           <p style={subtitleStyle}>Report cliente finale basato sui dati operativi registrati.</p>

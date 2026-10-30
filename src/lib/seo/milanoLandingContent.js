@@ -20,7 +20,7 @@ export const milanoLandingContent = {
   pageKey: "milano-landing",
   h1: "Distribuzione volantini a Milano",
   intro:
-    "Vuoi distribuire volantini a Milano? VolantiniPro organizza campagne di volantinaggio a Milano con scelta delle zone, quantità e preventivo online per Door to Door e Hand to Hand; per il Business una proposta su progetto. Tracking GPS e report sono disponibili secondo il servizio scelto.",
+    "Vuoi distribuire volantini a Milano? VolantiniPro organizza campagne di volantinaggio a Milano con scelta delle zone, quantità e preventivo online per Door to Door e Hand to Hand; per il Business una proposta su progetto. Tracking GPS e report fotografico sono servizi aggiuntivi.",
   ctaLabel: "Calcola il preventivo",
 
   sections: [
@@ -58,8 +58,8 @@ export const milanoLandingContent = {
     {
       h2: "GPS e prove",
       paragraphs: [
-        "Quando previsto dal servizio scelto, gli operatori sono tracciati via GPS durante la distribuzione e puoi seguire l'avanzamento della campagna.",
-        "Al termine ricevi foto come prova di consegna e un report finale della campagna, con le stesse modalità descritte nelle pagine dei singoli servizi.",
+        "Con il servizio aggiuntivo a pagamento Tracking GPS gli operatori sono tracciati via GPS durante la distribuzione e puoi seguire l'avanzamento della campagna.",
+        "Al termine ricevi un report finale della campagna; le foto come prova di consegna sono nel servizio aggiuntivo a pagamento Report fotografico.",
       ],
     },
     {
@@ -126,11 +126,11 @@ export const milanoLandingContent = {
     },
     {
       q: "Posso controllare la distribuzione con GPS?",
-      a: "Sì, quando previsto dal servizio scelto gli operatori sono tracciati via GPS e puoi seguire l'avanzamento della campagna.",
+      a: "Sì, con il servizio aggiuntivo a pagamento Tracking GPS gli operatori sono tracciati via GPS e puoi seguire l'avanzamento della campagna.",
     },
     {
       q: "Ricevo prove fotografiche?",
-      a: "Sì, ricevi foto come prova di consegna insieme a un report finale della campagna.",
+      a: "Sì, con il servizio aggiuntivo a pagamento Report fotografico ricevi foto come prova di consegna insieme al report finale della campagna.",
     },
     {
       q: "Posso richiedere una campagna per più zone?",

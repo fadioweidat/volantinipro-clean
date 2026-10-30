@@ -38,6 +38,7 @@ export const EXTRA_CATEGORIES = {
 export const CONTROL_PRO_INCLUDED_IDS = ["tracking_gps", "photo_proof", "photo_report_advanced"];
 
 import { computePrintEstimate } from "./pricing/printPricing.js";
+import { PHOTO_PROOF_PRICE, PHOTO_REPORT_PRICE, TRACKING_GPS_PRICE } from "./extraServicePrices.js";
 
 export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDurationKnown, printConfig }) {
   return [
@@ -47,7 +48,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Segui in tempo reale gli operatori sulla mappa", "Storico percorso al termine della distribuzione", "Link di condivisione per il tuo team"],
       mappingLabel: "Tracking GPS", mappingDescription: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", mappingIcon: "",
       optionalDescription: "Tracciamento operativo e timeline distributori.", optionalMicro: "Mostra avanzamento e operatori sulla mappa.", optionalIcon: "GPS",
-      price: 60, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
+      price: TRACKING_GPS_PRICE, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
       id: "photo_proof", legacyIds: ["foto", "photo_proof", "foto_localizzate"], addId: "photo_proof",
@@ -55,15 +56,15 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Foto geolocalizzate con data e orario", "Conferma visiva zona per zona", "Archivio scaricabile dal portale cliente"],
       mappingLabel: "Foto Proof Base", mappingDescription: "Prove fotografiche di base con data e zona.", mappingIcon: "",
       optionalDescription: "Proof fotografici con data e zona.", optionalMicro: "Foto geolocalizzate con data e ora.", optionalIcon: "PHOTO",
-      price: 30, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
+      price: PHOTO_PROOF_PRICE, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
       id: "photo_report_advanced", legacyIds: ["photo_report_advanced"], addId: "photo_report_advanced",
-      commercialIcon: "camera", head: "Report Fotografico Completo", col: "#3B82F6", badge: "Massima sicurezza",
+      commercialIcon: "camera", head: "Report Fotografico Completo", col: "#3B82F6", badge: "Report completo",
       bullets: ["Report fotografico dettagliato", "Archivio scaricabile esteso", "Mappatura fotografica avanzata"],
       mappingLabel: "Report Fotografico Completo", mappingDescription: "Prove fotografiche dettagliate con data, zona e riferimento operativo completo.", mappingIcon: "",
       optionalDescription: "Report fotografico dettagliato.", optionalMicro: "Mappatura visiva completa.", optionalIcon: "PHOTO",
-      price: 50, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
+      price: PHOTO_REPORT_PRICE, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
       id: "gps_plus_report", legacyIds: ["gps_plus_report"], addId: "gps_plus_report",
@@ -77,7 +78,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       id: "video_proof", legacyIds: ["video_proof"], addId: "video_proof",
       commercialIcon: "video", head: "Video Proof", col: "#F59E0B", badge: "Premium",
       bullets: ["Clip video delle consegne", "Conferma visiva premium", "File scaricabili"],
-      mappingLabel: "Video Proof", mappingDescription: "Registrazioni video localizzate per prova inconfutabile.", mappingIcon: "",
+      mappingLabel: "Video Proof", mappingDescription: "Registrazioni video localizzate della distribuzione.", mappingIcon: "",
       optionalDescription: "Video delle operazioni in campo.", optionalMicro: "Clip scaricabili con conferma geolocalizzata.", optionalIcon: "VIDEO",
       price: 60, optional: true, category: EXTRA_CATEGORIES.MARKETING,
     },
@@ -143,7 +144,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
     {
       id: "printing", legacyIds: ["stampa", "printing"],
       commercialIcon: "printer", head: "Stampa Materiale", col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo",
-      bullets: ["Produzione professionale del materiale", "Qualità certificata per distribuzione", "Consegna prima della campagna"],
+      bullets: ["Produzione professionale del materiale", "Materiale pronto per la distribuzione", "Consegna prima della campagna"],
       mappingLabel: "Stampa materiale", mappingDescription: "Produzione del materiale prima della distribuzione.", mappingIcon: "",
       price: computePrintEstimate({
         quantity: flyerQty || 10000,

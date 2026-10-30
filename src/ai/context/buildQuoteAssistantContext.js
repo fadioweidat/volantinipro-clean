@@ -401,7 +401,7 @@ export function generateClientStep2Answer(question, context = {}, options = {}) 
     if (isUnavailable || formattedRecommended == null) {
       return "La quantità consigliata non è attualmente disponibile nei dati correnti dello Step 2.";
     }
-    return `La quantità consigliata per ${areaLabel} è di ${formattedRecommended} volantini, calcolata per garantire una copertura del 100% delle famiglie/cassette postali.`;
+    return `La quantità consigliata per ${areaLabel} è di ${formattedRecommended} volantini, calcolata per coprire le famiglie/cassette postali stimate.`;
   }
 
   // 11. Cosa cambia tra Comune / Raggio / NIL

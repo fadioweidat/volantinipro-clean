@@ -1,3 +1,4 @@
+import { PHOTO_REPORT_EXTRA, TRACKING_GPS_EXTRA } from "../../lib/extraServicePrices.js";
 import { BUSINESS_RESPONSE_TIME } from "../../lib/business/businessOnProject.js";
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,15 +22,15 @@ export const faqs = [
   },
   {
     q: "Come controllo la distribuzione?",
-    a: "Dopo la conferma segui la campagna dalla Dashboard Cliente: stato di avanzamento, percorso GPS degli operatori, zone servite e prove fotografiche raccolte sul campo.",
+    a: `Dopo la conferma segui la campagna dalla Dashboard Cliente: stato di avanzamento e zone servite. Con i servizi aggiuntivi ${TRACKING_GPS_EXTRA} e ${PHOTO_REPORT_EXTRA} aggiungi percorso degli operatori e prove fotografiche.`,
   },
   {
     q: "Come funziona il Tracking GPS?",
-    a: "Gli operatori ricevono il programma sul telefono, avviano la consegna e il percorso viene registrato via GPS. Nella dashboard vedi avanzamento, zone coperte e storico della distribuzione.",
+    a: `È un servizio aggiuntivo: ${TRACKING_GPS_EXTRA}. Gli operatori ricevono il programma sul telefono, avviano la consegna e il percorso viene registrato via GPS. Nella dashboard vedi avanzamento, zone coperte e storico della distribuzione.`,
   },
   {
     q: "Quali prove ricevo?",
-    a: "Report fotografico con foto geolocalizzate, mappa delle zone effettivamente servite, percorso GPS e storico della distribuzione, raccolti in un unico report finale.",
+    a: `Un report finale con le zone servite e lo storico della distribuzione. Foto geolocalizzate e percorso GPS si aggiungono con ${PHOTO_REPORT_EXTRA} e ${TRACKING_GPS_EXTRA}.`,
   },
   {
     q: "Il preventivo è vincolante?",

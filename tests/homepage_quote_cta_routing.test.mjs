@@ -112,3 +112,22 @@ test("/preventivo uses the single response time and the orange primary button", 
   assert.ok(start.includes('background: "#CE4B15"'));
   assert.ok(!start.includes("C.indigo"));
 });
+
+test("/preventivo has no decorative charts, GPS and photos are shown as paid extras", () => {
+  const sc = read("src/pages/public/ServiceCenter.jsx");
+  for (const gone of ["MiniChart", "chart:", "ontatti stimati", "Heatmap pedonale", "pedonal", "certificat", "non modificabile", "30 o più"]) assert.ok(!sc.includes(gone), gone);
+  assert.equal((sc.match(/extra: GPS_EXTRA,/g) || []).length, 4);
+  assert.equal((sc.match(/extra: PHOTO_EXTRA,/g) || []).length, 3);
+});
+
+test("the site never claims a certification and copy prices match the extras registry", async () => {
+  const { buildExtraServicesRegistry } = await import("../src/lib/extraServicesRegistry.js");
+  const { PHOTO_PROOF_PRICE, PHOTO_REPORT_PRICE, TRACKING_GPS_PRICE } = await import("../src/lib/extraServicePrices.js");
+  const price = (id) => buildExtraServicesRegistry({}).find((extra) => extra.id === id).price;
+  assert.equal(price("tracking_gps"), TRACKING_GPS_PRICE);
+  assert.equal(price("photo_proof"), PHOTO_PROOF_PRICE);
+  assert.equal(price("photo_report_advanced"), PHOTO_REPORT_PRICE);
+  for (const file of ["src/components/home/TrustBar.jsx", "src/components/home/FeatureSmartPairing.jsx", "src/pages/public/HomePage.jsx", "src/lib/constants.js", "src/lib/extraServicesRegistry.js"]) {
+    assert.ok(!/certificat|inconfutabil/i.test(read(file)), file);
+  }
+});

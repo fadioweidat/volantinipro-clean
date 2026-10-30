@@ -1,3 +1,4 @@
+import { PAID_PROOFS_NOTE } from "../../lib/extraServicePrices.js";
 import React from "react";
 import { motion } from "framer-motion";
 
@@ -13,12 +14,12 @@ const items = [
   {
     initials: "02",
     title: "Percorso GPS",
-    desc: "Il tracciato registrato dagli operatori durante la distribuzione, zona per zona.",
+    desc: "Servizio aggiuntivo: il tracciato registrato dagli operatori durante la distribuzione, zona per zona.",
   },
   {
     initials: "03",
     title: "Fotografie e report",
-    desc: "Le prove fotografiche raccolte sul campo e il report finale con i dati della campagna.",
+    desc: "Il report finale con i dati della campagna; le prove fotografiche sono un servizio aggiuntivo.",
   },
 ];
 
@@ -28,13 +29,13 @@ export default function RisultatiSection() {
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 50 }}>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: C_ORANGE, marginBottom: 14 }}>
-            DATI VERIFICABILI
+            DATI DELLA CAMPAGNA
           </div>
           <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 46, lineHeight: 1.1, color: "#F8FAFC", letterSpacing: "-.03em", margin: 0 }}>
-            Ogni campagna produce dati verificabili.
+            I dati per valutare la tua campagna.
           </h2>
           <p style={{ margin: "16px auto 0", maxWidth: 600, fontFamily: F.sans, fontSize: 16, lineHeight: 1.65, color: "#AEB9C9" }}>
-            Copertura territoriale, percorso GPS, fotografie e report permettono di valutare il lavoro eseguito.
+            Copertura territoriale e report finale permettono di valutare il lavoro eseguito. {PAID_PROOFS_NOTE}
           </p>
         </div>
 

@@ -77,7 +77,7 @@ export function AdvancedCoverageReport({ campaignId, onNav }) {
               ← Torna alla Dashboard
             </button>
           </div>
-          <span style={eyebrowStyle}>Report Esecutivo Certificato · PostGIS & GPS</span>
+          <span style={eyebrowStyle}>Report Esecutivo · PostGIS & GPS</span>
           <h1 style={titleStyle}>Report Avanzato Copertura</h1>
           <p style={subtitleStyle}>
             {campagna?.titolo || campagna?.zona || `Campagna ${campaignId}`} · {plannedFlyers.toLocaleString('it-IT')} volantini

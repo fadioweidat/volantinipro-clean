@@ -1,3 +1,4 @@
+import { PHOTO_REPORT_EXTRA, TRACKING_GPS_EXTRA } from "../extraServicePrices.js";
 import { BUSINESS_REQUEST_HREF, BUSINESS_REQUEST_LABEL, BUSINESS_RESPONSE_TIME } from "../business/businessOnProject.js";
 // Contenuto reale delle 3 pagine SEO servizio (/servizi/door-to-door,
 // /servizi/hand-to-hand, /servizi/business), separato dal template di
@@ -17,7 +18,7 @@ export const doorToDoorContent = {
   shortName: "Door to Door",
   eyebrow: "Distribuzione residenziale",
   h1: "Distribuzione Volantini Door to Door",
-  intro: "Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali, con analisi territoriale, tracking GPS e report finale.",
+  intro: "Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali, con analisi territoriale e report finale. Tracking GPS e report fotografico sono servizi aggiuntivi.",
   ctaLabel: "Calcola il tuo preventivo Door to Door →",
   ctaHref: "/preventivo?service=d2d",
   sections: [
@@ -30,7 +31,7 @@ export const doorToDoorContent = {
     {
       h2: "Come funziona",
       paragraphs: [
-        "La campagna parte da un'analisi del territorio (dati ISTAT su famiglie e densità abitativa), prosegue con la definizione delle zone da coprire e si conclude con la distribuzione tracciata via GPS e un report finale con foto come prova di consegna.",
+        "La campagna parte da un'analisi del territorio (dati ISTAT su famiglie e densità abitativa), prosegue con la definizione delle zone da coprire e si conclude con la distribuzione e un report finale. Percorso GPS e foto come prova di consegna sono servizi aggiuntivi.",
       ],
     },
     {
@@ -41,7 +42,7 @@ export const doorToDoorContent = {
     {
       h2: "Cosa ricevi",
       paragraphs: [
-        "Al termine della campagna ricevi lo stato di avanzamento, il percorso GPS degli operatori, le foto geolocalizzate come prova di consegna e un report finale con mappa delle zone servite.",
+        `Al termine della campagna ricevi lo stato di avanzamento e un report finale con mappa delle zone servite. Percorso GPS degli operatori e foto geolocalizzate si aggiungono con ${TRACKING_GPS_EXTRA} e ${PHOTO_REPORT_EXTRA}.`,
       ],
     },
     {
@@ -53,7 +54,7 @@ export const doorToDoorContent = {
   ],
   faqs: [
     { q: "Cos'è la distribuzione Door to Door?", a: "È la distribuzione di volantini nelle cassette postali di condomini, palazzi e abitazioni di una zona selezionata." },
-    { q: "Come viene verificata la distribuzione?", a: "Ogni operatore è tracciato via GPS durante il giro e il cliente riceve un report con percorso, zone coperte e foto come prova di consegna." },
+    { q: "Come viene verificata la distribuzione?", a: `Il cliente riceve un report finale con le zone coperte. Con ${TRACKING_GPS_EXTRA} e ${PHOTO_REPORT_EXTRA} aggiunge percorso degli operatori e foto come prova di consegna.` },
     { q: "Qual è la differenza tra Door to Door e Hand to Hand?", a: "Il Door to Door distribuisce nelle cassette postali di zone residenziali, mentre l'Hand to Hand consegna a mano in punti ad alto passaggio pedonale." },
   ],
 };
@@ -89,7 +90,7 @@ export const handToHandContent = {
     {
       h2: "Prove operative",
       paragraphs: [
-        "Anche per l'Hand to Hand ricevi tracking GPS degli operatori, foto come prova di consegna e un report finale al termine della campagna.",
+        `Anche per l'Hand to Hand ricevi un report finale al termine della campagna. Tracking GPS degli operatori e foto come prova di consegna si aggiungono con ${TRACKING_GPS_EXTRA} e ${PHOTO_REPORT_EXTRA}.`,
       ],
     },
     {
@@ -102,7 +103,7 @@ export const handToHandContent = {
   ],
   faqs: [
     { q: "Cos'è la distribuzione Hand to Hand?", a: "È la distribuzione di volantini a mano, consegnati direttamente alle persone in punti ad alto passaggio pedonale come fermate, zone commerciali o eventi." },
-    { q: "Come viene verificata la distribuzione?", a: "Gli operatori sono tracciati via GPS e il cliente riceve un report con percorso e foto come prova di consegna, come per tutti i servizi VolantiniPro." },
+    { q: "Come viene verificata la distribuzione?", a: `Il cliente riceve un report finale. Con ${TRACKING_GPS_EXTRA} e ${PHOTO_REPORT_EXTRA} aggiunge percorso degli operatori e foto come prova di consegna, come per tutti i servizi VolantiniPro.` },
     { q: "Qual è la differenza tra Hand to Hand e Door to Door?", a: "L'Hand to Hand consegna a mano in punti ad alto passaggio pedonale, mentre il Door to Door distribuisce nelle cassette postali di zone residenziali." },
   ],
 };
@@ -138,7 +139,7 @@ export const businessContent = {
     {
       h2: "Report e progetto personalizzato",
       paragraphs: [
-        "Ogni campagna Business include tracking GPS, foto come prova di consegna e un report finale. Per esigenze specifiche (multi-sede, categorie merceologiche particolari) il team VolantiniPro costruisce un progetto su misura.",
+        "Ogni campagna Business si chiude con un report finale. Tracking GPS e foto come prova di consegna sono opzioni aggiuntive da richiedere nel progetto. Per esigenze specifiche (multi-sede, categorie merceologiche particolari) il team VolantiniPro costruisce un progetto su misura.",
       ],
     },
     {
@@ -150,7 +151,7 @@ export const businessContent = {
   ],
   faqs: [
     { q: "Cos'è la distribuzione Business?", a: "È la distribuzione di volantini mirata ad attività commerciali, uffici e zone business, con targeting B2B su categorie merceologiche specifiche." },
-    { q: "Come viene verificata la distribuzione?", a: "Come per gli altri servizi, gli operatori sono tracciati via GPS e il cliente riceve un report con percorso e foto come prova di consegna." },
+    { q: "Come viene verificata la distribuzione?", a: "Il cliente riceve un report finale. Tracking GPS e foto come prova di consegna sono opzioni aggiuntive da richiedere nel progetto." },
     { q: "È adatta ad aziende con più sedi?", a: "Sì: per campagne su più città VolantiniPro coordina la distribuzione centralmente e fornisce report unificati per l'intero progetto." },
   ],
 };

@@ -79,7 +79,7 @@ function GpsCoverageSection({ zones }) {
           <div style={gpsKpiGridStyle}>
             <Kpi label="Copertura GPS reale" value={formatPercent(zone.gpsCoveragePercent)} />
             <Kpi label="Integrazione manuale Admin" value={formatPercent(zone.manualCoveragePercent)} />
-            <Kpi label="Copertura finale certificata" value={formatPercent(zone.finalCoveragePercent)} />
+            <Kpi label="Copertura finale" value={formatPercent(zone.finalCoveragePercent)} />
             <Kpi label="Km GPS totali" value={formatKm(zone.gpsDistanceKm)} />
             <Kpi label="Punti GPS validi" value={formatCount(zone.validGpsPoints)} />
             <Kpi label="Durata sessioni" value={formatDuration(zone.durationMs)} />

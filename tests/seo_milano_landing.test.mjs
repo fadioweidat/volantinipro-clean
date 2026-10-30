@@ -59,7 +59,7 @@ test("SeoMeta.jsx: title/description esatti dal ticket per 'milano-landing'", ()
   const src = read("src/lib/seo/routePolicy.js");
   assert.match(src, /"milano-landing":\s*\[/);
   assert.match(src, /Volantinaggio Milano e distribuzione volantini \| VolantiniPro/);
-  assert.match(src, /Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business\. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online\./);
+  assert.match(src, /Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business\. Analisi territoriale e preventivo online; tracking GPS e prove fotografiche come servizi aggiuntivi\./);
 });
 
 test("SeoMeta.jsx: 'milano-landing' è in BREADCRUMB_PAGES e riceve FAQPage/Service da CONTENT_PAGES (nessun LocalBusiness)", () => {

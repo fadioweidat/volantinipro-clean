@@ -1,3 +1,4 @@
+import { PAID_PROOFS_NOTE } from "../extraServicePrices.js";
 // SEO — pagine città (approvate 2026-10-25). Numeri ISTAT reali e prezzi dal
 // motore reale, mai scritti a mano:
 // - famiglie e popolazione: ISTAT, "Bilancio demografico e popolazione
@@ -366,7 +367,7 @@ export function cityPageContent(slug) {
     slug,
     facts: f,
     h1: `Distribuzione volantini ${f.at}`,
-    intro: `Volantinaggio e distribuzione volantini ${f.at} con i numeri ISTAT del comune, il prezzo calcolato dal motore del configuratore, tracking GPS e foto di prova.`,
+    intro: `Volantinaggio e distribuzione volantini ${f.at} con i numeri ISTAT del comune, il prezzo calcolato dal motore del configuratore. ${PAID_PROOFS_NOTE}`,
     angle: cityAngle(f),
     faqs: cityFaqs(f),
     nearby: NEARBY[slug].map((s) => ({ slug: s, name: CITY_ISTAT[s].name, at: cityFacts(s).at, href: cityPath(s), pageKey: cityPageKey(s) })),
