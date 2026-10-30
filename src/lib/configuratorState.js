@@ -40,6 +40,30 @@ export function clearConfiguratorDraft(storage) {
   }
 }
 
+export const SERVICE_DRAFT_LABELS = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business" };
+
+// Una bozza conta solo se contiene scelte del cliente: i valori iniziali no,
+// e nemmeno un preventivo gia' inviato.
+function hasCustomerChoices(draft) {
+  if (!isRecord(draft) || draft.quoteSubmitted) return false;
+  const filled = (value) => (Array.isArray(value) ? value.length > 0 : Boolean(value));
+  const fields = ["cityName", "searchedLocation", "selectedComuni", "selectedCaps", "zones", "selectedZones", "selectedOperationalPois", "businessZone", "businessMaterialQuantity", "businessTargetCount", "startDate"];
+  if (fields.some((field) => filled(draft[field]))) return true;
+  if (draft.quantitySource === "customer") return true;
+  if (draft.distributionTargetsExplicit && filled(draft.distributionTargets)) return true;
+  return Array.isArray(draft.promoterAssignments) && draft.promoterAssignments.some((item) => filled(item?.location));
+}
+
+const serviceKey = (value) => (value === "business-distribution" ? "b2b" : value);
+
+/** {from, to} se la bozza e' di un altro servizio e contiene scelte del cliente, altrimenti null. */
+export function serviceDraftConflict(draft, targetService) {
+  const from = serviceKey(draft?.type);
+  const to = serviceKey(targetService);
+  if (!SERVICE_DRAFT_LABELS[from] || !SERVICE_DRAFT_LABELS[to] || from === to) return null;
+  return hasCustomerChoices(draft) ? { from, to } : null;
+}
+
 export function configuratorHistoryState(data) {
   return isRecord(data) ? { [CONFIGURATOR_HISTORY_KEY]: data } : null;
 }

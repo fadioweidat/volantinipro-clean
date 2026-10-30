@@ -1534,6 +1534,7 @@ export function Step4({
       const id = savedRow?.id;
       setSavedCampaign(savedRow);
       setSent(true);
+      setData?.((prev) => ({ ...prev, quoteSubmitted: true }));
       try { window.sessionStorage.setItem("vp_quote_completed", "1"); } catch {}
       trackQuoteCompleted({
         campaignId: id || null,

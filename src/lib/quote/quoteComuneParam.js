@@ -24,20 +24,34 @@ export function readComuneParam(search) {
   }
 }
 
-/** "Richiedi un Preventivo" page, with the comune when there is one. */
-export function buildQuoteSelectionHref(comuneName) {
+/** Reads ?service= from a location.search string: only real services. */
+export function readServiceParam(search) {
+  try {
+    const service = new URLSearchParams(search || '').get('service');
+    return ['d2d', 'h2h', 'b2b'].includes(service) ? service : null;
+  } catch {
+    return null;
+  }
+}
+
+const withParams = (path, comuneName, service) => {
   const comune = sanitizeComuneParam(comuneName);
-  return comune ? `/preventivo?${new URLSearchParams({ comune }).toString()}` : '/preventivo';
+  const params = new URLSearchParams({ ...(service ? { service } : {}), ...(comune ? { comune } : {}) }).toString();
+  return params ? `${path}?${params}` : path;
+};
+
+/** "Richiedi un Preventivo" page, with the comune and the service when there are. */
+export function buildQuoteSelectionHref(comuneName, service = null) {
+  return withParams('/preventivo', comuneName, service);
 }
 
 /** Preventivo Guidato: same configurator prefill the homepage calculator used before. */
-export function buildConfiguratorHref(comuneName) {
-  const params = new URLSearchParams({ service: 'd2d', comune: comuneName, source: 'homepage_calculator' });
+export function buildConfiguratorHref(comuneName, service = 'd2d') {
+  const params = new URLSearchParams({ service, ...(comuneName ? { comune: comuneName, source: 'homepage_calculator' } : {}) });
   return `/configuratore?${params.toString()}`;
 }
 
 /** Preventivo Rapido with the comune to pre-fill. */
-export function buildQuickQuoteHref(comuneName) {
-  const comune = sanitizeComuneParam(comuneName);
-  return comune ? `/preventivo-rapido?${new URLSearchParams({ comune }).toString()}` : '/preventivo-rapido';
+export function buildQuickQuoteHref(comuneName, service = null) {
+  return withParams('/preventivo-rapido', comuneName, service);
 }

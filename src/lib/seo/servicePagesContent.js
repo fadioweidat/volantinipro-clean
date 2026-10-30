@@ -19,6 +19,7 @@ export const doorToDoorContent = {
   h1: "Distribuzione Volantini Door to Door",
   intro: "Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali, con analisi territoriale, tracking GPS e report finale.",
   ctaLabel: "Calcola il tuo preventivo Door to Door →",
+  ctaHref: "/preventivo?service=d2d",
   sections: [
     {
       h2: "Cos'è il Door to Door",
@@ -64,6 +65,7 @@ export const handToHandContent = {
   h1: "Distribuzione Volantini Hand to Hand",
   intro: "Distribuzione a mano in punti ad alto passaggio pedonale, con selezione dei POI strategici e verifica operativa sul campo.",
   ctaLabel: "Calcola il tuo preventivo Hand to Hand →",
+  ctaHref: "/preventivo?service=h2h",
   sections: [
     {
       h2: "Cos'è l'Hand to Hand",

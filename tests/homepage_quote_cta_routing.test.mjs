@@ -9,6 +9,7 @@ import {
   sanitizeComuneParam,
   readComuneParam,
   buildQuoteSelectionHref,
+  readServiceParam,
   buildConfiguratorHref,
   buildQuickQuoteHref,
 } from "../src/lib/quote/quoteComuneParam.js";
@@ -68,10 +69,10 @@ test("every homepage 'Calcola il preventivo online' button and the navbar CTA le
 
 test("Richiedi un Preventivo forwards the comune to Guidato and Rapido; other buttons untouched", () => {
   const sc = read("src/pages/public/ServiceCenter.jsx");
-  assert.match(sc, /const startGuided = \(\) => \(comune \? window\.location\.assign\(buildConfiguratorHref\(comune\)\) : onNav\("step1", null, \{ newCampaign: true \}\)\);/);
-  assert.match(sc, /const startQuick = \(\) => \(comune \? window\.location\.assign\(buildQuickQuoteHref\(comune\)\) : onNav\("quick"\)\);/);
+  assert.match(sc, /const startGuided = \(\) => \(comune \|\| service \? window\.location\.assign\(buildConfiguratorHref\(comune, service \|\| "d2d"\)\) : onNav\("step1", null, \{ newCampaign: true \}\)\);/);
+  assert.match(sc, /const startQuick = \(\) => \(comune \|\| service \? window\.location\.assign\(buildQuickQuoteHref\(comune, service\)\) : onNav\("quick"\)\);/);
   assert.match(sc, /readComuneParam\(window\.location\.search\)/);
-  assert.match(sc, /<QuoteSelectionHeader onNav=\{onNav\} comune=\{comune\} \/>/);
+  assert.match(sc, /<QuoteSelectionHeader onNav=\{onNav\} comune=\{comune\} service=\{service\} \/>/);
   // "Configura {servizio} →" (service tab button) keeps its original behaviour.
   assert.match(sc, /onClick=\{\(\) => onNav\("step1", null, \{ newCampaign: true \}\)\}[\s\S]{0,400}Configura \{svc\.name\} →/);
   // Consulenza unchanged.
@@ -84,6 +85,16 @@ test("Preventivo Rapido pre-fills the comune from ?comune= through the shared se
   assert.match(qq, /const list = await searchItalianMunicipalities\(initial\);/);
   assert.match(qq, /canonicalizeItalianMunicipalityName\(s\.name, s\)\.toLowerCase\(\) === initial\.toLowerCase\(\)/);
   assert.match(qq, /if \(match\) addComune\(match\);\s*\n\s*else \{ setComuneInput\(initial\); setDropOpen\(true\); \}/);
+});
+
+test("the chosen service travels through /preventivo, with the comune when present", () => {
+  assert.equal(buildQuoteSelectionHref(null, "h2h"), "/preventivo?service=h2h");
+  assert.equal(buildQuoteSelectionHref("Seveso", "d2d"), "/preventivo?service=d2d&comune=Seveso");
+  assert.equal(buildConfiguratorHref("Seveso", "h2h"), "/configuratore?service=h2h&comune=Seveso&source=homepage_calculator");
+  assert.equal(buildConfiguratorHref(null, "h2h"), "/configuratore?service=h2h");
+  assert.equal(buildQuickQuoteHref("Seveso", "h2h"), "/preventivo-rapido?service=h2h&comune=Seveso");
+  assert.equal(readServiceParam("?service=h2h"), "h2h");
+  assert.equal(readServiceParam("?service=altro"), null);
 });
 
 test("services cards and Business CTA are not rerouted", () => {

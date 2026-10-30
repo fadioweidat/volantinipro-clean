@@ -14,7 +14,8 @@ import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHash
 import { resolveLoginContext } from "../auth/loginIntent.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { PRICES_PAGE_KEY, PRICES_PATH, CITY_SLUGS, cityPageKey, cityPath } from "../lib/seo/seoLandingRoutes.js";
-import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
+import { ServiceDraftDialog } from "../components/ServiceDraftDialog.jsx";
+import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, serviceDraftConflict, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 import {
   trackPageView,
   trackQuoteStepReached,
@@ -189,6 +190,15 @@ export function AppRouter() {
   // il render: dichiarare `data` dopo generava un TDZ ("Cannot access 'data'
   // before initialization", minificato: "Cannot access 'c' before
   // initialization") -> RouteErrorBoundary in produzione. Una sola dichiarazione.
+  // Arrivo da un link con un servizio diverso da quello della bozza: nessuna
+  // sovrascrittura, il cliente sceglie (vedi ServiceDraftDialog).
+  const initialConflict = useState(() => (typeof window === "undefined" ? null : serviceDraftConflict(readConfiguratorDraft(window.localStorage), prefill.patch.type)))[0];
+  const [serviceChoice, setServiceChoice] = useState(() => {
+    if (!initialConflict || !isConfiguratorPagePath(window.location.pathname)) return null;
+    const params = Object.fromEntries(new URLSearchParams(window.location.search));
+    delete params.step;
+    return { ...initialConflict, page: "step1", patch: params };
+  });
   const [data, setData] = useState(() => {
     let draft = {};
     const persistedDraft = typeof window !== "undefined" ? readConfiguratorDraft(window.localStorage) || {} : {};
@@ -202,7 +212,7 @@ export function AppRouter() {
       ...createEmptyConfiguratorData(),
       ...persistedDraft,
       ...draft,
-      ...resolveDraftPrefillPatch({ ...persistedDraft, ...draft }, prefill.patch),
+      ...resolveDraftPrefillPatch({ ...persistedDraft, ...draft }, initialConflict ? {} : prefill.patch),
       quantitySource: resolveDraftQuantitySource({ ...persistedDraft, ...draft })
     };
   });
@@ -279,6 +289,13 @@ export function AppRouter() {
   }, [data]);
 
   const goTo = (p, prefillPatch = null, options = {}) => {
+    if (!options.newCampaign && prefillPatch?.service && p.startsWith("step")) {
+      const conflict = serviceDraftConflict(data, prefillPatch.service);
+      if (conflict) {
+        setServiceChoice({ ...conflict, page: p, patch: prefillPatch });
+        return;
+      }
+    }
     // Reset esplicito "nuova campagna": ignora lo stato del configuratore
     // corrente (in-memory e localStorage) cosi' Step1/Step2 partono vuoti.
     // Usato SOLO dalle CTA che dichiarano esplicitamente l'intento di
@@ -334,6 +351,9 @@ export function AppRouter() {
       if (p.startsWith("login?")) {
         window.history.pushState(null, "", "/" + p);
         p = "login";
+      } else if (p.startsWith("preventivo?")) {
+        window.history.pushState(null, "", "/" + p);
+        p = "preventivo";
       } else if (p === "login") {
         const ctx = prefillPatch?.context === "admin" ? "?context=admin" : "";
         window.history.pushState(null, "", `/login${ctx}`);
@@ -403,6 +423,13 @@ export function AppRouter() {
       )}
       <Bootstrap />
       <SeoMeta page={page} />
+      {serviceChoice && (
+        <ServiceDraftDialog
+          choice={serviceChoice}
+          onContinue={() => { setServiceChoice(null); goTo("step1"); }}
+          onStartNew={() => { setServiceChoice(null); goTo(serviceChoice.page, serviceChoice.patch, { newCampaign: true }); }}
+        />
+      )}
       {!isConfiguratorPage && page !== "home" && <Navbar onNav={goTo} page={page} />}
       <div style={{ paddingTop: 0 }}>
 

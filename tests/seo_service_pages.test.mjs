@@ -137,7 +137,7 @@ test("servicePagesContent.js: 'come viene calcolato il preventivo' non ricalcola
 // ── Internal linking: ogni pagina servizio linka le altre 2 + preventivo + contatti + come funziona ──
 test("ServicePages.jsx: internal linking completo (altre 2 pagine servizio, preventivo, consulente, come funziona, contatti, home)", () => {
   const src = read("src/pages/public/ServicePages.jsx");
-  assert.match(src, /onNav\("preventivo"\)/);
+  assert.match(src, /onNav\(content\.ctaHref\?\.slice\(1\) \|\| "preventivo"\)/);
   assert.match(src, /onNav\("consultant"\)/);
   assert.match(src, /SERVICE_LINKS\.filter\(\(s\) => s\.key !== content\.pageKey\)/);
   assert.match(src, /getElementById\("come-funziona"\)/);

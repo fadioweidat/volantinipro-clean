@@ -241,7 +241,7 @@ export function HomePage({
     }), _jsx(WhyDifferentSection, {}), _jsx(FeasibilitySection, {
       onConfigure: () => n("preventivo")
     }), _jsx(ServicesSection, {
-      onConfigure: () => n("preventivo"),
+      onConfigure: (service) => n(service ? `preventivo?service=${service}` : "preventivo"),
       onBusiness: () => goToBusinessRequest(n),
       onServiceLink: (pageKey) => n(pageKey)
     }), _jsx(SmartPairingSection, {

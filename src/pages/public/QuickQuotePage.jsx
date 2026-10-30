@@ -5,7 +5,7 @@ import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { useServiceAnalysis } from "../../hooks/useServiceAnalysis.js";
 import { canonicalizeItalianMunicipalityName } from "../../lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { searchItalianMunicipalities } from "../../lib/geocoding/searchItalianMunicipalities.js";
-import { readComuneParam } from "../../lib/quote/quoteComuneParam.js";
+import { readComuneParam, readServiceParam } from "../../lib/quote/quoteComuneParam.js";
 import { buildHomeCalculatorAnalysisArgs, buildQuickQuoteAnchorAnalysisArgs, readHomeCalculatorAnalysis, splitQuickQuoteComuni } from "../../lib/quote/homeCalculatorAnalysis.js";
 import { MILANO_SNAPSHOT } from "../../lib/quote/milanoSnapshotSource.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../../lib/extraServicesRegistry.js";
@@ -90,7 +90,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // le card "Tipo di servizio" qui replicano lo stesso comportamento a
   // colonna singola sotto i 760px.
   const isMobile = useIsMobile();
-  const [service, setService] = useState(data?.type || data?.selectedService || "d2d");
+  const [service, setService] = useState(() => (typeof window === "undefined" ? null : readServiceParam(window.location.search)) || data?.type || data?.selectedService || "d2d");
   const [activityType, setActivityType] = useState(data?.activityType || data?.businessSector || "");
   const [comuni, setComuni] = useState([]); // [{ name, lat, lng }]
   // Il comune arrivato da un'altra pagina (es. "Parla con un consulente") non

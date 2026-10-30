@@ -1,4 +1,4 @@
-import { goToBusinessRequest } from "../../lib/business/businessOnProject.js";
+import { BUSINESS_REQUEST_HREF, goToBusinessRequest } from "../../lib/business/businessOnProject.js";
 import PublicNavLink from '../../components/common/PublicNavLink.jsx';
 import React from "react";
 import { C, F } from "../../lib/constants.js";
@@ -29,7 +29,7 @@ function goToHowItWorks(onNav) {
 }
 
 function ServicePageTemplate({ content, onNav }) {
-  const goToCta = () => (content.ctaHref ? goToBusinessRequest(onNav) : onNav("preventivo"));
+  const goToCta = () => (content.ctaHref === BUSINESS_REQUEST_HREF ? goToBusinessRequest(onNav) : onNav(content.ctaHref?.slice(1) || "preventivo"));
   return (
     <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
