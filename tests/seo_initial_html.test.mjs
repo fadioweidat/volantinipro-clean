@@ -105,7 +105,8 @@ test('homepage exposes accessible standard favicon variants in prerendered HTML'
     ['favicon.svg', 'image/svg+xml'],
   ]) {
     assert.ok(fs.existsSync(new URL(`../dist/${file}`, import.meta.url)), `missing ${file}`);
-    assert.match(html, new RegExp(`<link rel="icon" type="${type}"[^>]*href="/${file.replace('.', '\\.')}">`));
+    const iconLinks = [...html.matchAll(/<link[^>]*rel="icon"[^>]*>/g)].map(match => match[0]);
+    assert.ok(iconLinks.some(tag => tag.includes(`type="${type}"`) && tag.includes(`href="/${file}"`)), `standard icon link missing for ${file}`);
   }
   assert.doesNotMatch(html, /rel="alternate icon"/);
 });
