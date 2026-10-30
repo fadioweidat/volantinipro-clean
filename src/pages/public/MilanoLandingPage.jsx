@@ -109,6 +109,14 @@ export function MilanoLandingPage({ onNav }) {
             {/* Prezzi del motore reale per Milano (mai scritti nel contenuto). */}
             {section.cityPrices && <CityPriceTable slug="milano" onNav={onNav} />}
 
+            {section.cityPrices && (
+              <div style={{ marginTop: 12, marginBottom: 16 }}>
+                <PublicNavLink href="/prezzi-distribuzione-volantini" onClick={() => onNav("prices")} style={{ color: C.orange, fontFamily: F.sans, fontSize: 14, fontWeight: 700 }}>
+                  Approfondisci i prezzi della distribuzione volantini →
+                </PublicNavLink>
+              </div>
+            )}
+
             {section.priceCta && (
               <Button as={PublicNavLink} href="/preventivo" variant="primary" onClick={() => onNav("preventivo")} style={{ marginTop: 10 }}>
                 {section.priceCta}
