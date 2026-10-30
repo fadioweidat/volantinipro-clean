@@ -15,7 +15,7 @@ import { resolveLoginContext } from "../auth/loginIntent.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { PRICES_PAGE_KEY, PRICES_PATH, CITY_SLUGS, cityPageKey, cityPath } from "../lib/seo/seoLandingRoutes.js";
 import { ServiceDraftDialog } from "../components/ServiceDraftDialog.jsx";
-import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, serviceDraftConflict, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
+import { clearConfiguratorDraft, configuratorHistoryState, draftInProgress, readConfiguratorDraft, serviceDraftConflict, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 import {
   trackPageView,
   trackQuoteStepReached,
@@ -289,6 +289,14 @@ export function AppRouter() {
   }, [data]);
 
   const goTo = (p, prefillPatch = null, options = {}) => {
+    // Pulsanti che cancellano la bozza: prima si chiede al cliente.
+    if (options.protectDraft) {
+      const inProgress = draftInProgress(data);
+      if (inProgress) {
+        setServiceChoice({ ...inProgress, to: prefillPatch?.service || null, page: p, patch: prefillPatch });
+        return;
+      }
+    }
     if (!options.newCampaign && prefillPatch?.service && p.startsWith("step")) {
       const conflict = serviceDraftConflict(data, prefillPatch.service);
       if (conflict) {

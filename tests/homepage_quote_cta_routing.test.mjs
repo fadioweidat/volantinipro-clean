@@ -69,12 +69,12 @@ test("every homepage 'Calcola il preventivo online' button and the navbar CTA le
 
 test("Richiedi un Preventivo forwards the comune to Guidato and Rapido; other buttons untouched", () => {
   const sc = read("src/pages/public/ServiceCenter.jsx");
-  assert.match(sc, /const startGuided = \(\) => \(comune \|\| service \? window\.location\.assign\(buildConfiguratorHref\(comune, service \|\| "d2d"\)\) : onNav\("step1", null, \{ newCampaign: true \}\)\);/);
+  assert.match(sc, /const startGuided = \(\) => \(comune \|\| service \? window\.location\.assign\(buildConfiguratorHref\(comune, service \|\| "d2d"\)\) : onNav\("step1", null, \{ newCampaign: true, protectDraft: true \}\)\);/);
   assert.match(sc, /const startQuick = \(\) => \(comune \|\| service \? window\.location\.assign\(buildQuickQuoteHref\(comune, service\)\) : onNav\("quick"\)\);/);
   assert.match(sc, /readComuneParam\(window\.location\.search\)/);
   assert.match(sc, /<QuoteSelectionHeader onNav=\{onNav\} comune=\{comune\} service=\{service\} \/>/);
   // "Configura {servizio} →" (service tab button) keeps its original behaviour.
-  assert.match(sc, /onClick=\{\(\) => onNav\("step1", null, \{ newCampaign: true \}\)\}[\s\S]{0,400}Configura \{svc\.name\} →/);
+  assert.match(sc, /onClick=\{\(\) => onNav\("step1", \{ service: svc\.id === "biz" \? "b2b" : svc\.id \}, \{ newCampaign: true, protectDraft: true \}\)\}[\s\S]{0,400}Configura \{svc\.name\} →/);
   // Consulenza unchanged.
   assert.match(sc, /onClick=\{\(\) => onNav\("consultant"\)\}/);
 });

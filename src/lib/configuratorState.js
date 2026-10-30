@@ -56,6 +56,13 @@ function hasCustomerChoices(draft) {
 
 const serviceKey = (value) => (value === "business-distribution" ? "b2b" : value);
 
+/** Bozza con scelte del cliente, stesso o altro servizio: {from} (null se senza servizio), altrimenti null. */
+export function draftInProgress(draft) {
+  if (!hasCustomerChoices(draft)) return null;
+  const from = serviceKey(draft.type);
+  return { from: SERVICE_DRAFT_LABELS[from] ? from : null };
+}
+
 /** {from, to} se la bozza e' di un altro servizio e contiene scelte del cliente, altrimenti null. */
 export function serviceDraftConflict(draft, targetService) {
   const from = serviceKey(draft?.type);

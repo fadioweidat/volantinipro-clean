@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { serviceDraftConflict } from "../src/lib/configuratorState.js";
+import { draftInProgress, serviceDraftConflict } from "../src/lib/configuratorState.js";
 
 test("a draft with customer choices of another service asks first", () => {
   assert.deepEqual(serviceDraftConflict({ type: "d2d", cityName: "Rho" }, "b2b"), { from: "d2d", to: "b2b" });
   assert.deepEqual(serviceDraftConflict({ type: "b2b", businessZone: "Varedo" }, "h2h"), { from: "b2b", to: "h2h" });
   assert.deepEqual(serviceDraftConflict({ type: "h2h", promoterAssignments: [{ location: "Milano" }] }, "d2d"), { from: "h2h", to: "d2d" });
   assert.deepEqual(serviceDraftConflict({ type: "d2d", quantitySource: "customer" }, "h2h"), { from: "d2d", to: "h2h" });
+});
+
+test("buttons that clear the draft also see a draft of the same service", () => {
+  assert.deepEqual(draftInProgress({ type: "d2d", cityName: "Rho" }), { from: "d2d" });
+  assert.deepEqual(draftInProgress({ type: null, cityName: "Rho" }), { from: null });
+  assert.equal(draftInProgress({ type: "d2d", qty: 10000, quantitySource: "default" }), null);
+  assert.equal(draftInProgress({ type: "d2d", cityName: "Rho", quoteSubmitted: true }), null);
 });
 
 test("nothing to ask: same service, no real choices, empty or already sent draft", () => {

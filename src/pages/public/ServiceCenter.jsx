@@ -373,7 +373,7 @@ function OutputCard({ out, svcCol, index }) {
 // both paths keep it (Guidato: configurator with the comune preselected;
 // Rapido: comune pre-filled). Without it the buttons behave exactly as before.
 function QuoteSelectionHeader({ onNav, comune, service }) {
-  const startGuided = () => (comune || service ? window.location.assign(buildConfiguratorHref(comune, service || "d2d")) : onNav("step1", null, { newCampaign: true }));
+  const startGuided = () => (comune || service ? window.location.assign(buildConfiguratorHref(comune, service || "d2d")) : onNav("step1", null, { newCampaign: true, protectDraft: true }));
   const startQuick = () => (comune || service ? window.location.assign(buildQuickQuoteHref(comune, service)) : onNav("quick"));
   return (
     <div style={{ background: `linear-gradient(180deg, #0B1020 0%, ${C.navy} 100%)`, padding: "52px 28px 64px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
@@ -542,7 +542,11 @@ function QuoteSelectionHeader({ onNav, comune, service }) {
 
 /* ─── MAIN PAGE ─── */
 export default function ServiceCenter({ onNav }) {
-  const [active, setActive] = useState("d2d");
+  // Le schede usano "biz", i link e il configuratore "b2b".
+  const [active, setActive] = useState(() => {
+    const requested = typeof window === "undefined" ? null : readServiceParam(window.location.search);
+    return requested === "b2b" ? "biz" : requested || "d2d";
+  });
   const comune = useMemo(() => (typeof window === "undefined" ? null : readComuneParam(window.location.search)), []);
   const service = useMemo(() => (typeof window === "undefined" ? null : readServiceParam(window.location.search)), []);
 
@@ -649,7 +653,7 @@ export default function ServiceCenter({ onNav }) {
             Configura la tua campagna {svc.name}: scegli la zona, calcola quante famiglie raggiungi e ricevi tutti gli output sopra nel tuo portale.
           </div>
           <button
-            onClick={() => onNav("step1", null, { newCampaign: true })}
+            onClick={() => onNav("step1", { service: svc.id === "biz" ? "b2b" : svc.id }, { newCampaign: true, protectDraft: true })}
             style={{ padding: "14px 36px", borderRadius: 10, border: "none", background: svc.col, color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: `0 6px 24px ${svc.col}50` }}
           >
             Configura {svc.name} →
