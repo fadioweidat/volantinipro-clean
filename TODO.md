@@ -70,3 +70,6 @@
 
 - Ricontrollare i prezzi Pixart della tabella printPricing.js ogni 3 mesi (ultimo rilievo 28/08/2026).
   Data minima con la stampa nello Step 1: src/lib/printLeadTime.js (5 giorni lavorativi di produzione "Fast 120" + 2 di spedizione, confermati il 29/10/2026).
+
+- Valutare se limitare anche i conteggi GPS/foto della funzione di riepilogo per i clienti senza extra.
+  Oggi final_distribution_report_telemetry restituisce al proprietario conteggi e orari (nessuna posizione, nessuna immagine); il sito non la chiama senza extra.
