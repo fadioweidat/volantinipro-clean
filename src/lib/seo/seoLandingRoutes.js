@@ -72,12 +72,13 @@ export function seoLandingPathForPage(page) {
 
 export const SERVED_CITIES = ALL_CITY_SLUGS.map((slug) => ({ slug, name: CITY_NAMES[slug], href: cityPath(slug), pageKey: cityPageKey(slug) }));
 
-// Footer "Zone servite": raggruppate per zona rispetto a Milano.
+// Footer "Zone servite": Milano, hinterland per zona, altre citta' lombarde.
 const ZONE_GROUPS = [
   ["Milano", ["milano"]],
-  ["Nord", ["sesto-san-giovanni", "cinisello-balsamo", "bresso", "cormano", "paderno-dugnano", "bollate", "monza", "como", "varese"]],
-  ["Est", ["cologno-monzese", "segrate", "pioltello", "cernusco-sul-naviglio", "bergamo", "brescia"]],
-  ["Sud", ["san-donato-milanese", "san-giuliano-milanese", "rozzano", "assago"]],
-  ["Ovest", ["corsico", "rho", "pero", "settimo-milanese"]],
+  ["Hinterland Nord", ["sesto-san-giovanni", "cinisello-balsamo", "bresso", "cormano", "paderno-dugnano", "bollate"]],
+  ["Hinterland Est", ["cologno-monzese", "segrate", "pioltello", "cernusco-sul-naviglio"]],
+  ["Hinterland Sud", ["san-donato-milanese", "san-giuliano-milanese", "rozzano", "assago"]],
+  ["Hinterland Ovest", ["corsico", "rho", "pero", "settimo-milanese"]],
+  ["Altre città lombarde", ["monza", "bergamo", "brescia", "como", "varese"]],
 ];
 export const SERVED_ZONE_GROUPS = ZONE_GROUPS.map(([title, slugs]) => ({ title, cities: slugs.map((slug) => SERVED_CITIES.find((city) => city.slug === slug)) }));

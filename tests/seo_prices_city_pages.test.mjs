@@ -65,7 +65,8 @@ test("2026-10-30: 16 hinterland pages, ISTAT figures, each zone group lists ever
   assert.equal(CITY_SLUGS.length, 23);
   const grouped = SERVED_ZONE_GROUPS.flatMap((g) => g.cities.map((c) => c.slug));
   assert.deepEqual([...grouped].sort(), ["milano", ...CITY_SLUGS].sort());
-  assert.deepEqual(SERVED_ZONE_GROUPS.map((g) => g.title), ["Milano", "Nord", "Est", "Sud", "Ovest"]);
+  assert.deepEqual(SERVED_ZONE_GROUPS.map((g) => g.title), ["Milano", "Hinterland Nord", "Hinterland Est", "Hinterland Sud", "Hinterland Ovest", "Altre città lombarde"]);
+  assert.deepEqual(SERVED_ZONE_GROUPS[5].cities.map((c) => c.name), ["Monza", "Bergamo", "Brescia", "Como", "Varese"]);
   assert.equal(CITY_PAGES["city-assago"].h1, "Distribuzione volantini ad Assago");
   assert.equal(new Set(Object.values(CITY_PAGES).map((c) => c.faqs[2].q)).size, 23);
 });
