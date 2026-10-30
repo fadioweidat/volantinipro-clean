@@ -106,8 +106,10 @@ function buildPages(report, images, mapImageIndexByZone) {
   const heading = (value) => { ensure(28); y -= 8; text(value, { size: 14, bold: true, leading: 18 }); };
   const rule = () => { ensure(12); page.commands.push('0.88 0.89 0.91 RG 0.7 w', `${PAGE.margin} ${y} m ${PAGE.width - PAGE.margin} ${y} l S`); y -= 12; };
 
+  const hasGps = report.access?.gps !== false;
+  const hasPhotos = report.access?.photos !== false;
   addPage();
-  text('CERTIFICAZIONE FINALE DI DISTRIBUZIONE', { size: 16, bold: true, leading: 21 });
+  text('REPORT FINALE DI DISTRIBUZIONE', { size: 16, bold: true, leading: 21 });
   text(report.title, { size: 20, bold: true, leading: 24, max: 50 });
   text(`Periodo di lavoro: ${dateOnly(report.periodStart)} - ${dateOnly(report.periodEnd)}`, { color: '0.36 0.40 0.49' });
   text(`Stato: ${report.status}${report.provisional ? ' - REPORT PROVVISORIO' : ''}`, { bold: true, color: report.provisional ? '0.72 0.35 0.05' : '0.05 0.50 0.32' });
@@ -115,26 +117,28 @@ function buildPages(report, images, mapImageIndexByZone) {
   heading('Riepilogo');
   text(`Quantita assegnata: ${number(report.totals.quantityAssigned)} volantini`);
   text(`Zone completate: ${report.totals.zonesCompleted} su ${report.totals.zonesTotal}`);
-  text(`Sessioni operative: ${report.totals.sessionCount}`);
-  text(`Rilevazioni GPS: ${number(report.totals.gpsCount)}`);
-  text(`Prove fotografiche approvate: ${report.totals.photoCount}`);
+  if (hasGps) text(`Sessioni operative: ${report.totals.sessionCount}`);
+  if (hasGps) text(`Rilevazioni GPS: ${number(report.totals.gpsCount)}`);
+  if (hasPhotos) text(`Prove fotografiche approvate: ${report.totals.photoCount}`);
   text(`Primo avvio: ${dateTime(report.totals.firstStartAt)}`);
   text(`Ultima chiusura: ${dateTime(report.totals.lastClosureAt)}`);
-  text(`Durata registrata: ${duration(report.totals.durationMs)}`);
+  if (hasGps) text(`Durata registrata: ${duration(report.totals.durationMs)}`);
   heading('Zone e comuni');
   report.zones.forEach((zone) => {
     ensure(62);
     text(zone.name, { bold: true, size: 11 });
-    text(`${number(zone.quantityAssigned)} assegnati | ${zone.status} | ${zone.sessionCount} sessioni | ${number(zone.gpsCount)} rilevazioni GPS`, { color: '0.30 0.34 0.41', indent: 8, max: 82 });
-    text(`${dateTime(zone.firstActivityAt)} - ${dateTime(zone.lastActivityAt)} | ${duration(zone.durationMs)}`, { color: '0.42 0.45 0.51', indent: 8, size: 9, max: 88 });
+    text(hasGps ? `${number(zone.quantityAssigned)} assegnati | ${zone.status} | ${zone.sessionCount} sessioni | ${number(zone.gpsCount)} rilevazioni GPS` : `${number(zone.quantityAssigned)} assegnati | ${zone.status}`, { color: '0.30 0.34 0.41', indent: 8, max: 82 });
+    text(hasGps ? `${dateTime(zone.firstActivityAt)} - ${dateTime(zone.lastActivityAt)} | ${duration(zone.durationMs)}` : `${dateTime(zone.firstActivityAt)} - ${dateTime(zone.lastActivityAt)}`, { color: '0.42 0.45 0.51', indent: 8, size: 9, max: 88 });
     y -= 5;
   });
 
-  heading('Timeline operativa');
-  report.timeline.forEach((item) => text(`${item.label}: ${dateTime(item.at)}`, { indent: 8 }));
-  heading('Evidenze e note');
-  if (report.anomalies.length) report.anomalies.forEach((item) => text(`- ${item}`, { indent: 8 }));
-  else text('Nessuna anomalia utile al cliente rilevata nei dati disponibili.', { indent: 8 });
+  if (hasGps) {
+    heading('Timeline operativa');
+    report.timeline.forEach((item) => text(`${item.label}: ${dateTime(item.at)}`, { indent: 8 }));
+    heading('Evidenze e note');
+    if (report.anomalies.length) report.anomalies.forEach((item) => text(`- ${item}`, { indent: 8 }));
+    else text('Nessuna anomalia utile al cliente rilevata nei dati disponibili.', { indent: 8 });
+  }
 
   if (images.length) {
     addPage();
@@ -152,7 +156,7 @@ function buildPages(report, images, mapImageIndexByZone) {
     });
   }
 
-  if (report.zones.length) {
+  if (hasGps && report.zones.length) {
     addPage();
     text('TRACCIAMENTO GPS E COPERTURA', { size: 16, bold: true, leading: 22 });
     text('Per ogni zona: confine reale (se disponibile), traccia GPS reale, e copertura scomposta tra GPS reale e integrazione manuale Admin.', { color: '0.36 0.40 0.49', max: 92 });
@@ -294,7 +298,7 @@ async function zoneSnapshotBytes(report) {
   return results.filter(Boolean);
 }
 
-export async function downloadFinalDistributionPdf(report, filename = 'certificazione-distribuzione.pdf', { onProgress } = {}) {
+export async function downloadFinalDistributionPdf(report, filename = 'report-distribuzione.pdf', { onProgress } = {}) {
   onProgress?.('Recupero foto prova...');
   const photos = await photoBytes(report);
   onProgress?.('Generazione mappe zona...');

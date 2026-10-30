@@ -73,7 +73,7 @@ function computeFinalStatus(extras) {
 }
 
 export function buildFinalDistributionReport({
-  campaign = {}, zones = [], assignmentZones = [], sessions = [], telemetry = [], photos = [], generatedAt = new Date().toISOString(), zoneExtras = new Map(),
+  campaign = {}, zones = [], assignmentZones = [], sessions = [], telemetry = [], photos = [], generatedAt = new Date().toISOString(), zoneExtras = new Map(), access = { gps: true, photos: true },
 } = {}) {
   const telemetryBySession = new Map(telemetry.map((row) => [row.session_id, row]));
   const sessionsByZone = new Map();
@@ -137,7 +137,7 @@ export function buildFinalDistributionReport({
   const anomalies = [];
   safeZones.forEach((zone) => {
     if (zone.status === 'Parziale') anomalies.push(`${zone.name}: lavorazione parziale.`);
-    if (zone.sessionCount > 0 && zone.gpsCount === 0) anomalies.push(`${zone.name}: sessione presente senza rilevazioni GPS.`);
+    if (access.gps && zone.sessionCount > 0 && zone.gpsCount === 0) anomalies.push(`${zone.name}: sessione presente senza rilevazioni GPS.`);
   });
   if (enrichedSessions.some((session) => String(session.status).toLowerCase() === 'cancelled')) anomalies.push('Sono presenti sessioni operative annullate.');
 
@@ -151,6 +151,7 @@ export function buildFinalDistributionReport({
 
   return {
     title: campaign.title || campaign.name || campaign.campaign_name || 'Campagna di distribuzione',
+    access,
     customerName: campaign.client_name || campaign.customer_name || campaign.company || null,
     periodStart: campaign.start_date || campaign.distribution_start_date || firstStartAt,
     periodEnd: campaign.end_date || campaign.distribution_end_date || lastClosureAt,

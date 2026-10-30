@@ -123,7 +123,7 @@ export function getAssistantRouteConfig(page, { data = {}, context = null } = {}
       campaignId,
       eyebrow: "Area Cliente · Report Finale",
       title: "Assistente VolantiniPro",
-      subtitle: "Dati consuntivi e certificazione della distribuzione.",
+      subtitle: "Dati consuntivi e report della distribuzione.",
       disclaimer: "Sola consultazione dati verificati. Nessuna modifica ai report.",
       inputPlaceholder: "Chiedi informazioni sul report finale",
       allowAnonymous: false,

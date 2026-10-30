@@ -3,10 +3,11 @@ import { buildFinalDistributionReport } from '../reports/finalDistributionReport
 import { createProofPhotoSignedUrl, calculateDistanceKm } from './gps-api.js';
 import { filterValidGpsPoints } from '../gps/pointQuality.js';
 import { resolveMunicipalityBoundary } from '../geo/resolveMunicipalityBoundary.js';
+import { campaignExtraAccess, FULL_EXTRA_ACCESS } from '../campaignEntitlements.js';
 
 async function getCampaign(campaignId, customerOwned) {
   let query = supabase.from('campaigns')
-    .select('id, user_id, title, campaign_name, client_name, status, start_date, end_date, distribution_start_date, distribution_end_date')
+    .select('id, user_id, title, campaign_name, client_name, status, start_date, end_date, distribution_start_date, distribution_end_date, metadata')
     .eq('id', campaignId);
   if (customerOwned) {
     const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -81,6 +82,9 @@ export async function getFinalDistributionReport(campaignId, { customerOwned = f
   if (!supabase) throw new Error('Supabase non configurato.');
   await ensureSupabaseSessionBridge();
   const campaign = await getCampaign(campaignId, customerOwned);
+  // Report base per il Cliente: zone, quantita', date. Mappa GPS e foto solo con
+  // gli extra; Admin sempre completo.
+  const access = customerOwned ? campaignExtraAccess(campaign.metadata) : FULL_EXTRA_ACCESS;
   const [zonesResult, sessionsResult, photosResult, assignmentsResult] = await Promise.all([
     supabase.from('campaign_zones')
       .select('id, priority, zone_name, quantity_assigned, status, center_lat, center_lng')
@@ -88,9 +92,11 @@ export async function getFinalDistributionReport(campaignId, { customerOwned = f
     supabase.from('delivery_sessions')
       .select('id, campaign_zone_id, status, started_at, paused_at, ended_at, created_at, updated_at')
       .eq('campaign_id', campaignId).order('created_at', { ascending: true }),
-    supabase.from('proof_photos')
-      .select('session_id, storage_path, taken_at, approved_at, created_at')
-      .eq('campaign_id', campaignId).not('approved_at', 'is', null).order('taken_at', { ascending: true }),
+    access.photos
+      ? supabase.from('proof_photos')
+        .select('session_id, storage_path, taken_at, approved_at, created_at')
+        .eq('campaign_id', campaignId).not('approved_at', 'is', null).order('taken_at', { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
     customerOwned
       ? Promise.resolve({ data: [], error: null })
       : supabase.from('operator_assignments').select('id, operator_assignment_zones(zone_id, municipality_name, quantity)').eq('campaign_id', campaignId),
@@ -102,7 +108,7 @@ export async function getFinalDistributionReport(campaignId, { customerOwned = f
 
   const zones = zonesResult.data || [];
   const sessions = sessionsResult.data || [];
-  const telemetry = await getTelemetry(campaignId, sessions, customerOwned);
+  const telemetry = access.gps ? await getTelemetry(campaignId, sessions, customerOwned) : [];
   const signedPhotos = await Promise.all((photosResult.data || []).map(async (photo) => ({
     ...photo,
     signedUrl: await createProofPhotoSignedUrl(photo.storage_path).catch(() => null),
@@ -115,7 +121,7 @@ export async function getFinalDistributionReport(campaignId, { customerOwned = f
   // per i conteggi di sessione gia' esistenti, invariata.
   const sessionIds = sessions.map((s) => s.id);
   const pointsBySession = new Map();
-  if (sessionIds.length) {
+  if (access.gps && sessionIds.length) {
     const { data: rawPoints } = await supabase
       .from('gps_tracking_points')
       .select('session_id, lat, lng, accuracy, recorded_at')
@@ -126,7 +132,7 @@ export async function getFinalDistributionReport(campaignId, { customerOwned = f
     });
   }
 
-  const zoneExtras = new Map(await Promise.all(zones.map(async (zone) => {
+  const zoneExtras = new Map(!access.gps ? [] : await Promise.all(zones.map(async (zone) => {
     const zoneSessionIds = sessions.filter((s) => s.campaign_zone_id === zone.id).map((s) => s.id);
     const rawZonePoints = zoneSessionIds.flatMap((id) => pointsBySession.get(id) || []);
     const validPoints = filterValidGpsPoints(rawZonePoints).valid;
@@ -154,5 +160,6 @@ export async function getFinalDistributionReport(campaignId, { customerOwned = f
     telemetry,
     photos: signedPhotos,
     zoneExtras,
+    access,
   });
 }

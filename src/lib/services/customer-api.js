@@ -44,13 +44,16 @@ export async function getOwnedCustomerCampaign(campaignId) {
 // grezzo del provider.
 export async function getOwnedCustomerTracking(campaignId) {
   const campaign = await getOwnedCustomerCampaign(campaignId);
+  // GPS e foto solo se la campagna ha l'extra: la percentuale di copertura resta
+  // per tutti, la geometria no. Le foto delle segnalazioni non dipendono dagli extra.
+  const access = campaign.extra_access;
   // Letture customer-safe: select esplicite, nessun dato operatore (nome,
   // telefono, device_id, driver_id, assignment_id, metadata) nel payload che
   // arriva al browser del cliente.
   const [pointsResult, sessionsResult, photosResult, finalCoverageResult, issuesResult] = await Promise.allSettled([
-    getCustomerCampaignGpsPoints(campaignId),
+    access.gps ? getCustomerCampaignGpsPoints(campaignId) : [],
     getCustomerCampaignGpsSessions(campaignId),
-    getCampaignProofPhotos(campaignId, { approvedOnly: true }),
+    access.photos ? getCampaignProofPhotos(campaignId, { approvedOnly: true }) : [],
     // Copertura VERIFICATA/FINALE unica: e' l'unica geometria che il Cliente
     // deve vedere sulla mappa (GPS reale verificato + verifiche
     // manuali/automatiche - esclusioni), senza distinguere le fonti.
@@ -60,7 +63,8 @@ export async function getOwnedCustomerTracking(campaignId) {
   const points = pointsResult.status === 'fulfilled' ? pointsResult.value : [];
   const sessions = sessionsResult.status === 'fulfilled' ? sessionsResult.value : [];
   const photos = photosResult.status === 'fulfilled' ? photosResult.value : [];
-  const finalCoverage = finalCoverageResult.status === 'fulfilled' ? finalCoverageResult.value : null;
+  const coverage = finalCoverageResult.status === 'fulfilled' ? finalCoverageResult.value : null;
+  const finalCoverage = coverage && !access.gps ? { ...coverage, final_coverage_geometry: null } : coverage;
   const issues = issuesResult.status === 'fulfilled' ? issuesResult.value : [];
   const partialErrors = [
     pointsResult.status === 'rejected' && 'points',
@@ -82,7 +86,7 @@ export async function getOwnedCustomerTracking(campaignId) {
       signedUrl: await createProofPhotoSignedUrl(p.storage_path).catch(() => null),
     }))),
   })));
-  return { campaign, points, sessions, photos: approvedPhotos, finalCoverage, issues: issuesWithPhotos, partialErrors };
+  return { campaign, access, points, sessions, photos: approvedPhotos, finalCoverage, issues: issuesWithPhotos, partialErrors };
 }
 
 export async function getOwnedCustomerReport(campaignId) {

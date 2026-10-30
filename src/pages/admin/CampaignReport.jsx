@@ -124,7 +124,7 @@ export function CampaignReport({ campaignId }) {
     if (!finalState.report) return;
     try {
       setFinalState((previous) => ({ ...previous, notice: 'Generazione PDF in corso...' }));
-      await downloadFinalDistributionPdf(finalState.report, 'certificazione-distribuzione-volantinipro.pdf', {
+      await downloadFinalDistributionPdf(finalState.report, 'report-distribuzione-volantinipro.pdf', {
         onProgress: (message) => setFinalState((previous) => ({ ...previous, notice: message })),
       });
       setFinalState((previous) => ({ ...previous, notice: 'PDF scaricato.' }));

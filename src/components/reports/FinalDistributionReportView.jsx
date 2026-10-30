@@ -1,4 +1,5 @@
 import 'leaflet/dist/leaflet.css';
+import { ExtraNotIncludedCard } from '../customer/ExtraNotIncludedCard.jsx';
 import { CircleMarker, MapContainer, Polygon, Polyline, TileLayer } from 'react-leaflet';
 
 const NA = 'Non disponibile';
@@ -110,14 +111,16 @@ function formatDuration(ms) {
   return hours ? `${hours} h ${minutes % 60} min` : `${minutes} min`;
 }
 
-export function FinalDistributionReportView({ report, loading = false }) {
-  if (loading) return <div style={emptyStyle}>Caricamento certificazione distribuzione...</div>;
+export function FinalDistributionReportView({ report, loading = false, campaignId = null }) {
+  if (loading) return <div style={emptyStyle}>Caricamento report di distribuzione...</div>;
   if (!report) return <div style={emptyStyle}>Report non disponibile.</div>;
+  const hasGps = report.access?.gps !== false;
+  const hasPhotos = report.access?.photos !== false;
   return (
     <div style={shellStyle} data-report-mode="cliente-finale">
       <section style={heroStyle}>
         <div>
-          <p style={eyebrowStyle}>Certificazione distribuzione</p>
+          <p style={eyebrowStyle}>Report di distribuzione</p>
           <h1 style={titleStyle}>{report.title}</h1>
           <p style={subtitleStyle}>Periodo di lavoro: {formatDate(report.periodStart, true)} – {formatDate(report.periodEnd, true)}</p>
         </div>
@@ -131,10 +134,10 @@ export function FinalDistributionReportView({ report, loading = false }) {
       <section style={kpiGridStyle}>
         <Kpi label="Quantità assegnata" value={`${formatNumber(report.totals.quantityAssigned)} volantini`} />
         <Kpi label="Zone completate" value={`${report.totals.zonesCompleted}/${report.totals.zonesTotal}`} />
-        <Kpi label="Sessioni" value={report.totals.sessionCount} />
-        <Kpi label="Punti GPS registrati" value={formatNumber(report.totals.gpsCount)} />
-        <Kpi label="Foto approvate" value={report.totals.photoCount} />
-        <Kpi label="Durata registrata" value={formatDuration(report.totals.durationMs)} />
+        {hasGps && <Kpi label="Sessioni" value={report.totals.sessionCount} />}
+        {hasGps && <Kpi label="Punti GPS registrati" value={formatNumber(report.totals.gpsCount)} />}
+        {hasPhotos && <Kpi label="Foto approvate" value={report.totals.photoCount} />}
+        {hasGps && <Kpi label="Durata registrata" value={formatDuration(report.totals.durationMs)} />}
         <Kpi label="Primo avvio" value={formatDate(report.totals.firstStartAt)} />
         <Kpi label="Ultima chiusura" value={formatDate(report.totals.lastClosureAt)} />
       </section>
@@ -143,14 +146,14 @@ export function FinalDistributionReportView({ report, loading = false }) {
         <p style={eyebrowStyle}>Zone e comuni</p>
         <div style={tableWrapStyle}>
           <table style={tableStyle}>
-            <thead><tr><Th>Zona / comune</Th><Th>Quantità assegnata</Th><Th>Stato</Th><Th>Sessioni</Th><Th>GPS</Th><Th>Periodo operativo</Th></tr></thead>
+            <thead><tr><Th>Zona / comune</Th><Th>Quantità assegnata</Th><Th>Stato</Th>{hasGps && <Th>Sessioni</Th>}{hasGps && <Th>GPS</Th>}<Th>Periodo operativo</Th></tr></thead>
             <tbody>{report.zones.map((zone, index) => (
               <tr key={`${zone.name}-${index}`}>
                 <Td strong>{zone.name}</Td>
                 <Td>{formatNumber(zone.quantityAssigned)}</Td>
                 <Td><span style={zoneStatusStyle(zone.status)}>{zone.status}</span></Td>
-                <Td>{zone.sessionCount}</Td>
-                <Td>{formatNumber(zone.gpsCount)}</Td>
+                {hasGps && <Td>{zone.sessionCount}</Td>}
+                {hasGps && <Td>{formatNumber(zone.gpsCount)}</Td>}
                 <Td>{formatDate(zone.firstActivityAt)}<br />{formatDate(zone.lastActivityAt)}</Td>
               </tr>
             ))}</tbody>
@@ -158,9 +161,9 @@ export function FinalDistributionReportView({ report, loading = false }) {
         </div>
       </section>
 
-      <GpsCoverageSection zones={report.zones} />
+      {hasGps ? <GpsCoverageSection zones={report.zones} /> : <div style={{ marginTop: 14 }}><ExtraNotIncludedCard campaignId={campaignId} extraId="tracking_gps" tone="light" /></div>}
 
-      <section style={twoColumnStyle}>
+      {hasGps && <section style={twoColumnStyle}>
         <div style={cardStyle}>
           <p style={eyebrowStyle}>Timeline operativa</p>
           {report.timeline.map((item, index) => <div key={`${item.label}-${index}`} style={timelineStyle}><strong>{item.label}</strong><span>{formatDate(item.at)}</span></div>)}
@@ -169,9 +172,9 @@ export function FinalDistributionReportView({ report, loading = false }) {
           <p style={eyebrowStyle}>Evidenze per il cliente</p>
           {report.anomalies.length ? report.anomalies.map((item, index) => <div key={index} style={noticeStyle}>{item}</div>) : <div style={successStyle}>Nessuna anomalia utile al cliente rilevata.</div>}
         </div>
-      </section>
+      </section>}
 
-      <section style={cardStyle}>
+      {hasPhotos ? <section style={cardStyle}>
         <p style={eyebrowStyle}>Prove fotografiche approvate</p>
         {report.zones.some((zone) => zone.photos.length) ? report.zones.map((zone, zoneIndex) => zone.photos.length ? (
           <div key={`${zone.name}-${zoneIndex}`} style={photoSectionStyle}>
@@ -185,7 +188,7 @@ export function FinalDistributionReportView({ report, loading = false }) {
             {zone.totalPhotoCount > zone.photos.length && <small style={mutedStyle}>Mostrate 6 anteprime; aprire le immagini per consultare le prove disponibili.</small>}
           </div>
         ) : null) : <div style={emptyStyle}>Nessuna foto approvata disponibile.</div>}
-      </section>
+      </section> : <div style={{ marginTop: 14 }}><ExtraNotIncludedCard campaignId={campaignId} extraId="photo_report_advanced" tone="light" /></div>}
 
       <footer style={footerStyle}>Report generato il {formatDate(report.generatedAt)} · dati operativi VolantiniPro</footer>
     </div>

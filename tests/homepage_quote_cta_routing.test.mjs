@@ -116,7 +116,7 @@ test("/preventivo uses the single response time and the orange primary button", 
 test("/preventivo has no decorative charts, GPS and photos are shown as paid extras", () => {
   const sc = read("src/pages/public/ServiceCenter.jsx");
   for (const gone of ["MiniChart", "chart:", "ontatti stimati", "Heatmap pedonale", "pedonal", "certificat", "non modificabile", "30 o più"]) assert.ok(!sc.includes(gone), gone);
-  assert.equal((sc.match(/extra: GPS_EXTRA,/g) || []).length, 4);
+  assert.equal((sc.match(/extra: GPS_EXTRA,/g) || []).length, 5);
   assert.equal((sc.match(/extra: PHOTO_EXTRA,/g) || []).length, 3);
 });
 

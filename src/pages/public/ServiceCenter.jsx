@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
 import { buildConfiguratorHref, buildQuickQuoteHref, readComuneParam, readServiceParam } from "../../lib/quote/quoteComuneParam.js";
 import { BUSINESS_RESPONSE_TIME } from "../../lib/business/businessOnProject.js";
-import { PHOTO_PROOF_PRICE, PHOTO_REPORT_PRICE, TRACKING_GPS_PRICE } from "../../lib/extraServicePrices.js";
+import { PHOTO_REPORT_PRICE, TRACKING_GPS_PRICE } from "../../lib/extraServicePrices.js";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C = {
@@ -15,7 +15,7 @@ const C = {
 
 /* ─── SERVICE OUTPUT DATA ─── */
 const GPS_EXTRA = `Servizio aggiuntivo · +€${TRACKING_GPS_PRICE}`;
-const PHOTO_EXTRA = `Servizio aggiuntivo · Foto Proof +€${PHOTO_PROOF_PRICE} o Report fotografico +€${PHOTO_REPORT_PRICE}`;
+const PHOTO_EXTRA = `Servizio aggiuntivo · +€${PHOTO_REPORT_PRICE}`;
 const SERVICES = [
   {
     id: "d2d",
@@ -46,6 +46,7 @@ const SERVICES = [
       {
         icon: "map",
         name: "Mappa di distribuzione",
+        extra: GPS_EXTRA,
         desc: "Visualizzazione geografica della zona coperta: comuni, quartieri e aree incluse nella campagna.",
         benefit: "Vedi la tua campagna disegnata sulla mappa, zona per zona.",
       },

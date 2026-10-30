@@ -13,8 +13,10 @@ export const SELECTED_EXTRAS_ORDER = [
 // perdere preventivi storici che lo hanno gia' selezionato, ma non e' piu'
 // proposto come nuovo extra: sovrappone Controllo PRO (GPS + report) senza
 // far parte dei 3 gruppi Controllo e Report / Marketing / Assistenza.
-export const OPTIONAL_EXTRAS_ORDER = ["control_pro", "tracking_gps", "photo_proof", "photo_report_advanced", "video_proof", "qr_analytics", "advanced_report", "account_manager", "dedicated_supervision"];
+export const OPTIONAL_EXTRAS_ORDER = ["control_pro", "tracking_gps", "photo_report_advanced", "video_proof", "qr_analytics", "advanced_report", "account_manager", "dedicated_supervision"];
 
+// photo_proof come gps_plus_report: non piu' proposto (l'offerta foto e' il
+// Report fotografico), resta nel registry per i preventivi storici.
 // Extra grafica LEGACY: nel NUOVO preventivo la grafica passa SOLO dalla
 // sezione "Grafica" dello Step1 (data.printing.artwork.* + graphicPricing.js,
 // prezzo €79). `graphic_design` e `design` NON vengono piu' proposti nel
@@ -38,7 +40,7 @@ export const EXTRA_CATEGORIES = {
 export const CONTROL_PRO_INCLUDED_IDS = ["tracking_gps", "photo_proof", "photo_report_advanced"];
 
 import { computePrintEstimate } from "./pricing/printPricing.js";
-import { PHOTO_PROOF_PRICE, PHOTO_REPORT_PRICE, TRACKING_GPS_PRICE } from "./extraServicePrices.js";
+import { CONTROL_PRO_OFFER, CONTROL_PRO_PRICE, PHOTO_PROOF_PRICE, PHOTO_REPORT_PRICE, TRACKING_GPS_PRICE } from "./extraServicePrices.js";
 
 export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDurationKnown, printConfig }) {
   return [
@@ -60,10 +62,10 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
     },
     {
       id: "photo_report_advanced", legacyIds: ["photo_report_advanced"], addId: "photo_report_advanced",
-      commercialIcon: "camera", head: "Report Fotografico Completo", col: "#3B82F6", badge: "Report completo",
-      bullets: ["Report fotografico dettagliato", "Archivio scaricabile esteso", "Mappatura fotografica avanzata"],
-      mappingLabel: "Report Fotografico Completo", mappingDescription: "Prove fotografiche dettagliate con data, zona e riferimento operativo completo.", mappingIcon: "",
-      optionalDescription: "Report fotografico dettagliato.", optionalMicro: "Mappatura visiva completa.", optionalIcon: "PHOTO",
+      commercialIcon: "camera", head: "Report fotografico", col: "#3B82F6", badge: null,
+      bullets: ["Foto con data, ora e posizione", "Conferma visiva zona per zona", "Foto nel portale cliente e nel report finale"],
+      mappingLabel: "Report fotografico", mappingDescription: "Prove fotografiche con data, ora e posizione, nel portale cliente e nel report finale.", mappingIcon: "",
+      optionalDescription: "Foto con data, ora e posizione.", optionalMicro: "Nel portale cliente e nel report finale.", optionalIcon: "PHOTO",
       price: PHOTO_REPORT_PRICE, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
@@ -85,12 +87,12 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
     {
       id: "control_pro", legacyIds: ["control_pro", "control_pro_99"], addId: "control_pro",
       commercialIcon: "shield", head: "Controllo PRO", col: "#8B5CF6", badge: "Pacchetto consigliato",
-      bullets: ["Tracking GPS Live", "Foto proof completi", "Report finale PDF e mappa copertura"],
-      mappingLabel: "Controllo PRO", mappingDescription: "Pacchetto sicurezza e controllo completo: GPS, Foto e Report finale in un unico bundle.", mappingIcon: "shield",
-      optionalDescription: "Pacchetto sicurezza e controllo: GPS, Foto e Report finale.", optionalMicro: "Massima tranquillità a prezzo fisso.", optionalIcon: "SHIELD",
-      bundleIncludesLabel: "Include Tracking GPS Live + Foto Proof + Report Finale",
+      bullets: ["Tracking GPS Live", "Report fotografico", "Report finale con mappa GPS e foto"],
+      mappingLabel: "Controllo PRO", mappingDescription: CONTROL_PRO_OFFER, mappingIcon: "shield",
+      optionalDescription: CONTROL_PRO_OFFER, optionalMicro: "Il report finale aggiunge mappa GPS e foto.", optionalIcon: "SHIELD",
+      bundleIncludesLabel: "Include Tracking GPS Live + Report fotografico",
       bundleIncludesIds: CONTROL_PRO_INCLUDED_IDS,
-      price: 99, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
+      price: CONTROL_PRO_PRICE, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
       id: "graphic_design", legacyIds: ["graphic_design", "grafica_progetto"], addId: "graphic_design",

@@ -18,7 +18,7 @@ export function ClientCampaignReport({ campaignId }) {
     if (!state.report) return;
     try {
       setState((previous) => ({ ...previous, notice: 'Generazione PDF in corso...' }));
-      await downloadFinalDistributionPdf(state.report, 'certificazione-distribuzione-volantinipro.pdf', {
+      await downloadFinalDistributionPdf(state.report, 'report-distribuzione-volantinipro.pdf', {
         onProgress: (message) => setState((previous) => ({ ...previous, notice: message })),
       });
       setState((previous) => ({ ...previous, notice: 'PDF scaricato.' }));
@@ -48,13 +48,13 @@ export function ClientCampaignReport({ campaignId }) {
           <a href={campaignHref} style={secondaryNavBtnStyle}>← Torna alla campagna</a>
           <a href="/dashboard" style={secondaryNavBtnStyle}>⌂ Dashboard</a>
           <button style={buttonStyle} type="button" onClick={downloadPdf} disabled={!state.report || state.loading}>
-            Scarica certificazione PDF
+            Scarica report PDF
           </button>
         </div>
       </header>
       {state.error && <div style={errorStyle}>{state.error}</div>}
       {state.notice && <div style={noticeStyle}>{state.notice}</div>}
-      <FinalDistributionReportView report={state.report} loading={state.loading} />
+      <FinalDistributionReportView report={state.report} loading={state.loading} campaignId={campaignId} />
     </main>
   );
 }

@@ -23,6 +23,7 @@ import {
 } from "./src/auth/session.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
+import { ExtraNotIncludedCard } from "./src/components/customer/ExtraNotIncludedCard.jsx";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { buildCustomerDashboardMetrics, buildCustomerDashboardNotes, buildDistributionProgress } from "./src/lib/customerDashboardMetrics.js";
 import { getFinalCoverage } from "./src/lib/services/coverage-adjustments-api.js";
@@ -6174,7 +6175,7 @@ export function CampaignDashboardPage({
                 textTransform: "uppercase",
                 marginBottom: 12
               }}>Percorso GPS live</div>
-                <div style={{
+                {campagna.extra_access?.gps ? <div style={{
                 height: 300,
                 borderRadius: 12,
                 background: "linear-gradient(135deg,#173225,#182b42 52%,#2b2648)",
@@ -6194,7 +6195,7 @@ export function CampaignDashboardPage({
                   fontSize: 13,
                   color: "rgba(255,255,255,.48)"
                 }}>GPS tracking disponibile durante la distribuzione</div>}
-                </div>
+                </div> : <ExtraNotIncludedCard campaignId={campagna.id} extraId="tracking_gps" />}
               </div>
 
               <div style={{
@@ -6212,7 +6213,7 @@ export function CampaignDashboardPage({
                 textTransform: "uppercase",
                 marginBottom: 12
               }}>Foto proof geolocalizzate</div>
-                {proof.length > 0 ? <div style={{
+                {!campagna.extra_access?.photos ? <ExtraNotIncludedCard campaignId={campagna.id} extraId="photo_report_advanced" /> : proof.length > 0 ? <div style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
                 gap: 10

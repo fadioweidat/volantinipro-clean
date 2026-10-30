@@ -42,7 +42,7 @@ export const doorToDoorContent = {
     {
       h2: "Cosa ricevi",
       paragraphs: [
-        `Al termine della campagna ricevi lo stato di avanzamento e un report finale con mappa delle zone servite. Percorso GPS degli operatori e foto geolocalizzate si aggiungono con ${TRACKING_GPS_EXTRA} e ${PHOTO_REPORT_EXTRA}.`,
+        `Al termine della campagna ricevi lo stato di avanzamento e un report finale con zone, quantità e date. Mappa di copertura, percorso GPS degli operatori e foto geolocalizzate si aggiungono con ${TRACKING_GPS_EXTRA} e ${PHOTO_REPORT_EXTRA}.`,
       ],
     },
     {

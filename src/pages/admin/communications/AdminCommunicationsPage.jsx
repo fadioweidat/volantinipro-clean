@@ -366,6 +366,11 @@ function ModificationRequestsPanel({ requests, onDecided }) {
           <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginTop: 4 }}>
             Attuale: {JSON.stringify(r.current_value)} · Richiesto: {r.note || JSON.stringify(r.requested_value)}
           </div>
+          {r.type === "extra" && r.requested_value?.extra_id && r.status === "pending" && (
+            <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.72)", marginTop: 4 }}>
+              Approvando, il servizio si attiva subito per il Cliente. Incasso manuale: €{r.requested_value.price}.
+            </div>
+          )}
           {r.status === "pending" && (
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button type="button" disabled={busyId === r.id} onClick={() => decide(r.id, "approved")} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(46,204,138,.4)", background: "rgba(46,204,138,.1)", color: C.green, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Approva</button>

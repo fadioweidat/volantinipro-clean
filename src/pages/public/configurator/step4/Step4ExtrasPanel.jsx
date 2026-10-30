@@ -13,7 +13,7 @@ const CATEGORY_LABELS = {
 };
 
 // Servizi opzionali mostrati SUBITO nella vista principale: i due più
-// comprensibili/utili. Tutti gli altri (Controllo PRO, Foto Proof Base,
+// comprensibili/utili. Tutti gli altri (Controllo PRO,
 // Video Proof, QR / Landing Analytics, Report Avanzato Copertura, Account
 // Manager, Supervisione Dedicata) restano nel registry e acquistabili, ma
 // solo dopo aver aperto "Altri servizi opzionali".

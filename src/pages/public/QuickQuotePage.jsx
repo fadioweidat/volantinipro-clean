@@ -435,7 +435,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   const optionalExtras = useMemo(() => buildOptionalExtras(registryById), [registryById]);
 
   const MAIN_EXTRA_IDS = useMemo(() => ["control_pro", "tracking_gps", "photo_report_advanced"], []);
-  const ADVANCED_EXTRA_IDS = useMemo(() => ["photo_proof", "video_proof", "qr_analytics", "advanced_report", "account_manager", "dedicated_supervision"], []);
+  const ADVANCED_EXTRA_IDS = useMemo(() => ["video_proof", "qr_analytics", "advanced_report", "account_manager", "dedicated_supervision"], []);
 
   const mainExtras = useMemo(() => optionalExtras.filter((e) => MAIN_EXTRA_IDS.includes(e.id)), [optionalExtras, MAIN_EXTRA_IDS]);
   const advancedExtras = useMemo(() => optionalExtras.filter((e) => ADVANCED_EXTRA_IDS.includes(e.id)), [optionalExtras, ADVANCED_EXTRA_IDS]);

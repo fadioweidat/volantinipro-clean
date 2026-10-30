@@ -3,7 +3,10 @@
 export const TRACKING_GPS_PRICE = 60;
 export const PHOTO_PROOF_PRICE = 30;
 export const PHOTO_REPORT_PRICE = 50;
+export const CONTROL_PRO_PRICE = 99;
 
 export const TRACKING_GPS_EXTRA = `Tracking GPS (+€${TRACKING_GPS_PRICE})`;
 export const PHOTO_REPORT_EXTRA = `Report fotografico (+€${PHOTO_REPORT_PRICE})`;
+export const CONTROL_PRO_FULL_PRICE = TRACKING_GPS_PRICE + PHOTO_REPORT_PRICE;
+export const CONTROL_PRO_OFFER = `Tracking GPS + Report fotografico: €${CONTROL_PRO_PRICE} invece di €${CONTROL_PRO_FULL_PRICE}, risparmi €${CONTROL_PRO_FULL_PRICE - CONTROL_PRO_PRICE}.`;
 export const PAID_PROOFS_NOTE = `${TRACKING_GPS_EXTRA} e ${PHOTO_REPORT_EXTRA} sono servizi aggiuntivi a pagamento.`;

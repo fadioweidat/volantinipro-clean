@@ -131,7 +131,7 @@ test('Tracking, report and payment expose required privacy-safe flows', () => {
   assert.match(tracking, /Ultimo ping/);
   assert.match(tracking, /AuthorizedZoneProgress/);
   assert.match(report, /getFinalDistributionReport/);
-  assert.match(report, /Scarica certificazione PDF/);
+  assert.match(report, /Scarica report PDF/);
   assert.doesNotMatch(report, /Scarica CSV GPS|window\.print|react-leaflet|Genera Report AI/);
   assert.doesNotMatch(report, /driver_email|driver_phone|disciplin/i);
   assert.match(payment, /from\("campaigns"\)\.select\("metadata"\)/);

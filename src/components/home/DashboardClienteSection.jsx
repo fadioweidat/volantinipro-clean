@@ -8,7 +8,7 @@ const CARDS = [
   { tag: "01", title: "Stato campagna", desc: "In preparazione, in distribuzione o conclusa." },
   { tag: "02", title: "Tracking GPS", desc: "Servizio aggiuntivo: percorso registrato e avanzamento zona per zona." },
   { tag: "03", title: "Foto e prove", desc: "Servizio aggiuntivo: fotografie geolocalizzate raccolte sul campo." },
-  { tag: "04", title: "Report finale", desc: "Mappa di copertura, zone servite e dati completi." },
+  { tag: "04", title: "Report finale", desc: "Zone, quantità e date; mappa GPS e foto con i servizi aggiuntivi." },
 ];
 
 export default function DashboardClienteSection({ onConfigure }) {
@@ -87,6 +87,7 @@ export default function DashboardClienteSection({ onConfigure }) {
               <div style={{ fontFamily: F.sans, fontSize: 9.5, fontWeight: 700, letterSpacing: ".06em", color: "#8E9AA8", textTransform: "uppercase" }}>
                 Area Clienti › Campagna #VP-2026-8941
               </div>
+              <span data-preview-example style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, letterSpacing: ".04em", padding: "3px 10px", borderRadius: 6, background: "#CE4B15", color: "#fff" }}>Esempio</span>
               <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 20, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.35)", color: "#4ADE80", display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <span>✓</span> Conclusa
               </span>
@@ -172,7 +173,7 @@ export default function DashboardClienteSection({ onConfigure }) {
                 <div style={{ fontFamily: F.sans, fontSize: 9.5, fontWeight: 800, color: "#8E9AA8", textTransform: "uppercase", letterSpacing: ".05em" }}>
                   Foto geolocalizzate (48 caricate)
                 </div>
-                <span style={{ fontFamily: F.sans, fontSize: 9, color: "#4ADE80", fontWeight: 700 }}>✓ Verificate GPS</span>
+                <span style={{ fontFamily: F.sans, fontSize: 9, color: "#A3B1C4", fontWeight: 700 }}>Servizio aggiuntivo</span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
                 {[

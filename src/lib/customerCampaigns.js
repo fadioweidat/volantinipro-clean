@@ -1,3 +1,4 @@
+import { campaignExtraAccess } from "./campaignEntitlements.js";
 import { isOnProjectCampaign } from './business/businessOnProject.js';
 
 export const CUSTOMER_DATA_UNAVAILABLE = 'Dato non disponibile';
@@ -73,6 +74,7 @@ export function normalizeCustomerCampaign(row, zones = []) {
     copertura_pct: null, // Dato deprecato/legacy, iniettato a runtime da getFinalCoverage
     selected_dates: Array.isArray(metadata.selected_dates) ? metadata.selected_dates : [],
     pricing: objectValue(metadata.pricing),
+    extra_access: campaignExtraAccess(metadata),
   };
 }
 

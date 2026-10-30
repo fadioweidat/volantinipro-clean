@@ -20,6 +20,7 @@ import { classifyDriverPresence, getLatestTrackableSession, latestPointForSessio
 import { formatCoveragePercent } from '../../lib/gps/coverageDisplay.js';
 import { getMunicipalityCenterPoint } from '../../lib/geo/originRadialSelection.js';
 import { C, F } from '../../lib/constants.js';
+import { ExtraNotIncludedCard } from '../../components/customer/ExtraNotIncludedCard.jsx';
 
 export function CampaignTracking({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], campaign: null });
@@ -75,6 +76,8 @@ export function CampaignTracking({ campaignId }) {
   }, [campaignId, refreshNonce]);
 
   const status = deriveCampaignStatus(state.sessions, state.campaign);
+  const hasGps = state.access?.gps === true;
+  const hasPhotos = state.access?.photos === true;
   const manualMetrics = state.campaign?.metadata?.manual_operational_metrics || null;
 
   // Aggregazione canonica finale delle metriche (GPS reale + manuale verificato, zero-state protetto)
@@ -193,6 +196,7 @@ export function CampaignTracking({ campaignId }) {
             value={operationalMetrics.coverageDisplay}
             color={C.green}
           />
+          {hasGps && <>
           <Metric
             label="Punti di copertura verificati"
             value={operationalMetrics.verifiedPointsDisplay}
@@ -218,11 +222,14 @@ export function CampaignTracking({ campaignId }) {
             value={CUSTOMER_PRESENCE_LABELS[presence.status]}
             color={presence.status === 'online' ? C.green : presence.status === 'weak' ? C.yellow : 'rgba(255,255,255,.45)'}
           />
+          </>}
+          {hasPhotos && (
           <Metric
             label="Foto approvate"
             value={operationalMetrics.approvedPhotosCount}
             color={C.blue}
           />
+          )}
         </div>
 
         {state.campaign && (
@@ -233,7 +240,9 @@ export function CampaignTracking({ campaignId }) {
           />
         )}
 
-        <section style={{ ...cardStyle, marginBottom: 16 }}>
+        {state.campaign && !hasGps && <div style={{ marginBottom: 16 }}><ExtraNotIncludedCard campaignId={campaignId} extraId="tracking_gps" /></div>}
+
+        {hasGps && <section style={{ ...cardStyle, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
             <div>
               <p style={eyebrowStyle}>Percorso distribuzione</p>
@@ -262,7 +271,7 @@ export function CampaignTracking({ campaignId }) {
           <p style={{ margin: '10px 0 0', fontSize: 12, color: 'rgba(255,255,255,.45)', fontFamily: F.sans }}>
             Copertura verificata dal team operativo.
           </p>
-        </section>
+        </section>}
 
         <CustomerIssuesCard
           campaignId={campaignId}
@@ -284,7 +293,7 @@ export function CampaignTracking({ campaignId }) {
             )) : <EmptyState text="Nessuna sessione registrata." />}
           </section>
 
-          <section style={cardStyle}>
+          {state.campaign && !hasPhotos ? <ExtraNotIncludedCard campaignId={campaignId} extraId="photo_report_advanced" /> : <section style={cardStyle}>
             <p style={eyebrowStyle}>Foto prova approvate</p>
             {state.photos.length ? state.photos.map((photo) => {
               const meta = parseProofPhotoNote(photo.note);
@@ -303,7 +312,7 @@ export function CampaignTracking({ campaignId }) {
                 </div>
               );
             }) : <EmptyState text="Nessuna foto prova approvata disponibile." />}
-          </section>
+          </section>}
         </div>
       </div>
     </main>

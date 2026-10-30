@@ -116,11 +116,11 @@ test("8. Totale preventivo corretto con piu' extra selezionati, nessun doppio co
   assert.equal(pricing.extraCost, 258);
 });
 
-test("Raggruppamento UI: i 9 extra della nuova struttura sono tutti categorizzati in uno dei 3 gruppi richiesti", () => {
+test("Raggruppamento UI: gli 8 extra della nuova struttura sono tutti categorizzati in uno dei 3 gruppi richiesti", () => {
   const { byId } = setup();
   const optional = buildOptionalExtras(byId);
   const expectedByCategory = {
-    controllo_report: ["control_pro", "tracking_gps", "photo_proof", "photo_report_advanced"],
+    controllo_report: ["control_pro", "tracking_gps", "photo_report_advanced"],
     // graphic_design rimosso dal selettore: la grafica nuova passa dalla
     // sezione "Grafica" dello Step1 (data.printing.artwork.*).
     marketing: ["video_proof", "qr_analytics", "advanced_report"],
@@ -133,7 +133,7 @@ test("Raggruppamento UI: i 9 extra della nuova struttura sono tutti categorizzat
       assert.equal(ext.category, category, `${id} deve appartenere al gruppo ${category}`);
     }
   }
-  assert.equal(optional.length, 9, "9 extra facoltativi (graphic_design rimosso, gps_plus_report gia' escluso)");
+  assert.equal(optional.length, 8, "8 extra facoltativi (graphic_design rimosso, gps_plus_report e photo_proof gia' esclusi)");
   // gps_plus_report non e' piu' proposto come nuovo extra (doppione del bundle Controllo PRO)
   assert.ok(!optional.some(e => e.id === "gps_plus_report"));
   // graphic_design e design (grafica LEGACY) non sono piu' proposti nel nuovo Step4
