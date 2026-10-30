@@ -43,8 +43,9 @@ export function Navbar({
       // Navbar e' renderizzata solo fuori dal configuratore (mai durante
       // Step1-4): ogni link "Configuratore Campagna" qui e' un ingresso da
       // fuori del flusso, quindi deve avviare una campagna nuova, non
-      // riproporre l'ultima configurazione salvata.
-      onNav(target, null, { newCampaign: true });
+      // riproporre l'ultima configurazione salvata: se la bozza contiene
+      // scelte del cliente, prima gli si chiede cosa fare.
+      onNav(target, null, { newCampaign: true, protectDraft: true });
       return;
     }
     onNav(target);
