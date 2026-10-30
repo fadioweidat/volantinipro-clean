@@ -53,8 +53,8 @@ export const metaByPage = {
   ],
   ...Object.fromEntries(CITY_SLUGS.map((slug) => [cityPageKey(slug), cityMeta(slug)])),
   "milano-landing": [
-    "Volantinaggio Milano e distribuzione volantini | VolantiniPro",
-    "Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online.",
+    "Distribuzione volantini Milano e volantinaggio | VolantiniPro",
+    "Vuoi distribuire volantini a Milano? Scegli zona, quantità e servizio Door to Door, Hand to Hand o Business. Richiedi un preventivo online con VolantiniPro.",
   ],
 };
 export const SEO_ROUTES = [
