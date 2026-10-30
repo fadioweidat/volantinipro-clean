@@ -74,7 +74,7 @@ test('Milano landing matches local commercial search intent and links to prices'
   const plain = bodyText(html);
   assert.match(plain, /Vuoi distribuire volantini a Milano\?/);
   assert.match(plain, /Come richiedere la distribuzione di volantini a Milano/);
-  assert.match(plain, /Come posso richiedere la distribuzione di volantini a Milano\?/);
+  assert.match(plain, /Quanto costa distribuire volantini a Milano\?/);
   assert.match(html, /href="\/prezzi-distribuzione-volantini"/);
   assert.match(html, /href="\/preventivo"/);
   assert.match(html, /href="\/consulente"/);
