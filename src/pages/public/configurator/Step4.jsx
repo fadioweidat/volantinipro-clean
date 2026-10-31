@@ -18,7 +18,7 @@ import { getServiceAccent } from "../../../lib/services/service-config.js";
 import { getZoneFullCoverageFlyers } from "../../../lib/doorToDoorCoverage.js";
 import { MONTHS_SHORT, QUOTE_PRICES } from "../../../lib/appConstants.js";
 import { NavButton } from "../../../components/NavButton.jsx";
-import { printQuotePdf } from "../../../lib/pdf/printQuotePdf.js";
+import { downloadQuotePdf } from "../../../lib/pdf/generateQuotePdf.js";
 import { S2_CITIES, S2_ZONES } from "../../../lib/step2/s2Constants.js";
 import { sendEmailConferma } from "../../../api/sendEmailConferma.js";
 import { SERVICE_META } from "../../../lib/services/serviceMeta.js";
@@ -1326,7 +1326,7 @@ export function Step4({
     setPdfBusy(true);
     setPdfError("");
     try {
-      printQuotePdf(quotePdfData);
+      downloadQuotePdf(quotePdfData, pdfFileName);
       console.info("[QUOTE_PDF_GENERATED]", {
         fileName: pdfFileName,
         area: quotePdfData.area?.mainArea
@@ -1335,7 +1335,7 @@ export function Step4({
       console.warn("[QUOTE_PDF_ERROR]", {
         message: err?.message || String(err)
       });
-      setPdfError("Non è stato possibile aprire il preventivo. Controlla che i popup siano abilitati.");
+      setPdfError("Non è stato possibile scaricare il PDF. Riprova oppure contatta l’assistenza.");
     } finally {
       setPdfBusy(false);
     }
