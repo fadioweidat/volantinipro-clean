@@ -1447,7 +1447,10 @@ function Step2MapImpl({
               : z.status === 'parziale'
                 ? { fillOpacity: 0.16, weight: 1.3, opacity: 0.75 }
                 : { fillOpacity: 0.22, weight: 1.6, opacity: 0.9 };
-        const fillOpacity = Math.max(0.006, Math.min(0.32, coverageIntensity.fillOpacity * opacityScale));
+        // Nel raggio i territori devono essere riconoscibili anche senza hover.
+        // L'opacità di copertura (spesso "non_coperto" = 0.05) non deve
+        // determinare la visibilità della differenziazione territoriale.
+        const fillOpacity = Math.max(0.30, Math.min(0.42, coverageIntensity.fillOpacity * opacityScale));
         // NIL selezionabili (Quartieri): click aggiunge/rimuove tramite lo stesso
         // onToggleZone/`selected` usato da lista e ricerca. Le NIL scelte hanno
         // bordo piu' marcato e riempimento piu' pieno.
