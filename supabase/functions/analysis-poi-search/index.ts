@@ -559,7 +559,7 @@ function buildHotspots(lat: number, lng: number, items: PoiRecord[], limit = 6) 
 // Google e Foursquare sono a pagamento: limite persistente prima di ogni provider.
 const POI_LIMIT_PER_IP = 60;
 const POI_LIMIT_WINDOW_SECONDS = 600;
-const POI_LIMIT_GLOBAL_DAILY = 3000;
+const POI_LIMIT_GLOBAL_DAILY = 500;
 
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
