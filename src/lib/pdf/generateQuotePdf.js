@@ -118,6 +118,10 @@ export function mapQuoteDataToPdfModel(input) {
     generatedAt: data.generatedAt || new Date().toISOString(),
     status: data.status || "Preventivo stimato",
     service: data.service || "Servizio",
+    client: data.client || {},
+    contact: data.contact || {},
+    coverageStrategy: data.coverageStrategy || null,
+    quantityExplanation: data.quantityExplanation || null,
     campaign: data.campaign || {},
     area: data.area || {},
     outputs: data.outputs || {},
@@ -427,6 +431,16 @@ function renderPdf(model) {
     { label: "Stato", value: model.status },
   ], 4);
 
+  if (Object.values(model.client).some(Boolean)) {
+    section(w, "Dati del cliente", "Intestatario del preventivo");
+    kvGrid(w, [
+      { label: "Nome", value: model.client.name },
+      { label: "Azienda", value: model.client.company },
+      { label: "Email", value: model.client.email },
+      { label: "Telefono", value: model.client.phone },
+    ], 2);
+  }
+
   section(w, "1. Configurazione campagna", "Dati selezionati nello Step 1");
   kvGrid(w, [
     { label: "Servizio", value: model.service },
@@ -435,6 +449,10 @@ function renderPdf(model) {
     { label: "Quantit\u00e0 volantini", value: formatNumberIT(model.campaign.quantity) },
     { label: "Formato", value: model.campaign.format },
     { label: "Grammatura", value: formatGrammage(model.campaign.grammage) },
+    { label: "Tipo carta", value: model.campaign.paperType },
+    { label: "Orientamento", value: model.campaign.orientation },
+    { label: "Lati", value: model.campaign.sides },
+    { label: "Colore", value: model.campaign.color },
     { label: "Materiale", value: model.campaign.materialStatus },
     { label: "Grafica", value: model.campaign.graphicStatus },
     { label: "Piano", value: model.campaign.plan },
@@ -461,7 +479,7 @@ function renderPdf(model) {
     { label: "Quantit\u00e0 residua", value: model.outputs.remainingFlyers > 0 ? formatNumberIT(model.outputs.remainingFlyers) : null },
     { label: "Quantit\u00e0 mancante", value: model.outputs.missingFlyers > 0 ? formatNumberIT(model.outputs.missingFlyers) : null },
   ]);
-  const qExplanation = quantityExplanation(model);
+  const qExplanation = model.quantityExplanation || quantityExplanation(model);
   if (qExplanation) paragraph(w, qExplanation);
   if (model.outputs.coverageStatus === "partial") paragraph(w, "Hai scelto di continuare con copertura parziale.");
 
@@ -514,14 +532,29 @@ function renderPdf(model) {
       formatCurrencyIT(e.amount),
       formatCurrencyIT(e.amount),
     ]),...(model.pricing.discounts || []).map(d => [d.label, "-", "-", `-${formatCurrencyIT(d.amount)}`]),
+    ...(model.pricing.printingLine?.inTotal && model.pricing.printingLine.amount != null ? [[
+      model.pricing.printingLine.label || "Stampa indicativa", "-", "-",
+      formatCurrencyIT(model.pricing.printingLine.amount),
+    ]] : []),
+    ...(model.pricing.graphicLine?.inTotal && model.pricing.graphicLine.amount != null ? [[
+      model.pricing.graphicLine.label || "Grafica", "-", "-",
+      formatCurrencyIT(model.pricing.graphicLine.amount),
+    ]] : []),
   ], [210, 115, 105, 80]);
   w.ensure(54);
   w.rect(PAGE.margin, w.y - 40, PAGE.w - PAGE.margin * 2, 40, "1 0.97 0.93", "0.99 0.73 0.45");
-  w.textAt("Totale stimato", PAGE.margin + 12, w.y - 25, 12, COLORS.ink, "F2");
-  w.textAt(formatCurrencyIT(model.pricing.total), PAGE.w - PAGE.margin - 120, w.y - 25, 16, COLORS.orange, "F2");
+  w.textAt("Totale complessivo", PAGE.margin + 12, w.y - 25, 12, COLORS.ink, "F2");
+  w.textAt(formatCurrencyIT(model.pricing.grandTotal ?? model.pricing.total), PAGE.w - PAGE.margin - 120, w.y - 25, 16, COLORS.orange, "F2");
   w.move(54);
   // Note di prezzo (es. Hand to Hand: volantini stimati, spostamento fuori Milano senza importo).
   (model.pricing.notes || []).forEach((note) => paragraph(w, note));
+  if (model.pricing.printingLine?.inTotal) {
+    paragraph(w, "Stampa indicativa inclusa nel totale: importo da confermare con la tipografia.");
+  }
+  if (model.pricing.graphicLine && !model.pricing.graphicLine.inTotal) {
+    paragraph(w, model.pricing.graphicLine.note ? `Grafica: ${model.pricing.graphicLine.note}.` : "Grafica non inclusa nel totale.");
+  }
+  paragraph(w, "IVA esclusa. Il preventivo e soggetto a conferma operativa; nessun pagamento anticipato.");
 
   section(w, "8. Fonti dati", "Origine dei dati utilizzati");
   paragraph(w, model.sources.join(" - ") || "Fonti non disponibili");
@@ -611,12 +644,20 @@ export function createQuotePdfBlob(rawData) {
 export function downloadQuotePdf(rawData, filename) {
   const blob = createQuotePdfBlob(rawData);
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename || "volantinipro-preventivo.pdf";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "volantinipro-preventivo.pdf";
+    document.body.appendChild(a);
+    try {
+      a.click();
+    } finally {
+      a.remove();
+    }
+  } finally {
+    // Do not revoke during the same task as the click: some browsers would
+    // cancel the pending PDF download before it starts.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
   return blob;
 }
