@@ -73,3 +73,5 @@
 
 - Valutare se limitare anche i conteggi GPS/foto della funzione di riepilogo per i clienti senza extra.
   Oggi final_distribution_report_telemetry restituisce al proprietario conteggi e orari (nessuna posizione, nessuna immagine); il sito non la chiama senza extra.
+
+- Overpass lento (16 s): valutare una cache dei POI.
