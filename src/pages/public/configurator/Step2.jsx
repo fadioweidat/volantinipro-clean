@@ -4666,11 +4666,15 @@ export function Step2({
             const geometry = feature.geometry;
             const properties = feature.properties || {};
             const address = properties.address || {};
-            const candidateName = address.city || address.town || address.municipality ||
-              properties.name || String(properties.display_name || '').split(',')[0];
+            // Il geocoder varia tra city/town/village/municipality e
+            // display_name: non scartare un comune valido per il tipo di località.
+            const candidates = [
+              address.city, address.town, address.village, address.municipality,
+              properties.name, String(properties.display_name || '').split(',')[0]
+            ];
             return geometry && ['Polygon','MultiPolygon'].includes(geometry.type) &&
               !['county','state','region','province'].includes(properties.addresstype) &&
-              normalizeMunicipalityName(candidateName) === key;
+              candidates.some(value => value && normalizeMunicipalityName(value) === key);
           });
           const boundary = candidates[0]?.geometry || null;
           if (boundary) radiusComuneGeometryCache.current.set(key, boundary);
