@@ -225,3 +225,4 @@ tests/paid_extras_entitlements.test.mjs
 tests/fadi_gateway_lockdown.test.mjs
 tests/security_batch2.test.mjs
 tests/poi_free_only.test.mjs
+tests/ai_core_limits.test.mjs

@@ -122,6 +122,83 @@ async function hashPayload(payload: unknown) {
 // espliciti: il body arbitrario del client non arriva mai cosi' com'e' a
 // OpenAI, solo snapshot/question dopo questi controlli.
 const MAX_QUESTION_LENGTH = 500;
+// Tetto alla risposta del modello, su tutte le chiamate OpenAI.
+const OPENAI_MAX_TOKENS = 800;
+
+// Limiti sui messaggi che arrivano a OpenAI. "total" e' il tetto giornaliero
+// dell'intera categoria; l'Admin non ne ha uno.
+const AI_LIMITS = {
+  anon: { perHour: 20, dailyTotal: 300, maxMessage: 500 },
+  driver: { perHour: 60, dailyTotal: 500, maxMessage: 500 },
+  user: { perHour: 60, dailyTotal: 1000, maxMessage: 1000 },
+  admin: { perHour: 300, dailyTotal: null, maxMessage: 2000 },
+} as const;
+type AiTier = keyof typeof AI_LIMITS;
+
+async function aiTier(user: { id: string } | null, contextType: string): Promise<AiTier> {
+  if (contextType === "driver_assignment") return "driver";
+  if (!user) return "anon";
+  const { data: profile } = await supabaseAdmin()?.from("profiles").select("role").eq("id", user.id).maybeSingle() || { data: null };
+  return isAdminProfile(profile) ? "admin" : "user";
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function clientIp(req: Request) {
+  return req.headers.get("cf-connecting-ip")?.trim() || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
+// Il sito mostra solo il testo di una risposta riuscita: il limite torna come
+// risposta dell'assistente. I report non hanno una chat dove mostrarlo.
+function aiLimitReply(contextType: string, answer: string, code: string, retryAfterSeconds?: number) {
+  const noChat = contextType === "territorial_report" || contextType === "control_center_diagnosis";
+  return noChat
+    ? json({ answer: null, status: "error", error: code, retryAfterSeconds }, 429)
+    : json({ answer, status: "limited", code, retryAfterSeconds });
+}
+
+function aiMessageTooLong(tier: AiTier, contextType: string, body: any) {
+  const max = AI_LIMITS[tier].maxMessage;
+  if (typeof body?.question !== "string" || body.question.trim().length <= max) return null;
+  return aiLimitReply(contextType, `Il messaggio è troppo lungo: puoi scrivere al massimo ${max} caratteri.`, "MESSAGE_TOO_LONG");
+}
+
+// Da chiamare subito prima del modello: risposte in cache e deterministiche non
+// consumano messaggi. Se il limite non e' verificabile non si chiama OpenAI.
+async function aiLimitExceeded(req: Request, user: { id: string } | null, tier: AiTier, contextType: string) {
+  const supabase = supabaseAdmin();
+  const unavailable = () => aiLimitReply(contextType, "L'assistente non è disponibile in questo momento. Riprova tra qualche minuto.", "AI_LIMIT_UNAVAILABLE");
+  if (!supabase) return tier === "admin" ? null : unavailable();
+  const limits = AI_LIMITS[tier];
+  const own = await supabase.rpc("consume_edge_rate_limit", {
+    p_scope: `ai_core_${tier}`,
+    p_identifier_type: user ? "user" : "ip",
+    p_identifier_hash: await sha256Hex(user ? user.id : clientIp(req)),
+    p_max_requests: limits.perHour,
+    p_window_seconds: 3600,
+  });
+  if (own.error) return tier === "admin" ? null : unavailable();
+  if (!own.data?.allowed) {
+    const minutes = Math.max(1, Math.ceil(Number(own.data?.retry_after_seconds || 60) / 60));
+    return aiLimitReply(contextType, `Hai raggiunto il limite di messaggi all'assistente. Potrai scrivere di nuovo tra circa ${minutes} minuti.`, "AI_RATE_LIMITED", minutes * 60);
+  }
+  if (limits.dailyTotal === null) return null;
+  const total = await supabase.rpc("consume_edge_rate_limit", {
+    p_scope: `ai_core_${tier}_total`,
+    p_identifier_type: "global",
+    p_identifier_hash: await sha256Hex(tier),
+    p_max_requests: limits.dailyTotal,
+    p_window_seconds: 86400,
+  });
+  if (total.error) return unavailable();
+  if (!total.data?.allowed) {
+    return aiLimitReply(contextType, "Per oggi l'assistente ha raggiunto il limite di messaggi. Riprova domani oppure contattaci.", "AI_DAILY_LIMIT", Number(total.data?.retry_after_seconds || 3600));
+  }
+  return null;
+}
 const MAX_SNAPSHOT_JSON_LENGTH = 20000; // ~20KB, ampiamente sufficiente per uno snapshot territoriale reale
 const MAX_SNAPSHOT_ARRAY_LENGTH = 200;
 const MAX_SNAPSHOT_DEPTH = 8;
@@ -422,6 +499,7 @@ async function callOpenAi(contextType: string, snapshot: Record<string, unknown>
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        max_tokens: OPENAI_MAX_TOKENS,
         temperature: 0.2,
         response_format: { type: "json_object" },
         messages: [
@@ -460,6 +538,7 @@ async function callAdminOpenAi(snapshot: Record<string, unknown>, question: stri
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        max_tokens: OPENAI_MAX_TOKENS,
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -494,6 +573,7 @@ async function callCustomerOpenAi(snapshot: Record<string, unknown>, question: s
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        max_tokens: OPENAI_MAX_TOKENS,
         temperature: 0.2,
         response_format: { type: "json_object" },
         messages: [
@@ -529,6 +609,7 @@ async function callControlCenterOpenAi(snapshot: Record<string, unknown>, warnin
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        max_tokens: OPENAI_MAX_TOKENS,
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -564,6 +645,7 @@ async function callTerritorialReportOpenAi(snapshot: Record<string, unknown>, qu
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        max_tokens: OPENAI_MAX_TOKENS,
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -598,6 +680,7 @@ async function callDriverOpenAi(snapshot: Record<string, unknown>, question: str
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        max_tokens: OPENAI_MAX_TOKENS,
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -632,6 +715,7 @@ async function callSupplierOpenAi(snapshot: Record<string, unknown>, question: s
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        max_tokens: OPENAI_MAX_TOKENS,
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -660,7 +744,7 @@ async function callSupplierOpenAi(snapshot: Record<string, unknown>, question: s
 // (l'unica identita' possibile e' quella verificata da getAuthedUser, mai
 // quella del payload). `user` puo' essere null: in quel caso la richiesta
 // procede comunque, solo senza cache.
-async function handleQuoteStep(contextType: string, user: { id: string } | null, body: any) {
+async function handleQuoteStep(req: Request, tier: AiTier, contextType: string, user: { id: string } | null, body: any) {
   const validation = validateQuotePayload(contextType, body);
   if (!validation.ok) {
     return json({ answer: null, status: "error", error: validation.error }, 400);
@@ -675,6 +759,8 @@ async function handleQuoteStep(contextType: string, user: { id: string } | null,
   // fase: gli anonimi semplicemente saltano la cache e richiamano OpenAI ad
   // ogni domanda.
   if (!user) {
+    const limited = await aiLimitExceeded(req, user, tier, contextType);
+    if (limited) return limited;
     const warnings: string[] = [];
     const aiResult = await callOpenAi(contextType, snapshot, question, warnings);
     if (!aiResult) return json({ answer: null, status: "fallback", warnings });
@@ -700,6 +786,9 @@ async function handleQuoteStep(contextType: string, user: { id: string } | null,
       return json({ answer: cached.answer, status: "ai" });
     }
   }
+
+  const limited = await aiLimitExceeded(req, user, tier, contextType);
+  if (limited) return limited;
 
   const warnings: string[] = [];
   // L'AI riceve solo lo snapshot gia' calcolato dai sistemi deterministici
@@ -1513,7 +1602,17 @@ serve(async (req: Request) => {
     const trustedCollector = Boolean(collectorSecret && req.headers.get("x-collector-secret") === collectorSecret);
 
     if (contextType === "action_verify") return await handleActionVerify(supabaseAdmin, json, req, user, body?.action, body?.assignmentId);
-    if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(contextType, user, body);
+    const metered = !(contextType === "control_center_diagnosis" && trustedCollector);
+    const tier = await aiTier(user, contextType);
+    if (metered) {
+      const tooLong = aiMessageTooLong(tier, contextType, body);
+      if (tooLong) return tooLong;
+    }
+    if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(req, tier, contextType, user, body);
+    if (metered) {
+      const limited = await aiLimitExceeded(req, user, tier, contextType);
+      if (limited) return limited;
+    }
     if (contextType === "customer_dashboard") return await handleCustomerDashboard(user, body);
     if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);
     if (contextType === "driver_assignment") return await handleDriverAssignment(req, body);
