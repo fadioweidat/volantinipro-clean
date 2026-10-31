@@ -56,3 +56,38 @@
   .comms-grid { grid-template-columns: minmax(0, 1fr); }
   .comms-list { max-height: 420px; overflow-y: auto !important; }
 }
+
+/* Un contenitore per campagna; Cliente e ciascun Driver restano chat separate. */
+.comms-campaign-card {
+  border-bottom: 1px solid rgba(255,255,255,.13);
+  background: rgba(255,255,255,.015);
+}
+.comms-campaign-card:last-child { border-bottom: 0; }
+.comms-campaign-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 4px;
+  padding: 13px 14px 10px;
+  border-left: 3px solid rgba(46,204,138,.65);
+  background: rgba(46,204,138,.045);
+}
+.comms-campaign-heading__name {
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #e8f5ee;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.comms-campaign-heading__location { font-size: 11px; color: #b9d6cf; }
+.comms-campaign-heading__reference { font-size: 10px; color: #92a3b8; }
+.comms-campaign-heading .comms-unread { margin-left: auto; }
+.comms-campaign-threads .comms-card {
+  padding: 10px 13px 11px 21px;
+  border-left-width: 3px;
+}
+.comms-campaign-threads .comms-card:last-child { border-bottom: none; }
+.comms-campaign-threads .comms-title { font-size: 13px; }
+.comms-campaign-threads .comms-preview { font-size: 11px; }
