@@ -22,15 +22,15 @@ function cardCampaignLabel(identity) {
   return campaign.trim() || (identity.campaign ? 'Campagna' : '');
 }
 
-export function ConversationIdentity({ conversation, header = false }) {
+export function ConversationIdentity({ conversation, header = false, compact = false }) {
   const role = conversation.kind === 'customer_admin' ? 'Cliente'
     : conversation.kind === 'driver_admin' ? 'Driver' : null;
   const cardIdentity = !role ? { title: 'Conversazione', kindLabel: 'Tipo non disponibile' }
     : conversation.identity?.kindLabel === role ? conversation.identity : resolveConversationIdentity(conversation);
   const identity = header ? (conversation.identity || resolveConversationIdentity(conversation)) : cardIdentity;
-  const campaign = header ? identity.campaign : cardCampaignLabel(identity);
-  const showLocation = header || role === 'Cliente'
-    || (identity.locationLabel && identity.locationLabel !== 'Località non disponibile');
+  const campaign = compact ? null : header ? identity.campaign : cardCampaignLabel(identity);
+  const showLocation = !compact && (header || role === 'Cliente'
+    || (identity.locationLabel && identity.locationLabel !== 'Località non disponibile'));
   return (
     <div className={`comms-identity${header ? ' comms-identity--header' : ''}`} data-kind={header ? undefined : conversation.kind}>
       <div className="comms-title-row">
@@ -45,7 +45,7 @@ export function ConversationIdentity({ conversation, header = false }) {
         {!header && <svg className="comms-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg>}
         {identity.locationLabel}
       </div>}
-      {(header || role === 'Driver') && identity.assignmentLabel && <div className="comms-meta">{identity.assignmentLabel}</div>}
+      {!compact && (header || role === 'Driver') && identity.assignmentLabel && <div className="comms-meta">{identity.assignmentLabel}</div>}
       {!header && <div className="comms-preview">{getConversationPreview(conversation)}</div>}
     </div>
   );
