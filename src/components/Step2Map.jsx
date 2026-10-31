@@ -1411,6 +1411,27 @@ function Step2MapImpl({
     let missingGeometryNames = [];
     let renderedCoveragePolygonLayers = 0;
     if (shouldRenderCoveragePolygons) {
+      // La palette distingue i territori (NIL a Milano, comuni altrove),
+      // senza modificare geometrie, quantità o stato di copertura.
+      // Le chiavi sono normalizzate e ordinate per avere colori deterministici
+      // a prescindere dall'ordine di arrivo delle feature.
+      const territoryKey = (z) => {
+        const isNil = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
+        const identifier = isNil
+          ? (z.nil_code || z.nilCode || z.code || z.id || z.name)
+          : (z.municipality_code || z.municipalityCode || z.istat_code || z.id || z.name);
+        return `${isNil ? 'nil' : 'comune'}:${String(identifier ?? '').trim().toLowerCase()}`;
+      };
+      const territoryPalette = [
+        '#34D399', '#60A5FA', '#C084FC', '#FBBF24', '#FB7185',
+        '#2DD4BF', '#A78BFA', '#F97316', '#84CC16', '#38BDF8',
+        '#F472B6', '#FACC15', '#818CF8', '#4ADE80', '#FB923C', '#22D3EE',
+      ];
+      const keys = [...new Set(coveragePolygons.map(territoryKey))].sort();
+      const territoryColors = new Map(keys.map((key, index) => [
+        key,
+        territoryPalette[index] || `hsl(${(index * 137.508) % 360} 72% 61%)`,
+      ]));
       coveragePolygons.forEach(z => {
         const isNilCoverage = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
         if (simplifiedMilano && (isNilCoverage ? activeLayers?.nil === false : activeLayers?.comuni === false)) return;
@@ -1430,8 +1451,8 @@ function Step2MapImpl({
         // bordo piu' marcato e riempimento piu' pieno.
         const isSelectableNil = Boolean(z.selectable && isD2D && onToggleZone);
         const gisStyle = {
-          color: z.isSelected ? '#E8571A' : coverageColors.border,
-          fillColor: coverageColors.fill,
+          color: z.isSelected ? '#E8571A' : territoryColors.get(territoryKey(z)),
+          fillColor: territoryColors.get(territoryKey(z)),
           fillOpacity: z.isSelected ? Math.max(fillOpacity, 0.28) : fillOpacity,
           weight: z.isSelected ? Math.max(coverageIntensity.weight, 2.4) : coverageIntensity.weight,
           opacity: z.isSelected ? 1 : coverageIntensity.opacity,
