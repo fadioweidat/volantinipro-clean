@@ -1,3 +1,4 @@
+import { escapeHtmlDeep } from "./escapeHtmlDeep.js";
 // Stesso pattern di ./printQuotePdf.js: nessuna libreria PDF, HTML + window.print().
 // Contenuto diverso (report territoriale, non preventivo), stile visivo identico per coerenza.
 
@@ -51,7 +52,8 @@ function table(columns, rows) {
   return `<table class="data-table"><thead><tr>${columns.map((c) => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${columns.map((c) => `<td>${c.render ? c.render(r) : (r[c.key] ?? "—")}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
-export function printTerritorialReportPdf(rawData) {
+export function printTerritorialReportPdf(unsafeData) {
+  const rawData = escapeHtmlDeep(unsafeData);
   const d = rawData || {};
   const genDate = new Date(d.generatedAt || Date.now()).toLocaleDateString("it-IT");
   const isoDate = new Date(d.generatedAt || Date.now()).toISOString().slice(0, 10);

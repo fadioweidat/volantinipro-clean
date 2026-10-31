@@ -1,3 +1,4 @@
+import { escapeHtmlDeep } from "./escapeHtmlDeep.js";
 function fmt(n, dec = 0) {
   if (n == null || n === "") return null;
   const num = Number(n);
@@ -113,7 +114,8 @@ function slug(str) {
     .replace(/(^-|-$)/g, "");
 }
 
-export function printQuotePdf(rawData) {
+export function printQuotePdf(unsafeData) {
+  const rawData = escapeHtmlDeep(unsafeData);
   const d = rawData || {};
   const genDate = new Date(d.generatedAt || Date.now()).toLocaleDateString("it-IT");
   const quoteId = d.quoteId || `VP-${genDate.replace(/\D/g, "")}`;

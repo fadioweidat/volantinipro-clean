@@ -20,7 +20,6 @@ import { MONTHS_SHORT, QUOTE_PRICES } from "../../../lib/appConstants.js";
 import { NavButton } from "../../../components/NavButton.jsx";
 import { downloadQuotePdf } from "../../../lib/pdf/generateQuotePdf.js";
 import { S2_CITIES, S2_ZONES } from "../../../lib/step2/s2Constants.js";
-import { sendEmailConferma } from "../../../api/sendEmailConferma.js";
 import { SERVICE_META } from "../../../lib/services/serviceMeta.js";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
 import { Step4ExtrasPanel } from "./step4/Step4ExtrasPanel.jsx";

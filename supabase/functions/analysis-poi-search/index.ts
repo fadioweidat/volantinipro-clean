@@ -556,6 +556,35 @@ function buildHotspots(lat: number, lng: number, items: PoiRecord[], limit = 6) 
     }));
 }
 
+// Google e Foursquare sono a pagamento: limite persistente prima di ogni provider.
+const POI_LIMIT_PER_IP = 60;
+const POI_LIMIT_WINDOW_SECONDS = 600;
+const POI_LIMIT_GLOBAL_DAILY = 3000;
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function clientIp(req: Request): string {
+  return req.headers.get("cf-connecting-ip")?.trim()
+    || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || "unknown";
+}
+
+async function poiLimitExceeded(supabase: ReturnType<typeof supabaseAdmin>, req: Request): Promise<boolean> {
+  if (!supabase) return true;
+  const limits = [
+    { p_identifier_type: "ip", p_identifier_hash: await sha256Hex(clientIp(req)), p_max_requests: POI_LIMIT_PER_IP, p_window_seconds: POI_LIMIT_WINDOW_SECONDS },
+    { p_identifier_type: "global", p_identifier_hash: await sha256Hex("analysis-poi-search"), p_max_requests: POI_LIMIT_GLOBAL_DAILY, p_window_seconds: 86400 },
+  ];
+  for (const limit of limits) {
+    const { data, error } = await supabase.rpc("consume_edge_rate_limit", { p_scope: "analysis_poi_search", ...limit });
+    if (error || !data?.allowed) return true;
+  }
+  return false;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -582,6 +611,9 @@ serve(async (req) => {
     };
 
     const supabase = supabaseAdmin();
+    if (await poiLimitExceeded(supabase, req)) {
+      return json({ values: {}, metadata: { isEstimated: false }, sources: [], error: "RATE_LIMITED" }, 429);
+    }
     const cachedPoiResult = await cachedPoiDbProvider(supabase, lat, lng, context, warnings);
     const providerResults = [
       await googlePlacesProvider(lat, lng, context, warnings),

@@ -1,5 +1,5 @@
 // send-email-conferma — endpoint email transazionali cliente:
-//  - type "conferma" / "pagamento_ricevuto": contenuto INVARIATO (istruzioni bonifico / notifica pagamento).
+//  - type "pagamento_ricevuto": solo Admin, destinatario e dati letti dal database (notifica pagamento).
 //  - type "preventivo": invia il riepilogo del preventivo Step4 via email al cliente ("Invia preventivo via email").
 //
 // Sicurezza & Hardening DB Live:
@@ -97,51 +97,32 @@ async function buildPersistentIdempotencyKey(
 const IBAN = "IT60 X0542 8111 0100 0001 2345 6";
 const INTESTATARIO = "VolantiniPro Srl";
 
-function buildConfermaEmail(cliente: any, campagna: any, isPaid: boolean): { subject: string; html: string } {
-  const payNow = campagna?.totale_euro;
-  const grandTotal = campagna?.grand_totale_euro ?? campagna?.grand_total ?? null;
-  const stampaIndicativa = campagna?.stampa_indicativa ?? null;
-  const hasDistinctGrandTotal =
-    grandTotal != null && payNow != null && Number(grandTotal) !== Number(payNow);
-  const quoteRecapRows = hasDistinctGrandTotal
-    ? `
-    <h2>Riepilogo preventivo</h2>
-    <table>
-      <tr><td>Totale preventivo stimato</td><td><strong>€${grandTotal}</strong></td></tr>
-      <tr><td>Importo distribuzione da pagare ora</td><td><strong>€${payNow}</strong></td></tr>
-      ${stampaIndicativa != null ? `<tr><td>Stampa (indicativa, da confermare in tipografia)</td><td>~€${stampaIndicativa}</td></tr>` : ""}
-    </table>
-    <p>La stampa è una stima indicativa: verrà confermata e fatturata separatamente dalla tipografia e non è inclusa nell'importo del bonifico qui sotto.</p>
-  `
-    : "";
+const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
-  const html = isPaid ? `
-    <h1>Pagamento ricevuto</h1>
-    <p>Ciao ${cliente?.nome || cliente?.email || "Cliente"},</p>
-    <p>Abbiamo ricevuto il pagamento per la tua campagna <strong>${campagna?.servizio}</strong> · <strong>${campagna?.zona}</strong>.</p>
-    <p>La distribuzione inizierà entro 24 ore come concordato.</p>
-    <p><a href="${campagna?.dashboard_url || "#"}">Vai alla dashboard</a></p>
-    <p>Il team VolantiniPro</p>
-  ` : `
-    <h1>Campagna confermata — VolantiniPro</h1>
-    <p>Ciao ${cliente?.nome || cliente?.email || "Cliente"},</p>
-    <p>La tua campagna <strong>${campagna?.servizio}</strong> per la zona <strong>${campagna?.zona}</strong> è stata confermata.</p>
-    ${quoteRecapRows}
-    <h2>Istruzioni per il pagamento</h2>
-    <table>
-      <tr><td>Intestatario</td><td><strong>${INTESTATARIO}</strong></td></tr>
-      <tr><td>IBAN</td><td><strong>${IBAN}</strong></td></tr>
-      <tr><td>${hasDistinctGrandTotal ? "Importo distribuzione da pagare ora" : "Importo"}</td><td><strong>€${campagna?.totale_euro}</strong></td></tr>
-      <tr><td>Causale</td><td><strong>${campagna?.causale_bonifico}</strong></td></tr>
-    </table>
-    <p>Inserire la causale ESATTA per il corretto abbinamento.</p>
-    <p>La distribuzione partirà entro 24h dalla ricezione del pagamento.</p>
-    <p>Il team VolantiniPro</p>
-  `;
-  return {
-    subject: isPaid ? "Pagamento ricevuto — La distribuzione inizia presto!" : `Conferma campagna ${campagna?.servizio} — Istruzioni pagamento`,
-    html,
-  };
+function esc(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ESCAPES[char]);
+}
+
+function buildPaymentEmail(campaign: { client_name?: string | null; title?: string | null }): { subject: string; html: string } {
+  const siteUrl = String(Deno.env.get("SITE_URL") || "https://www.volantinipro.it").trim();
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#1e293b;line-height:1.6">
+      <h2>Pagamento ricevuto</h2>
+      <p>Ciao ${esc(campaign.client_name || "Cliente")}, abbiamo ricevuto il pagamento per ${esc(campaign.title || "la tua campagna")}.</p>
+      <p>La distribuzione inizia presto: puoi seguirla dalla tua area cliente.</p>
+      <p><a href="${esc(siteUrl)}/dashboard">Vai alla dashboard</a></p>
+    </div>`;
+  return { subject: "Pagamento ricevuto — La distribuzione inizia presto!", html };
+}
+
+async function callerIsAdmin(req: Request): Promise<boolean> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const authorization = req.headers.get("Authorization");
+  if (!url || !anonKey || !authorization) return false;
+  const client = createClient(url, anonKey, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
+  const { data, error } = await client.rpc("gps_is_admin");
+  return !error && data === true;
 }
 
 serve(async (req: Request) => {
@@ -156,7 +137,7 @@ serve(async (req: Request) => {
   }
   if (!raw || typeof raw !== "object") return json({ ok: false, code: "INVALID_PAYLOAD" }, 400);
 
-  const type = String(raw.type || "conferma");
+  const type = String(raw.type || "");
   const clientIp = extractClientIp(req);
   const ipHash = await sha256Hex(clientIp);
 
@@ -222,20 +203,23 @@ serve(async (req: Request) => {
     subject = content.subject;
     html = content.html;
     text = content.text;
-  } else {
-    // type "conferma" / "pagamento_ricevuto"
-    const cliente = raw.cliente || {};
-    const campagna = raw.campagna || {};
-    recipientEmail = normalizeEmail(cliente?.email);
-    if (!EMAIL_RE.test(recipientEmail)) return json({ ok: false, code: "INVALID_RECIPIENT" }, 400);
-
-    quoteOrCampaignId = campagna?.id ? String(campagna.id) : null;
-    fingerprintPayload = `${campagna?.servizio || ""}:${campagna?.zona || ""}:${campagna?.totale_euro || ""}`;
-
-    const isPaid = type === "pagamento_ricevuto";
-    const content = buildConfermaEmail(cliente, campagna, isPaid);
+  } else if (type === "pagamento_ricevuto") {
+    // Ramo solo Admin: il body indica la campagna, tutto il resto viene dal database.
+    if (!(await callerIsAdmin(req))) return json({ ok: false, code: "FORBIDDEN" }, 403);
+    const campaignId = String(raw.campaign_id || "");
+    const admin = getSupabaseAdmin();
+    if (!admin || !/^[0-9a-f-]{36}$/i.test(campaignId)) return json({ ok: false, code: "INVALID_PAYLOAD" }, 400);
+    const { data: campaign } = await admin.from("campaigns").select("id, client_name, client_email, title").eq("id", campaignId).maybeSingle();
+    recipientEmail = normalizeEmail(campaign?.client_email);
+    if (!campaign || !EMAIL_RE.test(recipientEmail)) return json({ ok: false, code: "INVALID_RECIPIENT" }, 400);
+    quoteOrCampaignId = campaignId;
+    fingerprintPayload = campaignId;
+    customIdempotencyKey = `payment_received:${campaignId}`;
+    const content = buildPaymentEmail(campaign);
     subject = content.subject;
     html = content.html;
+  } else {
+    return json({ ok: false, code: "INVALID_TYPE" }, 400);
   }
 
   const recipientHash = await sha256Hex(recipientEmail);
@@ -278,24 +262,39 @@ serve(async (req: Request) => {
 
     // --- 2. Rate Limiting Atomico nel DB (max 5 invii effettivi in 10 min) --
     // Eseguito SOLO per invii effettivi (non deduplicati)
+    // preventivo_admin va sempre allo stesso destinatario: il contatore e' per IP,
+    // cosi' un anonimo non puo' esaurirlo per tutti.
+    const perRecipient = type !== "preventivo_admin";
     const { data: rl, error: rlErr } = await supabase.rpc("consume_edge_rate_limit", {
       p_scope: `email_${type}`,
-      p_identifier_type: "recipient",
-      p_identifier_hash: recipientHash,
+      p_identifier_type: perRecipient ? "recipient" : "ip",
+      p_identifier_hash: perRecipient ? recipientHash : ipHash,
       p_max_requests: 5,
       p_window_seconds: 600,
     });
+    const { data: ipRl, error: ipRlErr } = rlErr
+      ? { data: null, error: rlErr }
+      : await supabase.rpc("consume_edge_rate_limit", {
+        p_scope: "email_any",
+        p_identifier_type: "ip",
+        p_identifier_hash: ipHash,
+        p_max_requests: 20,
+        p_window_seconds: 3600,
+      });
 
-    if (rlErr) {
-      console.error("[send-email-conferma] RATE_LIMIT_RPC_ERROR", { type, code: rlErr.code });
-    } else if (rl && !rl.allowed) {
+    if (rlErr || ipRlErr) {
+      console.error("[send-email-conferma] RATE_LIMIT_RPC_ERROR", { type, code: (rlErr || ipRlErr)?.code });
+      return json({ ok: false, code: "RATE_LIMIT_UNAVAILABLE" }, 503);
+    }
+    const limited = rl && !rl.allowed ? rl : ipRl && !ipRl.allowed ? ipRl : null;
+    if (limited) {
       // Superato limite invii effettivi: segnala failed sull'idempotency per consentire retry futuro
       await supabase.rpc("mark_idempotency_result", {
         p_idempotency_key: key,
         p_status: "failed",
         p_error_code: "RATE_LIMITED",
       });
-      const retryAfter = Number(rl.retry_after_seconds || 60);
+      const retryAfter = Number(limited.retry_after_seconds || 60);
       return new Response(JSON.stringify({ ok: false, code: "RATE_LIMITED", retryAfterSeconds: retryAfter }), {
         status: 429,
         headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) },

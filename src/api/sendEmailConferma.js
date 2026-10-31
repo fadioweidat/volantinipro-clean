@@ -1,26 +1,16 @@
-export async function sendEmailConferma({ cliente, campagna, type = "conferma" }) {
+// Notifica "pagamento ricevuto": solo Admin, con il token della sessione. Il server
+// legge destinatario e dati dalla campagna.
+export async function sendPaymentReceivedEmail({ campaignId, accessToken }) {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !anonKey || !cliente?.email) return { skipped: true };
-  const endpoint = `${url}/functions/v1/send-email-conferma`;
-  const response = await fetch(endpoint, {
+  if (!url || !anonKey || !accessToken) return;
+  await fetch(`${url}/functions/v1/send-email-conferma`, {
     method: "POST",
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ cliente, campagna, type }),
+    headers: { "Content-Type": "application/json", apikey: anonKey, Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ type: "pagamento_ricevuto", campaign_id: campaignId }),
   });
-  if (!response.ok) throw new Error("Email conferma non inviata");
-  return response;
 }
 
-// Invio preventivo Step4 via email ("Invia preventivo via email"). A
-// differenza di sendEmailConferma() sopra, non lancia mai per una risposta
-// non-ok: ritorna sempre { ok, code? } cosi' la UI puo' mostrare un
-// messaggio specifico (rate limit, email non valida, servizio non
-// configurato) invece di un errore generico.
 export async function sendQuoteByEmail({ recipientEmail, recipientName, quote, requestId }) {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;

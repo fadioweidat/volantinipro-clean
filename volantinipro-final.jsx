@@ -76,7 +76,7 @@ import RisultatiSection from "./src/components/home/RisultatiSection.jsx";
 import Footer from "./src/components/home/Footer.jsx";
 import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
-import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
+import { sendPaymentReceivedEmail } from "./src/api/sendEmailConferma.js";
 import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/doorToDoorCoverage.js";
 import { allowMockData, isProduction, isCustomerAiDashboardEnabled, isTerritorialStep2AiEnabled } from "./src/lib/runtimeFlags.js";
 import { LAYER_PANEL_CONFIG, defaultLayerState } from "./src/lib/dataSources.js";
@@ -3454,17 +3454,9 @@ function ButtonConfermaPagamento({
     setState("loading");
     try {
       await confirmCampaignPayment(campagnaId);
-      sendEmailConferma({
-        cliente: {
-          email: clienteEmail,
-          nome: clienteNome || "Cliente"
-        },
-        campagna: {
-          servizio: campagnaId,
-          zona: zona || "Campagna",
-          dashboard_url: `${window.location.origin}/dashboard`
-        },
-        type: "pagamento_ricevuto"
+      sendPaymentReceivedEmail({
+        campaignId: campagnaId,
+        accessToken: getStoredSupabaseSession()?.accessToken
       }).catch(() => {});
       setState("done");
       setMsg(`Pagamento ${campagnaId} confermato.`);
