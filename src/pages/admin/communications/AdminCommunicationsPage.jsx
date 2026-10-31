@@ -20,6 +20,7 @@ import { adminListIssues, adminRouteIssue, ISSUE_STATUS_LABELS } from "../../../
 import { listCampaignAssignments } from "../../../lib/services/admin-api.js";
 import { loadCommunicationIdentityDirectory } from "../../../lib/services/communicationIdentityApi.js";
 import { resolveConversationIdentity } from "../../../lib/admin/communicationIdentity.js";
+import { resolveCommunicationCampaign, groupCommunicationsByCampaign } from "../../../lib/admin/communicationCampaignGroups.js";
 import {
   mergeMessages,
   subscribeToAdminMessages,
@@ -92,7 +93,8 @@ export function AdminCommunicationsPage({ onNav }) {
       const identityDir = await loadCommunicationIdentityDirectory(convs);
       if (!isCurrent()) return;
       setError(null);
-      setConversations(convs.map((c) => ({ ...c, identity: resolveConversationIdentity(c, identityDir) })));
+      const linkedConvs = convs.map((c) => resolveCommunicationCampaign(c, identityDir));
+      setConversations(linkedConvs.map((c) => ({ ...c, identity: resolveConversationIdentity(c, identityDir) })));
       setIssues(Array.isArray(issueRows) ? issueRows : []);
       setModRequests(Array.isArray(modRows) ? modRows : []);
     } catch (e) {
@@ -131,6 +133,7 @@ export function AdminCommunicationsPage({ onNav }) {
     () => conversations.find((c) => c.key === selectedKey) || null,
     [conversations, selectedKey]
   );
+  const campaignGroups = useMemo(() => groupCommunicationsByCampaign(conversations), [conversations]);
 
   return (
     <AdminLayout title="Comunicazioni" subtitle="Hub centrale: messaggi Cliente/Driver, segnalazioni, richieste di modifica. Dati reali Supabase." breadcrumbs={[{ label: "Comunicazioni" }]} onNav={onNav}>
@@ -149,10 +152,22 @@ export function AdminCommunicationsPage({ onNav }) {
         <div className="comms-grid" style={{ fontFamily: F.sans }}>
           <div className="comms-list" style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
             {conversations.length === 0 && <div style={{ padding: 16, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>{filter === "driver_admin" ? "Nessun Driver assegnato." : "Nessuna conversazione."}</div>}
-            {conversations.map((c) => (
-              <button key={c.key} type="button" className="comms-card" aria-pressed={c.key === selectedKey} onClick={() => setSelectedKey(c.key)}>
-                <ConversationIdentity conversation={c} />
-              </button>
+            {campaignGroups.map((group) => (
+              <section className="comms-campaign-card" key={group.key} data-testid="campaign-conversation-card">
+                <div className="comms-campaign-heading">
+                  <strong className="comms-campaign-heading__name">{group.label}</strong>
+                  {group.location && <span className="comms-campaign-heading__location">{group.location}</span>}
+                  {group.campaignId && <span className="comms-campaign-heading__reference">Rif. {group.campaignId.slice(0, 8)}</span>}
+                  {group.unreadCount > 0 && <span className="comms-unread" aria-label={`${group.unreadCount} messaggi non letti nella campagna`}>{group.unreadCount}</span>}
+                </div>
+                <div className="comms-campaign-threads">
+                  {group.conversations.map((c) => (
+                    <button key={c.key} type="button" className="comms-card" aria-pressed={c.key === selectedKey} onClick={() => setSelectedKey(c.key)}>
+                      <ConversationIdentity conversation={c} compact />
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
           <div className={selectedConversation ? "comms-detail" : "comms-detail comms-detail--empty"} style={cardStyle}>
