@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { generateQuotePdfBytes, mapQuoteDataToPdfModel } from '../src/lib/pdf/generateQuotePdf.js';
+import { downloadQuotePdf, generateQuotePdfBytes, mapQuoteDataToPdfModel } from '../src/lib/pdf/generateQuotePdf.js';
 
 const demo = {
   quoteId: 'VP-TEST-01',
@@ -71,7 +71,6 @@ test('download triggers native file save with .pdf filename, without print', () 
     URL.createObjectURL = blob => { assert.equal(blob.type, 'application/pdf'); return 'blob:test'; };
     URL.revokeObjectURL = url => { revokedUrl = url; };
     globalThis.setTimeout = callback => { callback(); };
-    const { downloadQuotePdf } = await import('../src/lib/pdf/generateQuotePdf.js');
     const blob = downloadQuotePdf(demo, 'Preventivo-VolantiniPro-Bruzzano.pdf');
     assert.ok(blob.size > 1000);
     assert.equal(clicked, true);
