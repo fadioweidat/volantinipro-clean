@@ -4619,6 +4619,73 @@ export function Step2({
       };
     });
   }, [isRadiusMode, zonesWithCoords, zoneAllocationById, zoneCoverageById, nilManualMode, selectedZoneIdSet]);
+  // Visualizzazione dei comuni esterni a Milano: l'analisi NIL puo' dare
+  // il numero di famiglie senza la geometria comunale. Recuperiamo SOLO i
+  // confini mancanti, senza toccare zonesInRadius, KPI o preventivo.
+  const [radiusComuneGeometries, setRadiusComuneGeometries] = useState({});
+  const missingRadiusComuni = useMemo(() => isRadiusMode
+    ? mapCoverageZones.filter(z => z.type === 'municipality' && !pickRealComuneGeometry(z))
+        .map(z => String(z.name || '').trim()).filter(Boolean)
+    : [], [isRadiusMode, mapCoverageZones]);
+  const missingRadiusComuniKey = missingRadiusComuni.map(n => normalizeMunicipalityName(n)).sort().join('|');
+  const radiusComuneGeometryCache = useRef(new Map());
+  useEffect(() => {
+    if (!isRadiusMode || !missingRadiusComuniKey || !radiusCenter ||
+      !Number.isFinite(Number(radiusCenter.lat)) || !Number.isFinite(Number(radiusCenter.lng))) {
+      setRadiusComuneGeometries({});
+      return;
+    }
+    let cancelled = false;
+    const names = missingRadiusComuni.slice(0, 20);
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const apiUrl = import.meta.env.VITE_ANALYSIS_ISTAT_URL || (baseUrl ? `${baseUrl}/functions/v1/analysis-istat` : null);
+    const centerLat = Number(radiusCenter.lat), centerLng = Number(radiusCenter.lng);
+    const currentRadius = Number(radiusKm);
+    const scope = `${centerLat.toFixed(5)}|${centerLng.toFixed(5)}|${currentRadius}`;
+    const controller = new AbortController();
+    (async () => {
+      const results = await Promise.all(names.map(async name => {
+        const key = `${scope}|${normalizeMunicipalityName(name)}`;
+        if (radiusComuneGeometryCache.current.has(key)) return [name, radiusComuneGeometryCache.current.get(key)];
+        if (!apiUrl) return [name, null];
+        try {
+          const headers = {};
+          if (anonKey && apiUrl.includes('/functions/v1/')) {
+            headers.Authorization = `Bearer ${anonKey}`;
+            headers.apikey = anonKey;
+          }
+          const query = new URLSearchParams({
+            lat: String(centerLat), lng: String(centerLng),
+            radius: String(currentRadius), service: 'd2d',
+            municipality: name, analysisLevel: 'comune'
+          });
+          const response = await fetch(`${apiUrl}?${query}`, { headers, signal: controller.signal });
+          if (!response.ok) return [name, null];
+          const body = await response.json();
+          const row = (body?.comuni_breakdown || []).find(row =>
+            normalizeMunicipalityName(row?.comune_name || row?.municipality_name || row?.name) === normalizeMunicipalityName(name)
+          );
+          const geometry = pickRealComuneGeometry(row);
+          const valid = geometry && ['Polygon', 'MultiPolygon'].includes(geometry.type) ? geometry : null;
+          if (valid) radiusComuneGeometryCache.current.set(key, valid);
+          return [name, valid];
+        } catch {
+          return [name, null];
+        }
+      }));
+      if (!cancelled) setRadiusComuneGeometries(Object.fromEntries(results.filter(([, geometry]) => geometry)));
+    })();
+    return () => { cancelled = true; controller.abort(); };
+  // Keyed by missing names and selected circle, not by every render's array identity.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRadiusMode, missingRadiusComuniKey, radiusCenter?.lat, radiusCenter?.lng, radiusKm]);
+  const visibleRadiusCoverageZones = useMemo(() => mapCoverageZones.map(z => {
+    if (z.type !== 'municipality' || z.geometry) return z;
+    const name = normalizeMunicipalityName(z.name);
+    const found = Object.entries(radiusComuneGeometries).find(([key]) => normalizeMunicipalityName(key) === name)?.[1];
+    return found ? { ...z, geometry: found } : z;
+  }), [mapCoverageZones, radiusComuneGeometries]);
   if (isStep2DebugEnabled() && isRadiusMode) {
     console.log('[STEP2_RADIUS_POLYGONS_DEBUG]', {
       activeAreaTab,
@@ -5826,7 +5893,7 @@ export function Step2({
         mapBasemap={mapBasemap}
         mapCityForStep2={mapCityForStep2}
         mapConfiniOn={mapConfiniOn}
-        mapCoverageZones={mapCoverageZones}
+        mapCoverageZones={visibleRadiusCoverageZones}
         municipalityBoundary={municipalityBoundary}
         omiInfo={omiInfo}
         pois={pois}
