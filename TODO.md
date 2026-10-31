@@ -75,3 +75,9 @@
   Oggi final_distribution_report_telemetry restituisce al proprietario conteggi e orari (nessuna posizione, nessuna immagine); il sito non la chiama senza extra.
 
 - Overpass lento (16 s): valutare una cache dei POI.
+
+- gpt-4o-mini è deprecato: pianificare il passaggio a un modello supportato.
+
+- Step 2 Hand to Hand con raggio ripristinato mostra 'Copertura non disponibile': da indagare.
+
+- Registrare i token usati dall'assistente per misurare il costo reale.
