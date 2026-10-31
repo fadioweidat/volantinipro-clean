@@ -76,3 +76,14 @@ test('UI keeps messages separated and uses one campaign card with nested thread 
   assert.match(identityApi, /\.select\('id, campaign_id, participant_label'/);
   assert.match(identityApi, /real_zone_names:/);
 });
+
+test('missing roles are informational only and never create a fake chat or assignment', () => {
+  const hub = fs.readFileSync(new URL('../src/pages/admin/communications/AdminCommunicationsPage.jsx', import.meta.url), 'utf8');
+  assert.match(hub, /filter === "all" && !group\.conversations\.some\(\(c\) => c\.kind === "customer_admin"\)/);
+  assert.match(hub, /filter === "all" && !group\.conversations\.some\(\(c\) => c\.kind === "driver_admin"\)/);
+  assert.match(hub, /data-testid="missing-customer-conversation"/);
+  assert.match(hub, /data-testid="missing-driver-conversation"/);
+  assert.match(hub, /Nessuna conversazione Cliente presente/);
+  assert.match(hub, /Nessuna conversazione Driver presente/);
+  assert.doesNotMatch(hub.slice(hub.indexOf('data-testid="missing-customer-conversation"'), hub.indexOf('data-testid="missing-driver-conversation"')), /onClick|adminSendMessage|adminSendDriverMessage/);
+});
