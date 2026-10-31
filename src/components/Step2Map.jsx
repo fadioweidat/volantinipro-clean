@@ -1101,7 +1101,8 @@ function Step2MapImpl({
     // as the radius circle); additional comuni get a neutral style so
     // multi-comune is immediately readable.
     let renderedBoundaryCount = 0;
-    if ((isMunicipalityMode || simplifiedMilano) && municipalityBoundary) {
+    // In modalità Raggio non disegnare i confini completi sopra i territori ritagliati.
+    if (isMunicipalityMode && municipalityBoundary) {
       // Normalize to array-of-{name,geometry} regardless of input shape
       const cityLabel = city?.label || city?.name || 'Comune';
       let boundaryEntries = [];
