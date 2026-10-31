@@ -50,7 +50,8 @@ test('Step4 download action uses a Blob PDF, never a print window', () => {
   const code = fs.readFileSync(new URL('../src/pages/public/configurator/Step4.jsx', import.meta.url), 'utf8');
   assert.match(code, /downloadQuotePdf\(quotePdfData, pdfFileName\)/);
   assert.doesNotMatch(code, /printQuotePdf\(/);
-  assert.match(code, /Scarica preventivo PDF/);
+  const panel = fs.readFileSync(new URL('../src/pages/public/configurator/step4/Step4CampaignActionsPanel.jsx', import.meta.url), 'utf8');
+  assert.match(panel, /Scarica preventivo PDF/);
 });
 
 test('download triggers native file save with .pdf filename, without print', () => {
