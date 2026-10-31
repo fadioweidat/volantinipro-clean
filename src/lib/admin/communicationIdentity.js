@@ -18,14 +18,26 @@ export function shortTechnicalId(id) {
 }
 
 function campaignLabel(dir) {
-  const raw = clean(dir?.campaign_name) || clean(dir?.title);
+  const raw = clean(dir?.business_name) || clean(dir?.campaign_name) || clean(dir?.title);
+  const realZones = (Array.isArray(dir?.real_zone_names) ? dir.real_zone_names : [])
+    .map(clean).filter(Boolean);
+  // "Campagna Preventivo (Nome cliente)" non e' il nome pubblicizzato.
+  // Preferisci zone canoniche, mai nomi commerciali inventati.
+  if ((!raw || /^campagna preventivo(?:\s*\([^)]*\))?$/i.test(raw))
+      && realZones.length) {
+    const distinct = [...new Set(realZones)];
+    const label = distinct.length <= 2 ? distinct.join(' + ') : `${distinct.slice(0, 2).join(' + ')} +${distinct.length - 2}`;
+    return `Distribuzione volantini · ${label}`;
+  }
   if (!raw) return null;
   return /^campagna\b/i.test(raw) ? raw : `Campagna ${raw}`;
 }
 
 // Non dedurre provincia o comune dal titolo della campagna.
 export function getConversationLocationLabel(conversation = {}, directory = {}) {
-  const location = clean(directory.city) || clean(conversation.city)
+  const location = (Array.isArray(directory.real_zone_names) && directory.real_zone_names.length === 1
+    ? clean(directory.real_zone_names[0]) : null)
+    || clean(directory.city) || clean(conversation.city)
     || clean(directory.zone_name) || clean(conversation.zone_name);
   if (!location) return 'Località non disponibile';
   return location.replace(/\s*\(\s*([a-z]{2})\s*\)\s*$/i, (_, code) => ` (${code.toUpperCase()})`);
@@ -44,8 +56,8 @@ export function resolveCustomerIdentity(conversation = {}, directory = {}) {
   const person = clean(directory.customer_name) || clean(directory.client_name) || clean(directory.profile_full_name)
     || clean(conversation.customer_name);
   const campaign = campaignLabel({
+    ...directory,
     campaign_name: clean(directory.campaign_name) || clean(conversation.campaign_name),
-    title: directory.title,
   });
   const name = company || person;
   const title = name || 'Cliente';
@@ -68,8 +80,8 @@ export function resolveDriverIdentity(conversation = {}, directory = {}) {
   const group = clean(directory.group_name) || clean(conversation.group_name);
   const groupLabel = group ? (/^gruppo\b/i.test(group) ? group : `Gruppo ${group}`) : null;
   const campaign = campaignLabel({
+    ...directory,
     campaign_name: clean(directory.campaign_name) || clean(conversation.campaign_name),
-    title: directory.title,
   });
   let title;
   if (operator && group) title = `${operator} · ${group}`;
