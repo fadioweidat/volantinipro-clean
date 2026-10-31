@@ -127,18 +127,30 @@ function installFakeDom() {
 }
 
 // ---------------------------------------------------------------
-// Fetch mock: risponde solo a analysis-poi-search, in base al parametro
-// municipality nell'URL. Ogni comune ha un piano indipendente (delay,
-// payload, oppure "non risolve mai in questo test").
+// Fetch mock: risponde al proxy gratuito poi-search e riconosce il comune dalla
+// latitudine del body. Ogni comune ha un piano indipendente (delay, payload,
+// oppure "non risolve mai in questo test"). I contatori del piano diventano
+// elementi OpenStreetMap, gli stessi che riceve il sito.
 // ---------------------------------------------------------------
+const COMUNE_BY_LAT = { 45.1: 'ComuneA', 45.2: 'ComuneB', 45.3: 'ComuneC' };
+
+function planElements(values = {}) {
+  const rows = [
+    ...Array(values.transit_points || 0).fill({ railway: 'station' }),
+    ...Array(values.schools_events_count || 0).fill({ amenity: 'school' }),
+    ...Array(values.target_activities_count || 0).fill({ amenity: 'pharmacy' }),
+  ];
+  while (rows.length < (values.poi_count || 0)) rows.push({ amenity: 'cafe' });
+  return rows.map((tags, index) => ({ type: 'node', id: index + 1, lat: 45 + index / 10000, lon: 9 + index / 10000, tags: { ...tags, name: `Luogo ${index}` } }));
+}
+
 function makeFetchMock(plan) {
   const calls = [];
-  const fn = async (url) => {
-    const urlStr = String(url);
-    calls.push(urlStr);
-    const name = Object.keys(plan).find((n) => urlStr.includes(`municipality=${encodeURIComponent(n)}`));
-    if (!name) {
-      return { ok: true, status: 200, json: async () => ({ values: {}, metadata: {}, sources: [], error: 'POI_DATA_NOT_AVAILABLE' }) };
+  const fn = async (url, options = {}) => {
+    calls.push(String(url));
+    const name = COMUNE_BY_LAT[JSON.parse(options.body || '{}').centerLat];
+    if (!name || !plan[name]) {
+      return { ok: true, status: 200, json: async () => ({ elements: [] }) };
     }
     const cfg = plan[name];
     if (cfg.neverResolves) {
@@ -150,7 +162,7 @@ function makeFetchMock(plan) {
     if (cfg.errorStatus) {
       return { ok: false, status: cfg.errorStatus, json: async () => ({ error: 'MOCK_ERROR' }) };
     }
-    return { ok: true, status: 200, json: async () => ({ values: cfg.values || {}, metadata: {}, sources: ['mock'] }) };
+    return { ok: true, status: 200, json: async () => ({ elements: planElements(cfg.values) }) };
   };
   fn.calls = calls;
   return fn;
@@ -283,7 +295,7 @@ test('H2H: A(100ms)+B(300ms) aggregati subito, C va in timeout a 25000ms, mai tr
   assert.equal(latest.h2hSummary.poiCount, 100, 'poi = 40+60, mai in attesa di C');
   assert.equal(latest.h2hSummary.transitPoints, 25);
   assert.equal(latest.h2hSummary.schoolsEventsCount, 50);
-  assert.equal(latest.h2hSummary.hotspotCount, 7);
+  assert.equal(latest.h2hSummary.hotspotCount, 12, 'massimo 6 hotspot per comune, calcolati dai POI reali');
   assert.equal(latest.h2hSummary.completedCount, 2);
   assert.equal(latest.h2hSummary.totalCount, 3);
   assert.equal(latest.h2hSummary.automaticQuantity, false, 'H2H non deve mai proporre una quantita automatica');
@@ -354,7 +366,7 @@ test('H2H parziale: aggregazione esatta A+B, C timeout, nessuna quantita automat
   assert.equal(latest.h2hSummary.poiCount, 100);
   assert.equal(latest.h2hSummary.transitPoints, 25);
   assert.equal(latest.h2hSummary.schoolsEventsCount, 50);
-  assert.equal(latest.h2hSummary.hotspotCount, 7);
+  assert.equal(latest.h2hSummary.hotspotCount, 12);
   assert.equal(latest.h2hSummary.automaticQuantity, false);
   assert.equal(latest.recommendedQty, null, 'H2H non produce mai una quantita automatica (recommendedQty resta null nella pagina reale)');
 

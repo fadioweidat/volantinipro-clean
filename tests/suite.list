@@ -224,3 +224,4 @@ tests/service_draft_conflict.test.mjs
 tests/paid_extras_entitlements.test.mjs
 tests/fadi_gateway_lockdown.test.mjs
 tests/security_batch2.test.mjs
+tests/poi_free_only.test.mjs

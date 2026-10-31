@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildServiceAnalysisRequest } from '../lib/step2/buildServiceAnalysisRequest.js';
+import { fetchPoiAnalysis } from '../lib/analysis/poiAnalysisAdapter.js';
 
 const step2DebugEnabled = () =>
   typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV &&
@@ -227,6 +228,16 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       setError(null);
 
       try {
+        // Hand to Hand e Business: solo POI gratuiti da /api/poi-search.
+        if (service !== 'd2d') {
+          const analysis = await fetchPoiAnalysis({ lat: centerLat, lng: centerLng, radiusKm, service, targetSelection });
+          if (requestId !== requestIdRef.current) return;
+          setData(analysis);
+          setDataKey(fetchKey);
+          setError(analysis.error || null);
+          return;
+        }
+
         let anonKey = null;
         try {
           anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;

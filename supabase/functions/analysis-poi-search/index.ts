@@ -556,7 +556,11 @@ function buildHotspots(lat: number, lng: number, items: PoiRecord[], limit = 6) 
     }));
 }
 
-// Google e Foursquare sono a pagamento: limite persistente prima di ogni provider.
+// Google e Foursquare sono disattivati per decisione del 2026-10-31: restano spenti
+// anche con chiavi valide. Per riattivarli serve cambiare questo valore nel codice.
+const PAID_POI_PROVIDERS_ENABLED = false;
+
+// Limite persistente sulle ricerche.
 const POI_LIMIT_PER_IP = 60;
 const POI_LIMIT_WINDOW_SECONDS = 600;
 const POI_LIMIT_GLOBAL_DAILY = 500;
@@ -616,8 +620,8 @@ serve(async (req) => {
     }
     const cachedPoiResult = await cachedPoiDbProvider(supabase, lat, lng, context, warnings);
     const providerResults = [
-      await googlePlacesProvider(lat, lng, context, warnings),
-      await foursquareProvider(lat, lng, context, warnings),
+      PAID_POI_PROVIDERS_ENABLED ? await googlePlacesProvider(lat, lng, context, warnings) : null,
+      PAID_POI_PROVIDERS_ENABLED ? await foursquareProvider(lat, lng, context, warnings) : null,
       cachedPoiResult ? null : await overpassProvider(lat, lng, context, warnings),
       cachedPoiResult,
       await gtfsDbProvider(supabase, lat, lng, context, warnings),
