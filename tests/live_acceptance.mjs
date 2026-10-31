@@ -1,7 +1,9 @@
 import https from 'https';
 
 const API_URL = "https://mqkelrsvksrzrpmbstvd.supabase.co/functions/v1/fadi-gateway";
-const SECRET = "test_secret_vp1_fadi_live";
+const SECRET = process.env.FADI_ONE_SECRET;
+const ORIGIN = process.env.FADI_TEST_ORIGIN || "https://www.volantinipro.it";
+if (!SECRET) throw new Error("Imposta FADI_ONE_SECRET nell'ambiente.");
 
 async function fetchLive(url, options) {
   return new Promise((resolve, reject) => {
@@ -22,12 +24,12 @@ async function runLiveAcceptance() {
   let result;
 
   // 1. Metodo diverso da POST
-  result = await fetchLive(API_URL, { method: "GET" });
+  result = await fetchLive(API_URL, { method: "GET", headers: { Origin: ORIGIN } });
   if (result.status === 405) console.log("✅ Metodo GET rifiutato (405)");
   else throw new Error("Metodo GET non rifiutato correttamente, status: " + result.status);
 
   // 2. Richiesta senza secret
-  result = await fetchLive(API_URL, { method: "POST" });
+  result = await fetchLive(API_URL, { method: "POST", headers: { Origin: ORIGIN } });
   if (result.status === 401) console.log("✅ Richiesta senza secret rifiutata (401)");
   else throw new Error("Richiesta senza secret non rifiutata correttamente");
 
@@ -40,6 +42,7 @@ async function runLiveAcceptance() {
   else throw new Error("Richiesta con secret errato non rifiutata correttamente");
 
   const authHeaders = {
+    Origin: ORIGIN,
     "Authorization": `Bearer ${SECRET}`,
     "Content-Type": "application/json"
   };

@@ -222,3 +222,4 @@ tests/h2h_hourly_pricing.test.mjs
 tests/business_on_project.test.mjs
 tests/service_draft_conflict.test.mjs
 tests/paid_extras_entitlements.test.mjs
+tests/fadi_gateway_lockdown.test.mjs

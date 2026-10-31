@@ -21,6 +21,9 @@ function envInt(name: string, fallback: number, min: number, max: number): numbe
   return Math.min(max, Math.max(min, parsed));
 }
 
+// admin_consistency_audit: solo colonne di stato, mai token, contatti o metadata.
+const AUDIT_ROW_LIMIT = 500;
+
 const RATE_LIMIT_MAX = envInt("FADI_RATE_LIMIT_MAX", 120, 1, 10000);
 const RATE_LIMIT_WINDOW_MS = envInt("FADI_RATE_LIMIT_WINDOW_MS", 60000, 1000, 3600000);
 
@@ -48,8 +51,8 @@ function buildCorsHeaders(req: Request): Record<string, string> {
 
 function isOriginAllowed(req: Request): boolean {
   const origin = requestOrigin(req);
-  if (!origin) return true; // server-to-server requests do not send Origin
-  return allowedOrigins().has(origin);
+  // Anche il chiamante server deve dichiarare un'origine ammessa.
+  return Boolean(origin) && allowedOrigins().has(origin as string);
 }
 
 function json(req: Request, body: JsonBody, status = 200): Response {
@@ -109,10 +112,12 @@ async function isAuthenticated(req: Request): Promise<boolean> {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   const secret = Deno.env.get("FADI_ONE_SECRET") || "";
+  if (!secret) {
+    console.error(JSON.stringify({ component: "fadi-gateway", event: "auth_config_error", reason: "missing_fadi_one_secret" }));
+    return false;
+  }
   if (!token) return false;
-  if (token === "test_secret_vp1_fadi_live") return true;
-  if (secret && (await constantTimeEqual(token, secret))) return true;
-  return false;
+  return constantTimeEqual(token, secret);
 }
 
 function requestId(req: Request): string {
@@ -265,18 +270,18 @@ serve(async (req: Request) => {
           quotesRes,
           suppliersRes
         ] = await Promise.all([
-          supabase.from("operational_groups").select("*").order("created_at", { ascending: false }),
-          supabase.from("operator_assignments").select("*").order("created_at", { ascending: false }),
-          supabase.from("campaigns").select("*").order("created_at", { ascending: false }),
-          supabase.from("campagne").select("*").order("created_at", { ascending: false }),
-          supabase.from("quote_requests").select("*").order("created_at", { ascending: false }),
-          supabase.from("delivery_sessions").select("*").order("started_at", { ascending: false }),
+          supabase.from("operational_groups").select("id, campaign_id, name, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("operator_assignments").select("id, campaign_id, group_id, zone_id, status, starts_at, ends_at, revoked_at, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("campaigns").select("id, status, quantity, service_type, distribution_mode, start_date, end_date, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("campagne").select("id, stato, servizio, quantita, data_inizio, data_fine, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("quote_requests").select("id, service_type, quantity, status, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("delivery_sessions").select("id, campaign_id, campaign_zone_id, group_id, assignment_id, status, started_at, paused_at, ended_at").order("started_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
           supabase.from("gps_tracking_points").select("id", { count: "exact", head: true }),
-          supabase.from("operator_profiles").select("*").order("created_at", { ascending: false }),
-          supabase.from("assignment_event_log").select("*").order("created_at", { ascending: false }),
-          supabase.from("campaign_zones").select("*").order("created_at", { ascending: false }),
-          supabase.from("quotes").select("*").order("created_at", { ascending: false }),
-          supabase.from("supplier_profiles").select("*").order("created_at", { ascending: false }),
+          supabase.from("operator_profiles").select("user_id, active, disabled_at, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("assignment_event_log").select("id, assignment_id, campaign_id, event_type, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("campaign_zones").select("id, campaign_id, group_id, priority, status, quantity_assigned, started_at, completed_at, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("quotes").select("id, campaign_id, total_amount, is_active, quote_status, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
+          supabase.from("supplier_profiles").select("id, public_code, status, created_at").order("created_at", { ascending: false }).limit(AUDIT_ROW_LIMIT),
         ]);
 
         return respond({
