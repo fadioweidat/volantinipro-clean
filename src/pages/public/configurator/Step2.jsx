@@ -4630,61 +4630,68 @@ export function Step2({
   const missingRadiusComuniKey = missingRadiusComuni.map(n => normalizeMunicipalityName(n)).sort().join('|');
   const radiusComuneGeometryCache = useRef(new Map());
   useEffect(() => {
-    if (!isRadiusMode || !missingRadiusComuniKey || !radiusCenter ||
-      !Number.isFinite(Number(radiusCenter.lat)) || !Number.isFinite(Number(radiusCenter.lng))) {
+    if (!isRadiusMode || !missingRadiusComuniKey) {
       setRadiusComuneGeometries({});
       return;
     }
     let cancelled = false;
-    const names = missingRadiusComuni.slice(0, 20);
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const apiUrl = import.meta.env.VITE_ANALYSIS_ISTAT_URL || (baseUrl ? `${baseUrl}/functions/v1/analysis-istat` : null);
-    const centerLat = Number(radiusCenter.lat), centerLng = Number(radiusCenter.lng);
-    const currentRadius = Number(radiusKm);
-    const scope = `${centerLat.toFixed(5)}|${centerLng.toFixed(5)}|${currentRadius}`;
     const controller = new AbortController();
+    const names = missingRadiusComuni.slice(0, 20);
+    // La geometria di un comune NON dipende dal raggio: cache per nome e
+    // nessuna richiesta ripetuta passando da 1 a 2 o 3 km.
     (async () => {
       const results = await Promise.all(names.map(async name => {
-        const key = `${scope}|${normalizeMunicipalityName(name)}`;
-        if (radiusComuneGeometryCache.current.has(key)) return [name, radiusComuneGeometryCache.current.get(key)];
-        if (!apiUrl) return [name, null];
+        const key = normalizeMunicipalityName(name);
+        if (radiusComuneGeometryCache.current.has(key)) {
+          return [name, radiusComuneGeometryCache.current.get(key)];
+        }
+        // La richiesta a analysis-istat con lat/lng centrati su Bruzzano
+        // non garantisce la geometria di un comune vicino; usare invece la
+        // ricerca del confine amministrativo effettivo per NOME.
         try {
-          const headers = {};
-          if (anonKey && apiUrl.includes('/functions/v1/')) {
-            headers.Authorization = `Bearer ${anonKey}`;
-            headers.apikey = anonKey;
-          }
-          const query = new URLSearchParams({
-            lat: String(centerLat), lng: String(centerLng),
-            radius: String(currentRadius), service: 'd2d',
-            municipality: name, analysisLevel: 'comune'
+          const params = new URLSearchParams({
+            q: `${name}, Lombardia, Italia`,
+            format: 'geojson',
+            polygon_geojson: '1',
+            addressdetails: '1',
+            limit: '8'
           });
-          const response = await fetch(`${apiUrl}?${query}`, { headers, signal: controller.signal });
+          const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+            signal: controller.signal,
+            headers: { 'Accept-Language': 'it' }
+          });
           if (!response.ok) return [name, null];
-          const body = await response.json();
-          const row = (body?.comuni_breakdown || []).find(row =>
-            normalizeMunicipalityName(row?.comune_name || row?.municipality_name || row?.name) === normalizeMunicipalityName(name)
-          );
-          const geometry = pickRealComuneGeometry(row);
-          const valid = geometry && ['Polygon', 'MultiPolygon'].includes(geometry.type) ? geometry : null;
-          if (valid) radiusComuneGeometryCache.current.set(key, valid);
-          return [name, valid];
+          const payload = await response.json();
+          const candidates = (payload.features || []).filter(feature => {
+            const geometry = feature.geometry;
+            const properties = feature.properties || {};
+            const address = properties.address || {};
+            const candidateName = address.city || address.town || address.municipality ||
+              properties.name || String(properties.display_name || '').split(',')[0];
+            return geometry && ['Polygon','MultiPolygon'].includes(geometry.type) &&
+              !['county','state','region','province'].includes(properties.addresstype) &&
+              normalizeMunicipalityName(candidateName) === key;
+          });
+          const boundary = candidates[0]?.geometry || null;
+          if (boundary) radiusComuneGeometryCache.current.set(key, boundary);
+          return [name, boundary];
         } catch {
           return [name, null];
         }
       }));
-      if (!cancelled) setRadiusComuneGeometries(Object.fromEntries(results.filter(([, geometry]) => geometry)));
+      if (!cancelled) setRadiusComuneGeometries(
+        Object.fromEntries(results.filter(([, geometry]) => geometry))
+      );
     })();
     return () => { cancelled = true; controller.abort(); };
-  // Keyed by missing names and selected circle, not by every render's array identity.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRadiusMode, missingRadiusComuniKey, radiusCenter?.lat, radiusCenter?.lng, radiusKm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRadiusMode, missingRadiusComuniKey]);
   const visibleRadiusCoverageZones = useMemo(() => mapCoverageZones.map(z => {
     if (z.type !== 'municipality' || z.geometry) return z;
-    const name = normalizeMunicipalityName(z.name);
-    const found = Object.entries(radiusComuneGeometries).find(([key]) => normalizeMunicipalityName(key) === name)?.[1];
-    return found ? { ...z, geometry: found } : z;
+    const key = normalizeMunicipalityName(z.name);
+    const geometry = Object.entries(radiusComuneGeometries)
+      .find(([name]) => normalizeMunicipalityName(name) === key)?.[1];
+    return geometry ? { ...z, geometry } : z;
   }), [mapCoverageZones, radiusComuneGeometries]);
   if (isStep2DebugEnabled() && isRadiusMode) {
     console.log('[STEP2_RADIUS_POLYGONS_DEBUG]', {
