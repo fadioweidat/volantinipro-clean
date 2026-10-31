@@ -91,3 +91,22 @@
 .comms-campaign-threads .comms-card:last-child { border-bottom: none; }
 .comms-campaign-threads .comms-title { font-size: 13px; }
 .comms-campaign-threads .comms-preview { font-size: 11px; }
+
+/* Solo stato visivo: non creare o simulare conversazioni mancanti. */
+.comms-missing-thread {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 13px 11px 21px;
+  color: #9aaac0;
+  font-size: 11px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.comms-missing-thread__role {
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 800;
+  color: #b8c9d8;
+  font-size: 10px;
+}

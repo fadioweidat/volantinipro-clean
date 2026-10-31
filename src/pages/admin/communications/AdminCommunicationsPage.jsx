@@ -166,6 +166,18 @@ export function AdminCommunicationsPage({ onNav }) {
                       <ConversationIdentity conversation={c} compact />
                     </button>
                   ))}
+                  {filter === "all" && !group.conversations.some((c) => c.kind === "customer_admin") && (
+                    <div className="comms-missing-thread" data-testid="missing-customer-conversation">
+                      <span className="comms-missing-thread__role">Cliente</span>
+                      <span>Nessuna conversazione Cliente presente</span>
+                    </div>
+                  )}
+                  {filter === "all" && !group.conversations.some((c) => c.kind === "driver_admin") && (
+                    <div className="comms-missing-thread" data-testid="missing-driver-conversation">
+                      <span className="comms-missing-thread__role">Driver</span>
+                      <span>Nessuna conversazione Driver presente</span>
+                    </div>
+                  )}
                 </div>
               </section>
             ))}
