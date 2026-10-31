@@ -12,6 +12,7 @@ import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
+import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
@@ -1461,7 +1462,11 @@ function Step2MapImpl({
         };
         const tip = _buildZoneOrNilTooltip(z, '#34D399', false, null, z.status, true);
 
-        const validCoverageGeometry = z.geometry ? parseAndValidateGeoJsonGeometry(z.geometry) : null;
+        const originalCoverageGeometry = z.geometry ? parseAndValidateGeoJsonGeometry(z.geometry) : null;
+        // Clipping soltanto visivo: non altera KPI, geometrie originali o quantità.
+        const validCoverageGeometry = originalCoverageGeometry && !isMunicipalityMode && hasConfirmedRadius
+          ? clipTerritoryToRadius(originalCoverageGeometry, Number(city?.lat), Number(city?.lng), Number(radius))
+          : originalCoverageGeometry;
         if (validCoverageGeometry) {
           try {
             const p1 = map.getPane('nilPolygonsPane');
