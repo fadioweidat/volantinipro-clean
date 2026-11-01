@@ -227,3 +227,4 @@ tests/security_batch2.test.mjs
 tests/poi_free_only.test.mjs
 tests/ai_core_limits.test.mjs
 tests/anonymous_assistant_off.test.mjs
+tests/assistant_no_credit.test.mjs

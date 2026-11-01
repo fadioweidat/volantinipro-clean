@@ -141,7 +141,9 @@ const ANONYMOUS_AI_ENABLED = false;
 // Tentativi restituiti al massimo ogni ora: senza tetto, una domanda che fa
 // scartare la risposta darebbe chiamate a OpenAI illimitate.
 const AI_MAX_REFUNDS_PER_HOUR = 10;
-type AiMeter = { consumed: null | { scope: string; identifierType: string; identifierHash: string; tokens: number } };
+// Stesso testo di ASSISTANT_OFF_TEXT nel sito: la chat lo riconosce e mostra i contatti.
+const ASSISTANT_OFF_TEXT = "L'assistente non è disponibile in questo momento. Scrivici su WhatsApp +39 351 767 3737 o via email a info@volantinipro.it.";
+type AiMeter = { contextType?: string; consumed: null | { scope: string; identifierType: string; identifierHash: string; tokens: number } };
 
 async function aiTier(user: { id: string } | null, contextType: string): Promise<AiTier> {
   if (contextType === "driver_assignment") return "driver";
@@ -214,6 +216,20 @@ async function aiLimitExceeded(req: Request, user: { id: string } | null, tier: 
 
 // Il tentativo orario torna al cliente se l'assistente non ha risposto. Il tetto
 // giornaliero non si restituisce: la chiamata a OpenAI e' comunque pagata.
+async function openAiFailure(res: Response) {
+  const body = await res.json().catch(() => null);
+  const noCredit = res.status === 429 && (body?.error?.type === "insufficient_quota" || body?.error?.code === "insufficient_quota");
+  return new Error(noCredit ? "OPENAI_NO_CREDIT" : `OPENAI_${res.status}`);
+}
+
+// Senza credito il cliente non deve leggere un errore ne' un "dato non disponibile".
+async function aiNoCreditReply(meter: AiMeter, response: Response) {
+  const body = await response.clone().json().catch(() => null);
+  const warnings = Array.isArray(body?.warnings) ? body.warnings : [];
+  if (!warnings.some((warning: unknown) => String(warning).includes("OPENAI_NO_CREDIT"))) return response;
+  return aiLimitReply(meter.contextType || "", ASSISTANT_OFF_TEXT, "AI_NO_CREDIT");
+}
+
 async function aiRefundIfUnanswered(meter: AiMeter, response: Response | null) {
   const consumed = meter.consumed;
   if (!consumed || !Number.isFinite(consumed.tokens) || consumed.tokens < 1) return;
@@ -553,7 +569,7 @@ async function callOpenAi(contextType: string, snapshot: Record<string, unknown>
       }),
     });
 
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -591,7 +607,7 @@ async function callAdminOpenAi(snapshot: Record<string, unknown>, question: stri
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -626,7 +642,7 @@ async function callCustomerOpenAi(snapshot: Record<string, unknown>, question: s
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -662,7 +678,7 @@ async function callControlCenterOpenAi(snapshot: Record<string, unknown>, warnin
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const content = (await res.json())?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
     const parsed = JSON.parse(content);
@@ -698,7 +714,7 @@ async function callTerritorialReportOpenAi(snapshot: Record<string, unknown>, qu
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -733,7 +749,7 @@ async function callDriverOpenAi(snapshot: Record<string, unknown>, question: str
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -768,7 +784,7 @@ async function callSupplierOpenAi(snapshot: Record<string, unknown>, question: s
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -1624,6 +1640,7 @@ async function handleSupplierDashboard(user: { id: string } | null, body: any) {
 async function routeAiRequest(req: Request, meter: AiMeter) {
   const body = await req.json().catch(() => null);
   const contextType = body?.contextType;
+  meter.contextType = contextType;
 
   if (!isKnownContextType(contextType)) {
     return json({ answer: null, status: "error", error: "INVALID_CONTEXT_TYPE" }, 400);
@@ -1673,7 +1690,7 @@ serve(async (req: Request) => {
   try {
     const response = await routeAiRequest(req, meter);
     await aiRefundIfUnanswered(meter, response);
-    return response;
+    return await aiNoCreditReply(meter, response);
   } catch (error) {
     await aiRefundIfUnanswered(meter, null);
     return json(

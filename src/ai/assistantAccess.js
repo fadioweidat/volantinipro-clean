@@ -11,3 +11,18 @@ export function canUseAssistant() {
   // Un token scaduto con refresh token e' ancora un cliente collegato: il bridge lo rinnova.
   return isStoredSupabaseSessionValid(session) || Boolean(session?.accessToken && (session.refreshToken || session.refresh_token));
 }
+
+// Stesso testo di ASSISTANT_OFF_TEXT in ai-core: arriva quando OpenAI non ha
+// credito. La chat lo riconosce e lascia il posto ai contatti.
+export const ASSISTANT_OFF_TEXT = "L'assistente non è disponibile in questo momento. Scrivici su WhatsApp +39 351 767 3737 o via email a info@volantinipro.it.";
+
+let assistantOff = false;
+
+export function isAssistantOff() {
+  return assistantOff;
+}
+
+export function markAssistantOffIfNeeded(text) {
+  if (typeof text === "string" && text.includes(ASSISTANT_OFF_TEXT)) assistantOff = true;
+  return assistantOff;
+}

@@ -81,3 +81,11 @@
 - Step 2 Hand to Hand con raggio ripristinato mostra 'Copertura non disponibile': da indagare.
 
 - Registrare i token usati dall'assistente per misurare il costo reale.
+
+- Stato assistente AI (decisione del 2026-11-01): spento per gli anonimi su tutto il sito pubblico, non si riattiva per ora.
+  Al suo posto il riquadro "Hai domande? Scrivici" con WhatsApp ed email; anche l'Analisi AI del Report non parte per gli anonimi.
+  Interruttori: ANONYMOUS_AI_ENABLED in src/ai/assistantAccess.js e in supabase/functions/ai-core/index.ts (si riattiva cambiando entrambi).
+  Clienti loggati, admin, fornitori e autisti: la chat resta attiva; se OpenAI risponde "credito esaurito" lascia il posto ai contatti da sola.
+  Credito OpenAI: esaurito sulla chiave provata il 2026-11-01; non verificato sulla chiave di produzione salvata su Supabase.
+  Branch feat/assistant-knowledge pronto e non pubblicato: base di conoscenza, numeri ufficiali, tabella delle risposte scartate (migrazione non applicata),
+  suite di 20 domande mai eseguita con il modello. Prima di riattivare: credito, suite, scelta del modello, OK esplicito.
