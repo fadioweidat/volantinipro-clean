@@ -230,7 +230,8 @@ test('DriverWorkMapPage: traccia propria + tracce gruppo, punti GPS per sessione
   const src = read('src/pages/driver/DriverWorkMapPage.jsx');
   assert.match(src, /getDriverGroupTracking\(assignmentId, accessToken\)/);
   assert.match(src, /groupLines\.map\(/);
-  assert.match(src, /g\.latlngs\.map/);
+  assert.match(src, /histLatLngs = g\.lastPoint && g\.latlngs\.length > 1 \? g\.latlngs\.slice\(0, -1\) : g\.latlngs/);
+  assert.match(src, /histLatLngs\.map\(/);
   assert.match(src, /background: '#2563eb'[\s\S]{0,40}Tu/); // legenda: la propria = "Tu"
   assert.doesNotMatch(src, /g\.sessionId\}<\/|>\{g\.sessionId\}</); // mai UUID in UI
 });

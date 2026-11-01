@@ -11,10 +11,10 @@ const read = (p) => fs.readFileSync(path.join(root, p), "utf8");
 const HOME = read("src/pages/public/HomePage.jsx");
 
 // ── Ordine sezioni homepage ────────────────────────────────────────────────
-test("HomePage: ordine sezioni Hero -> Perché -> Come funziona -> Servizi -> GPS -> Smart Pairing -> Dashboard -> Business -> FAQ -> Contatti -> CTA -> Footer", () => {
+test("HomePage: ordine sezioni Hero -> Quantità -> Come funziona -> GPS -> Perché -> Fattibilità -> Servizi -> Smart Pairing -> Dashboard -> Business -> FAQ -> Contatti -> CTA -> Footer", () => {
   const order = [
-    "VolantiniProHeroMap", "WhyDifferentSection", "HowItWorksSection",
-    "ServicesSection", "GpsLiveSection", "SmartPairingSection", "DashboardClienteSection",
+    "VolantiniProHeroMap", "QuantityValueSection", "HowItWorksSection", "GpsLiveSection",
+    "WhyDifferentSection", "FeasibilitySection", "ServicesSection", "SmartPairingSection", "DashboardClienteSection",
     "EnterpriseSection", "FAQSection", "ContattiSection", "FinalCtaSection", "Footer",
   ];
   const positions = order.map((name) => {
@@ -37,21 +37,18 @@ test("HomePage: sezioni duplicate rimosse (Tecnologia, Risultati, Cosa ricevi, P
 });
 
 // ── Nuove sezioni: GPS Live reale ───────────────────────────────────────────
-test("GpsLiveSection: mappa/percorso/marker/stato/avanzamento/foto/timeline, non un grafico a linea generico", () => {
+test("GpsLiveSection: mappa dimostrativa con zona, percorso e punti, GPS e foto come servizi aggiuntivi, non un grafico a linea generico", () => {
   const src = read("src/components/home/GpsLiveSection.jsx");
   assert.match(src, /id="gps-live"/);
   assert.match(src, /polygon/); // area campagna
   assert.match(src, /motion\.path/); // percorso GPS che si disegna
-  assert.match(src, /marker operatore|<circle cx="292" cy="66"/i); // marker operatore
-  assert.match(src, /In distribuzione|status/i); // stato attività
-  assert.match(src, /Aggiornato \d/); // ultimo aggiornamento
-  assert.match(src, /Avanzamento/); // avanzamento %
-  assert.match(src, /Foto ricevute|📍/); // foto ricevute
-  assert.match(src, /timeline/i);
+  assert.match(src, /translate\(116 83\)/); // punto di partenza del percorso
+  assert.match(src, /title: 'Foto geolocalizzate', text: 'Servizio aggiuntivo/);
+  assert.match(src, /title: 'Percorso GPS', text: 'Servizio aggiuntivo/);
+  assert.match(src, /title: 'Report per Comune'/);
+  assert.doesNotMatch(src, /certificat/i);
   assert.match(src, /Anteprima dimostrativa/); // dataset demo dichiarato esplicitamente
   assert.doesNotMatch(src, /d="M20 150 L70 120/); // NON il vecchio grafico a linea generico
-  // layout desktop 35-40% testo / 60-65% visual
-  assert.match(src, /minmax\(0,38%\) minmax\(0,62%\)/);
   assert.match(src, /useReducedMotion/);
 });
 
@@ -84,15 +81,15 @@ test("DashboardClienteSection: 4 callout + mockup (report PDF, foto geolocalizza
 });
 
 // ── Come funziona: stepper orizzontale/verticale ────────────────────────────
-test("HowItWorksSection: id=come-funziona, 4 step invariati, timeline orizzontale desktop / verticale mobile", () => {
+test("HowItWorksSection: id=come-funziona, 5 step, riga orizzontale desktop / colonna mobile", () => {
   const src = read("src/components/home/HowItWorksSection.jsx");
   assert.match(src, /id="come-funziona"/);
-  for (const t of ["Configura", "Analizza il territorio", "Personalizza", "Preventivo"]) {
+  for (const t of ["Scegli il territorio", "Ottieni il preventivo", "Conferma l’ordine", "Distribuzione sul campo", "Verifica GPS e report"]) {
     assert.match(src, new RegExp(t));
   }
   const styles = read("src/components/home/process-feasibility.css");
   assert.match(src, /className="vpp-steps"/);
-  assert.match(styles, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(read("src/components/home/homepage-quantity.css"), /\.vpq-process \.vpp-steps \{ grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
   assert.match(styles, /@media\(max-width:520px\)/);
   assert.match(styles, /prefers-reduced-motion:reduce/);
 
@@ -116,7 +113,7 @@ test("HomePage monta ContattiSection (WhatsApp + Email) prima della CTA finale",
 
 // ── Responsive: hook useIsMobile / breakpoint coerenti nelle nuove sezioni ──
 test("Nuove sezioni: responsive via CSS media query (niente breakpoint diversi senza motivo)", () => {
-  for (const file of ["GpsLiveSection.jsx", "SmartPairingSection.jsx", "DashboardClienteSection.jsx"]) {
+  for (const file of ["homepage-visual-review.css", "SmartPairingSection.jsx", "DashboardClienteSection.jsx"]) {
     const src = read(`src/components/home/${file}`);
     assert.match(src, /@media \(max-width: 900px\)/);
   }

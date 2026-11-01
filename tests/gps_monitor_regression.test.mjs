@@ -103,8 +103,8 @@ test('MULTI-OP — contratto sorgente: GpsMonitor usa lo stesso algoritmo (dedup
   assert.match(GM, /const seen = new Set\(\);/);
   assert.match(GM, /if \(!key \|\| seen\.has\(key\)\) continue;/);
   assert.match(GM, /color: getOperatorColor\(key\)/);
-  assert.match(GM, /hasGps: gpsDriverIds\.has\(o\.operatorId \|\| o\.assignmentId\)/);
-  assert.match(GM, /for \(const id of gpsDriverIds\) \{/);
+  assert.match(GM, /hasGps: gpsIdentityKeys\.has\(o\.operatorId \|\| o\.assignmentId\)/);
+  assert.match(GM, /for \(const id of gpsIdentityKeys\) \{/);
   assert.doesNotMatch(GM, /canonicalOperators.*trackColor\(index\)/);
 });
 

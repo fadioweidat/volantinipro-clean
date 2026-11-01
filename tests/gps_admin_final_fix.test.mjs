@@ -42,10 +42,10 @@ test('§18-A — "OPERATORI: N" usa gli operatori ASSEGNATI, mai il numero di se
   // conteggio canonico da assegnazioni reali
   assert.match(GM, /const assignedOperatorCount = canonicalOperators\.filter\(\(o\) => o\.assigned\)\.length;/);
   assert.match(GM, /const operatorsWithGpsCount = canonicalOperators\.filter\(\(o\) => o\.hasGps\)\.length;/);
-  // header pannello (estratto in GpsMonitorOperatorsPanel): OPERATORI CAMPAGNA (assegnati/5) (+ CON GPS opzionale)
+  // header pannello (estratto in GpsMonitorOperatorsPanel): OPERATORI CAMPAGNA (assegnati, senza limite di slot) (+ CON GPS opzionale)
   assert.ok(GM.includes('export function GpsMonitorOperatorsPanel'), 'GpsMonitorOperatorsPanel non trovato');
   const panelFn = panelSource(GM);
-  assert.match(panelFn, /OPERATORI CAMPAGNA \(\{assignedOperatorCount\}\/5\)\{operatorsWithGpsCount > 0 \? ` · CON GPS: \$\{operatorsWithGpsCount\}` : ''\}/);
+  assert.match(panelFn, /OPERATORI CAMPAGNA \(\{assignedOperatorCount\}\)\{operatorsWithGpsCount > 0 \? ` · CON GPS: \$\{operatorsWithGpsCount\}` : ''\}/);
   // e il monitor passa al pannello i conteggi canonici
   assert.match(GM, /assignedOperatorCount=\{assignedOperatorCount\}/);
   assert.match(GM, /operatorsWithGpsCount=\{operatorsWithGpsCount\}/);
@@ -57,7 +57,7 @@ test('§18-A — canonicalOperators: fonte primaria = assegnazioni reali, hasGps
   assert.match(GM, /const canonicalOperators = useMemo\(\(\) => \{/);
   assert.match(GM, /for \(const o of campaignOperators\) \{/);
   // operatori shared-link senza operatorId: match per assignmentId
-  assert.match(GM, /hasGps: gpsDriverIds\.has\(o\.operatorId \|\| o\.assignmentId\)/);
+  assert.match(GM, /hasGps: gpsIdentityKeys\.has\(o\.operatorId \|\| o\.assignmentId\)/);
   assert.match(GM, /assigned: true/);
   // 4 assegnati / 1 GPS => assignedOperatorCount = 4 (indipendente dalle sessioni):
   // la formula filtra su o.assigned, non su sessionTracks.
@@ -79,7 +79,7 @@ test('§18-B — legenda OPERATORI CAMPAGNA: elenca TUTTI gli operatori canonici
 
 test('§18-C — nome reale quando disponibile, fallback "Operatore <short-id>" (mai "Operatore <indice>")', () => {
   assert.match(GM, /export function shortOperatorId\(value\) \{/);
-  assert.match(GM, /displayName: o\.name \|\| `Operatore \$\{shortOperatorId\(key\)\}`/);
+  assert.match(GM, /displayName: isPrimaryAssignment\s+\? 'Caposquadra'\s+: \(o\.name \|\| slot \|\| `Operatore \$\{shortOperatorId\(key\)\}`\)/);
   // riga sessione: nome canonico, poi short-id del driver, e solo in ultima
   // istanza (sessione senza driver_id) l'indice.
   assert.match(GM, /const rowTitle = canonOp\?\.displayName/);
