@@ -9,7 +9,7 @@ import { familiesShare, familiesShareOfTotal, familiesWeightedCoverage } from ".
 import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
-import { apiToZones, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
+import { apiToZones, canonicalZoneId, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
 import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
 import { rankNilSearchResults } from "../../../lib/step2/milanoNilView.js";
 import { MilanoNilSearch } from "./step2/MilanoNilSearch.jsx";
@@ -206,7 +206,7 @@ export function Step2({
   const [search, setSearch] = useState(hydratedH2HSearchPoint?.label || (shouldUseStep1OperationalLocation ? step1OperationalLocation : data.cityName) || "");
   const [city, setCity] = useState(initialCity);
   const [radius, setRadius] = useState(data.radius || 3);
-  const [selected, setSelected] = useState(data.zones || []);
+  const [selected, setSelected] = useState(() => (data.zones || []).map(canonicalZoneId));
   const [dropOpen, setDropOpen] = useState(false);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [showAdv, setShowAdv] = useState(false);
@@ -815,7 +815,7 @@ export function Step2({
       setSelectedComuni(prev => isZoneSwitch ? activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []) : prev && prev.length > 0 ? prev : activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []));
       setPendingAddMunicipality(false);
       setRadius(activeZone.radiusKm || activeZone.radius || 3);
-      setSelected(activeZone.selected || []);
+      setSelected((activeZone.selected || []).map(canonicalZoneId));
       setSelectedCaps(activeZone.selectedCaps || []);
       setCapDataMap(activeZone.capDataMap || {});
       setManualAssignments(activeZone.manualAssignments || {});
@@ -1441,6 +1441,7 @@ export function Step2({
     error: apiError,
     pending: apiPending,
     isRetrying: apiIsRetrying,
+    status: analysisStatus,
     refetch: refetchServiceAnalysis
   } = useServiceAnalysis(analysisParams.lat, analysisParams.lng, analysisParams.radiusKm, analysisParams.serviceType, analysisParams.municipality, analysisParams.quantity, analysisParams.scope, analysisParams.analysisLevel, analysisParams.selectionScope, analysisParams.selectedMunicipalityCodes, analysisParams.targetSelection);
   // ISOLAMENTO PV — proprietario dell'analisi. Dopo switch / elimina /
@@ -1873,23 +1874,26 @@ export function Step2({
   // operativi (punti promoter / consegna) e restano parte del gate.
   const poiIsOperationalData = isBusinessStep2 || isMovementStep2;
   const gisLoading = Boolean(city && (apiLoading || (poiIsOperationalData && (sectorsLoading || poiLoading))));
-  const [gisSlowConnection, setGisSlowConnection] = useState(false);
+  // Il timer riguarda solo i POI operativi: l'analisi territoriale ha il proprio
+  // stato nel hook, e una risposta lenta non e' un errore.
+  const [poiSlowConnection, setPoiSlowConnection] = useState(false);
   const [gisTimedOut, setGisTimedOut] = useState(false);
+  const gisSlowConnection = analysisStatus === "slow" || poiSlowConnection;
   const isGisFailed = Boolean(gisTimedOut || (apiError && !apiLoading && !apiPending));
   useEffect(() => {
-    setGisSlowConnection(false);
+    setPoiSlowConnection(false);
     setGisTimedOut(false);
-    if (!gisLoading) return undefined;
-    const slowTimerId = window.setTimeout(() => setGisSlowConnection(true), 5000);
+    if (!gisLoading || !poiIsOperationalData || apiLoading) return undefined;
+    const slowTimerId = window.setTimeout(() => setPoiSlowConnection(true), 5000);
     const timeoutId = window.setTimeout(() => setGisTimedOut(true), 16000);
     return () => {
       window.clearTimeout(slowTimerId);
       window.clearTimeout(timeoutId);
     };
-  }, [gisLoading, data.activeZoneId, city?.lat, city?.lng, radiusKm, svcType]);
+  }, [gisLoading, apiLoading, poiIsOperationalData, data.activeZoneId, city?.lat, city?.lng, radiusKm, svcType]);
 
   const handleRetryGis = useCallback(() => {
-    setGisSlowConnection(false);
+    setPoiSlowConnection(false);
     setGisTimedOut(false);
     if (typeof refetchServiceAnalysis === "function") {
       refetchServiceAnalysis();
@@ -2479,7 +2483,6 @@ export function Step2({
     } else if (gateMode === "address" || gateMode === "radius") {
       const nilRows = filtered.filter(z => z?.isNil || z?.territoryLevel === "nil" || z?.nilCode);
       const comuneRows = filtered.filter(z => !z?.isNil && z?.territoryLevel !== "nil" && !z?.nilCode);
-      const numRadius = Number(radiusKm) || 3;
 
       if (radiusCenter && Number.isFinite(Number(radiusCenter.lat)) && Number.isFinite(Number(radiusCenter.lng))) {
         const rLat = Number(radiusCenter.lat);
@@ -2521,16 +2524,15 @@ export function Step2({
       }
 
       if (nilRows.length > 0) {
-        const maxComuni = numRadius <= 3 ? 8 : numRadius <= 5 ? 12 : 20;
         // Priority rule for radius mode:
         // 1. Containing NIL of selected address (e.g. BRUZZANO)
         // 2. Other intersected Milano NILs ordered outward
         // 3. Intersected external comuni (e.g. Cormano, Bresso) ordered outward
-        filtered = [...nilRows, ...comuneRows.slice(0, maxComuni)];
+        filtered = [...nilRows, ...comuneRows];
         if (isStep2DebugEnabled()) {
           debugStep2Log("[STEP2_RADIUS_GUARD_WITH_NIL]", {
             nilRows: nilRows.length,
-            comuneRows: Math.min(comuneRows.length, maxComuni)
+            comuneRows: comuneRows.length
           });
         }
       } else {
@@ -2552,13 +2554,6 @@ export function Step2({
             const bDist = bCoords ? haversineKm(Number(radiusCenter.lat), Number(radiusCenter.lng), bCoords.lat, bCoords.lng) : 9999;
             return aDist - bDist;
           });
-        }
-        if (numRadius <= 3 && filtered.length > 8) {
-          debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 3 but got", filtered.length, "communes. Truncating to 8.");
-          filtered = filtered.slice(0, 8);
-        } else if (numRadius <= 5 && filtered.length > 12) {
-          debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 5 but got", filtered.length, "communes. Truncating to 12.");
-          filtered = filtered.slice(0, 12);
         }
       }
     }
@@ -4619,84 +4614,6 @@ export function Step2({
       };
     });
   }, [isRadiusMode, zonesWithCoords, zoneAllocationById, zoneCoverageById, nilManualMode, selectedZoneIdSet]);
-  // Visualizzazione dei comuni esterni a Milano: l'analisi NIL puo' dare
-  // il numero di famiglie senza la geometria comunale. Recuperiamo SOLO i
-  // confini mancanti, senza toccare zonesInRadius, KPI o preventivo.
-  const [radiusComuneGeometries, setRadiusComuneGeometries] = useState({});
-  const missingRadiusComuni = useMemo(() => isRadiusMode
-    ? mapCoverageZones.filter(z => z.type === 'municipality' && !pickRealComuneGeometry(z))
-        .map(z => String(z.name || '').trim()).filter(Boolean)
-    : [], [isRadiusMode, mapCoverageZones]);
-  const missingRadiusComuniKey = missingRadiusComuni.map(n => normalizeMunicipalityName(n)).sort().join('|');
-  const radiusComuneGeometryCache = useRef(new Map());
-  useEffect(() => {
-    if (!isRadiusMode || !missingRadiusComuniKey) {
-      setRadiusComuneGeometries({});
-      return;
-    }
-    let cancelled = false;
-    const controller = new AbortController();
-    const names = missingRadiusComuni.slice(0, 20);
-    // La geometria di un comune NON dipende dal raggio: cache per nome e
-    // nessuna richiesta ripetuta passando da 1 a 2 o 3 km.
-    (async () => {
-      const results = await Promise.all(names.map(async name => {
-        const key = normalizeMunicipalityName(name);
-        if (radiusComuneGeometryCache.current.has(key)) {
-          return [name, radiusComuneGeometryCache.current.get(key)];
-        }
-        // La richiesta a analysis-istat con lat/lng centrati su Bruzzano
-        // non garantisce la geometria di un comune vicino; usare invece la
-        // ricerca del confine amministrativo effettivo per NOME.
-        try {
-          const params = new URLSearchParams({
-            q: `${name}, Lombardia, Italia`,
-            format: 'geojson',
-            polygon_geojson: '1',
-            addressdetails: '1',
-            limit: '8'
-          });
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-            signal: controller.signal,
-            headers: { 'Accept-Language': 'it' }
-          });
-          if (!response.ok) return [name, null];
-          const payload = await response.json();
-          const candidates = (payload.features || []).filter(feature => {
-            const geometry = feature.geometry;
-            const properties = feature.properties || {};
-            const address = properties.address || {};
-            // Il geocoder varia tra city/town/village/municipality e
-            // display_name: non scartare un comune valido per il tipo di località.
-            const candidates = [
-              address.city, address.town, address.village, address.municipality,
-              properties.name, String(properties.display_name || '').split(',')[0]
-            ];
-            return geometry && ['Polygon','MultiPolygon'].includes(geometry.type) &&
-              !['county','state','region','province'].includes(properties.addresstype) &&
-              candidates.some(value => value && normalizeMunicipalityName(value) === key);
-          });
-          const boundary = candidates[0]?.geometry || null;
-          if (boundary) radiusComuneGeometryCache.current.set(key, boundary);
-          return [name, boundary];
-        } catch {
-          return [name, null];
-        }
-      }));
-      if (!cancelled) setRadiusComuneGeometries(
-        Object.fromEntries(results.filter(([, geometry]) => geometry))
-      );
-    })();
-    return () => { cancelled = true; controller.abort(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRadiusMode, missingRadiusComuniKey]);
-  const visibleRadiusCoverageZones = useMemo(() => mapCoverageZones.map(z => {
-    if (z.type !== 'municipality' || z.geometry) return z;
-    const key = normalizeMunicipalityName(z.name);
-    const geometry = Object.entries(radiusComuneGeometries)
-      .find(([name]) => normalizeMunicipalityName(name) === key)?.[1];
-    return geometry ? { ...z, geometry } : z;
-  }), [mapCoverageZones, radiusComuneGeometries]);
   if (isStep2DebugEnabled() && isRadiusMode) {
     console.log('[STEP2_RADIUS_POLYGONS_DEBUG]', {
       activeAreaTab,
@@ -5402,6 +5319,9 @@ export function Step2({
   // Shared, single-decimal, formatPercentIT-formatted coverage percentage —
   // every banner/sentence in Step 2 reads this instead of re-deriving its own
   // (previously mismatched, e.g. "22%" here vs "21,6%" in the sidebar).
+  // Dal click fino ai numeri pronti: richiesta in corso, risposta non ancora
+  // adottata dal PV o allocazione non ancora calcolata. Non e' un errore.
+  const step2CalculationInProgress = Boolean(city && hasConfirmedCoverageMode && !isGisFailed && !territorialDataUnavailable && !hasCoverageCalculationError && (gisLoading || apiLoading || apiPending || !hasUsableAllocationData));
   const sharedCoveragePctText = isCoverageCalculationComplete && !hasCoverageCalculationError && hasUsableAllocationData && !territorialDataUnavailable
     ? step2CoveragePctLabel ?? (radiusAdvisoryData?.covPct != null ? formatPercentIT(radiusAdvisoryData.covPct, Number.isInteger(radiusAdvisoryData.covPct) ? 0 : 1) : serviceKpis?.coverage != null ? formatPercentIT(serviceKpis.coverage, Number.isInteger(serviceKpis.coverage) ? 0 : 1) : null)
     : null;
@@ -5886,6 +5806,7 @@ export function Step2({
         focusedPoiId={focusedPoiId}
         focusedPoiNonce={focusedPoiNonce}
         gisLoading={gisLoading}
+        coverageCalculating={step2CalculationInProgress}
         gisSlowConnection={gisSlowConnection}
         gisRetrying={apiIsRetrying}
         gisTimedOut={isGisFailed}
@@ -5904,7 +5825,7 @@ export function Step2({
         mapBasemap={mapBasemap}
         mapCityForStep2={mapCityForStep2}
         mapConfiniOn={mapConfiniOn}
-        mapCoverageZones={visibleRadiusCoverageZones}
+        mapCoverageZones={mapCoverageZones}
         municipalityBoundary={municipalityBoundary}
         omiInfo={omiInfo}
         pois={pois}
@@ -6091,7 +6012,7 @@ export function Step2({
           zoneLabel={milanoClientMode === "nil" && selected.length ? selZones.filter(z => selected.includes(z.id)).map(z => z.name).join(", ") : (city?.label || city?.name || "Milano")}
           viewModel={step2ViewModel} truthModel={step2TruthModel} quantity={finalFlyersRounded}
           coverageLabel={step2CoverageFullLabel} areaLabel={residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l))?.v ? `${residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l)).v} ${residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l)).u || ""}` : "Dato non disponibile"}
-          loading={gisLoading || apiLoading} failed={isGisFailed || territorialDataUnavailable} onRetry={handleRetryGis}
+          loading={step2CalculationInProgress} failed={isGisFailed || territorialDataUnavailable} onRetry={handleRetryGis}
           coverageDecisionRequired={coverageDecisionRequired} coverageDecision={coverageDecision}
           availableFlyers={availableFlyers} requiredFlyers={requiredFlyers} manualFlyers={manualFlyers}
           isCoverageDecisionValid={isCoverageDecisionValid} onQuantityDecision={selectCoverageQuantityDecision} onManualQuantity={updateManualFlyersQuantity}

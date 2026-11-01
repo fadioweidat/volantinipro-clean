@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildServiceAnalysisRequest } from '../lib/step2/buildServiceAnalysisRequest.js';
 import { fetchPoiAnalysis } from '../lib/analysis/poiAnalysisAdapter.js';
+import { ANALYSIS_SLOW_AFTER_MS, fetchWithAttemptTimeout, resolveAnalysisStatus } from '../lib/step2/analysisStatus.js';
 
 const step2DebugEnabled = () =>
   typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV &&
@@ -42,7 +43,9 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   const [error, setError] = useState(null);
   const requestIdRef = useRef(0);
   const lastRequestKeyRef = useRef("");
-  const lastResultKeyRef = useRef("");
+  // fetchKey dell'ultima risposta riuscita: una richiesta annullata non e' mai
+  // "gia' fatta", altrimenti il raggio resterebbe con i dati del precedente.
+  const appliedKeyRef = useRef("");
   // requestKey per cui e' gia' arrivata una risposta (successo O errore O
   // backend non configurato). Serve a distinguere "richiesta non ancora
   // partita / in debounce" da "richiesta conclusa senza dati": la
@@ -59,10 +62,13 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   const [bfcacheResumeNonce, setBfcacheResumeNonce] = useState(0);
   const [manualRetryNonce, setManualRetryNonce] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
+  const inFlightRef = useRef(false);
 
   const refetch = useCallback(() => {
     lastRequestKeyRef.current = "";
-    lastResultKeyRef.current = "";
+    appliedKeyRef.current = "";
     lastSettledKeyRef.current = "";
     setError(null);
     setManualRetryNonce((n) => n + 1);
@@ -194,12 +200,16 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       // l'abbiamo appena spento qui.
       requestIdRef.current += 1;
       setLoading(false);
+      setSlow(false);
+      if (inFlightRef.current) setCancelled(true);
+      inFlightRef.current = false;
       return undefined;
     }
 
+    setCancelled(false);
     const { url, canonicalCodes } = built;
 
-    if (lastRequestKeyRef.current === fetchKey && data !== null && error === null) {
+    if (appliedKeyRef.current === fetchKey && data !== null && error === null) {
       debugStep2("[ZONE_ANALYSIS_SKIPPED_DUPLICATE]", { fetchKey });
       // Stessa classe di bug del ramo hasValidZone sopra, caso piu' stretto:
       // se i parametri sono cambiati e tornati rapidamente allo stesso
@@ -211,6 +221,8 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       // quindi e' sempre sicuro garantire loading=false.
       requestIdRef.current += 1;
       setLoading(false);
+      setSlow(false);
+      inFlightRef.current = false;
       return undefined;
     }
 
@@ -219,6 +231,9 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
 
     // Diamo subito feedback visivo
     setLoading(true);
+    setSlow(false);
+    inFlightRef.current = true;
+    const slowTimerId = setTimeout(() => setSlow(true), ANALYSIS_SLOW_AFTER_MS);
 
     const fetchData = async () => {
       lastRequestKeyRef.current = fetchKey;
@@ -276,15 +291,16 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         let attempt = 0;
         let response = null;
         let result = null;
+        // I timeout contano un solo nuovo tentativo: l'attesa resta limitata.
+        let timeouts = 0;
 
         while (attempt <= maxRetries) {
           if (controller.signal.aborted || requestId !== requestIdRef.current) return;
           try {
-            response = await fetch(url, { headers, signal: controller.signal });
+            const reply = await fetchWithAttemptTimeout(url, { headers }, controller.signal);
+            response = reply.response;
             if (response.ok) {
-              result = typeof response.json === 'function'
-                ? await response.json().catch(() => ({ error: "INVALID_ANALYSIS_RESPONSE" }))
-                : { error: "INVALID_ANALYSIS_RESPONSE" };
+              result = reply.body;
               break;
             }
 
@@ -305,13 +321,16 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
               continue;
             }
 
-            result = typeof response.json === 'function'
-              ? await response.json().catch(() => ({ error: `HTTP_${response.status}` }))
-              : { error: `HTTP_${response.status}` };
+            result = reply.body;
             break;
           } catch (fetchErr) {
-            if (fetchErr?.name === 'AbortError' || controller.signal.aborted) return;
+            if (controller.signal.aborted) return;
             if (requestId !== requestIdRef.current) return;
+            const timedOut = fetchErr?.name === 'AnalysisTimeout';
+            if (timedOut && ++timeouts > 1) {
+              result = { error: "ANALYSIS_TIMEOUT" };
+              break;
+            }
             if (attempt < maxRetries) {
               setIsRetrying(true);
               await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
@@ -331,14 +350,13 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         }
 
         if (!response?.ok || result?.error) {
+          appliedKeyRef.current = "";
           setError(result?.error || result?.code || (response ? `HTTP_${response.status}` : "CONNECTION_ERROR"));
           setData(result?.sources || result?.metadata ? result : null);
           setDataKey(fetchKey);
         } else {
-          if (lastResultKeyRef.current !== fetchKey) {
-            lastResultKeyRef.current = fetchKey;
-            setData(result);
-          }
+          appliedKeyRef.current = fetchKey;
+          setData(result);
           setDataKey(fetchKey);
           setError(null);
           debugStep2('[ZONE_ANALYSIS_APPLIED]', { requestId, municipality });
@@ -357,6 +375,9 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           // diagnostica territoriale puo' pronunciarsi. Copre anche il
           // ramo `!url` (il `return` dentro try passa comunque di qui).
           lastSettledKeyRef.current = fetchKey;
+          inFlightRef.current = false;
+          clearTimeout(slowTimerId);
+          setSlow(false);
           setLoading(false);
           setIsRetrying(false);
         }
@@ -369,6 +390,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
 
     return () => {
       clearTimeout(timerId);
+      clearTimeout(slowTimerId);
       controller.abort();
     };
     // Dipende SOLO da `fetchKey` (identita' stabile della richiesta), dal
@@ -384,8 +406,11 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   const pending = Boolean(
     zoneValid &&
     lastSettledKeyRef.current !== fetchKey &&
-    !(lastRequestKeyRef.current === fetchKey && data !== null && error === null)
+    !(appliedKeyRef.current === fetchKey && data !== null && error === null)
   );
+  const status = resolveAnalysisStatus({
+    active: Boolean(fetchKey), cancelled, retrying: isRetrying, inFlight: loading || pending, slow, error, hasData: data !== null,
+  });
 
-  return { data, dataKey, fetchKey, loading, error, pending, isRetrying, refetch };
+  return { data, dataKey, fetchKey, loading, error, pending, isRetrying, status, refetch };
 }

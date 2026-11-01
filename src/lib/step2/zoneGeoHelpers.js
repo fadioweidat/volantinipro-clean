@@ -1,5 +1,11 @@
 import { GEO_DATA } from "../geoData.js";
 
+// Id delle versioni precedenti, salvati nelle bozze: contenevano la posizione
+// della riga ("api_7_015086"). Stessa zona, id senza posizione ("api_015086").
+export function canonicalZoneId(id) {
+  return typeof id === "string" ? id.replace(/^(nil|api)_\d+_(.+)$/, "$1_$2") : id;
+}
+
 export function apiToZones(apiData, city) {
   if (import.meta.env?.DEV) {
     console.debug('[DBG apiToZones normalized]', apiData ? {
@@ -43,6 +49,7 @@ export function apiToZones(apiData, city) {
     }
     return 0;
   };
+  const usedIds = new Set();
   return items.map((c, idx) => {
     const territoryLevel = c.territory_level || analysisLevel;
     const isNil = territoryLevel === "nil";
@@ -88,8 +95,13 @@ export function apiToZones(apiData, city) {
       co = v.confidence_score || 75,
       fi = v.family_index || 70;
     const area = c.area_km2 > 0 ? Math.round(c.area_km2 * ratio * 10) / 10 : Math.round((v.area_km2 || 0) * ratio * 10) / 10;
+    // L'id identifica il territorio, mai la sua posizione nella risposta: la
+    // posizione cambia con il raggio e la selezione perderebbe la zona.
+    const stableId = `${isNil ? "nil" : "api"}_${String(territoryCode || territoryName).toLowerCase().replace(/\s+/g, '_')}`;
+    const id = usedIds.has(stableId) ? `${stableId}__${idx}` : stableId;
+    usedIds.add(id);
     return {
-      id: `${isNil ? "nil" : "api"}_${idx}_${String(territoryCode || territoryName).toLowerCase().replace(/\s+/g, '_')}`,
+      id,
       name: territoryName,
       territoryLevel,
       isNil,

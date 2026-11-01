@@ -1,3 +1,5 @@
+import { canonicalZoneId } from './zoneGeoHelpers.js';
+
 const COLORS = ['#38BDF8', '#F59E0B', '#A78BFA', '#FB7185', '#2DD4BF', '#A3E635'];
 
 export function pointOfSaleMapColor(id, zones = []) {
@@ -23,21 +25,27 @@ export function buildCampaignMapOverlays(zones, activeId, activeRows = [], avail
   const cityKey = pv => String(pv?.city?.name || pv?.city?.label || pv?.cityName || '').replace(/\s*\([A-Z]{2}\)\s*$/i, '').trim().toLowerCase();
   return zones.flatMap((pv, index) => {
     const active = pv.id === activeId;
-    const selectedIds = new Set(pv.selected || []);
+    const selectedIds = new Set((pv.selected || []).map(canonicalZoneId));
     const sameCityRows = cityKey(pv) === cityKey(activePv) ? availableRows : [];
     const savedRows = pv.zonesAllocation || pv.allocation || [];
-    const rows = active ? activeRows : [...savedRows, ...sameCityRows.filter(row => selectedIds.has(row.id))];
+    const rows = active ? activeRows : [...savedRows, ...sameCityRows.filter(row => selectedIds.has(canonicalZoneId(row.id)))];
     const nilSelection = pv.nilManualMode || pv.areaMode === 'custom_zone';
     const seen = new Set();
+    const center = pv.city || pv;
+    // Un PV a raggio occupa solo il suo cerchio, come i poligoni della mappa.
+    const clip = pv.searchMode === 'address' && !nilSelection && Number(pv.radiusKm ?? pv.radius) > 0
+      && Number.isFinite(Number(center.lat)) && Number.isFinite(Number(center.lng))
+      ? { lat: Number(center.lat), lng: Number(center.lng), radiusKm: Number(pv.radiusKm ?? pv.radius) }
+      : null;
     return rows.flatMap(row => {
-      if (nilSelection && !selectedIds.has(row.id)) return [];
+      if (nilSelection && !selectedIds.has(canonicalZoneId(row.id))) return [];
       const available = sameCityRows.find(candidate => candidate.id === row.id);
       const geometry = row.geometry || row.polygon_geojson || row.geometry_geojson || available?.geometry || available?.polygon_geojson || available?.geometry_geojson;
       if (!geometry || row.id == null || seen.has(row.id)) return [];
       seen.add(row.id);
       return [{ key: `${pv.id}:${row.id}`, ownerId: pv.id, active,
         color: pointOfSaleMapColor(pv.id, zones), label: pv.store_name || `Punto vendita ${index + 1} · ${pv.cityName || pv.city?.label || ''}`,
-        name: row.name || row.label || available?.name || '', geometry }];
+        name: row.name || row.label || available?.name || '', geometry, clip }];
     });
   });
 }

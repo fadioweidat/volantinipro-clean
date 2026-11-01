@@ -13,6 +13,7 @@ import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
+import { assignTerritoryColors } from '../lib/map/territoryColors.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
@@ -1412,28 +1413,13 @@ function Step2MapImpl({
     const shouldRenderCoveragePolygons = (!isMunicipalityMode || (!simplifiedMilano && unconfirmedAddressMode)) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
     let missingGeometryNames = [];
     let renderedCoveragePolygonLayers = 0;
+    // Territorio nel raggio per le famiglie ma con confine semplificato tutto
+    // fuori dal cerchio: nulla da disegnare, non e' un confine mancante.
+    let outsideRadiusPolygons = 0;
     if (shouldRenderCoveragePolygons) {
-      // La palette distingue i territori (NIL a Milano, comuni altrove),
-      // senza modificare geometrie, quantità o stato di copertura.
-      // Le chiavi sono normalizzate e ordinate per avere colori deterministici
-      // a prescindere dall'ordine di arrivo delle feature.
-      const territoryKey = (z) => {
-        const isNil = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
-        const identifier = isNil
-          ? (z.nil_code || z.nilCode || z.code || z.id || z.name)
-          : (z.municipality_code || z.municipalityCode || z.istat_code || z.id || z.name);
-        return `${isNil ? 'nil' : 'comune'}:${String(identifier ?? '').trim().toLowerCase()}`;
-      };
-      const territoryPalette = [
-        '#34D399', '#60A5FA', '#C084FC', '#FBBF24', '#FB7185',
-        '#2DD4BF', '#A78BFA', '#F97316', '#84CC16', '#38BDF8',
-        '#F472B6', '#FACC15', '#818CF8', '#4ADE80', '#FB923C', '#22D3EE',
-      ];
-      const keys = [...new Set(coveragePolygons.map(territoryKey))].sort();
-      const territoryColors = new Map(keys.map((key, index) => [
-        key,
-        territoryPalette[index] || `hsl(${(index * 137.508) % 360} 72% 61%)`,
-      ]));
+      // Il colore distingue il territorio; lo stato di copertura resta nel
+      // tooltip e nel peso del bordo. Geometrie e quantita' non cambiano.
+      const territoryColors = assignTerritoryColors(coveragePolygons.map(z => z.id ?? z.name));
       coveragePolygons.forEach(z => {
         const isNilCoverage = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
         if (simplifiedMilano && (isNilCoverage ? activeLayers?.nil === false : activeLayers?.comuni === false)) return;
@@ -1450,17 +1436,20 @@ function Step2MapImpl({
         // Nel raggio i territori devono essere riconoscibili anche senza hover.
         // L'opacità di copertura (spesso "non_coperto" = 0.05) non deve
         // determinare la visibilità della differenziazione territoriale.
-        const fillOpacity = Math.max(0.30, Math.min(0.42, coverageIntensity.fillOpacity * opacityScale));
+        const fillOpacity = Math.max(0.36, Math.min(0.46, coverageIntensity.fillOpacity * opacityScale));
         // NIL selezionabili (Quartieri): click aggiunge/rimuove tramite lo stesso
         // onToggleZone/`selected` usato da lista e ricerca. Le NIL scelte hanno
         // bordo piu' marcato e riempimento piu' pieno.
         const isSelectableNil = Boolean(z.selectable && isD2D && onToggleZone);
+        // Nel Raggio tutte le zone sono selezionate in automatico: il bordo di
+        // scelta vale solo dove il cliente sceglie davvero i NIL.
+        const isManualNilChoice = Boolean(z.isSelected && z.selectable);
         const gisStyle = {
-          color: z.isSelected ? '#E8571A' : territoryColors.get(territoryKey(z)),
-          fillColor: territoryColors.get(territoryKey(z)),
-          fillOpacity: z.isSelected ? Math.max(fillOpacity, 0.28) : fillOpacity,
-          weight: z.isSelected ? Math.max(coverageIntensity.weight, 2.4) : coverageIntensity.weight,
-          opacity: z.isSelected ? 1 : coverageIntensity.opacity,
+          color: isManualNilChoice ? '#E8571A' : territoryColors.get(String(z.id ?? z.name)),
+          fillColor: territoryColors.get(String(z.id ?? z.name)),
+          fillOpacity: isManualNilChoice ? Math.max(fillOpacity, 0.28) : fillOpacity,
+          weight: isManualNilChoice ? Math.max(coverageIntensity.weight, 2.4) : Math.min(coverageIntensity.weight, 1.3),
+          opacity: isManualNilChoice ? 1 : 0.9,
           lineCap: 'round',
           lineJoin: 'round',
         };
@@ -1505,6 +1494,8 @@ function Step2MapImpl({
             missingGeometryNames.push(z.name);
             warnStep2('[STEP2_RADIUS_POLYGON_MISSING]', { zone: z.name, reason: 'geometry_parse_error', error: e });
           }
+        } else if (originalCoverageGeometry) {
+          outsideRadiusPolygons += 1;
         } else {
           missingGeometryNames.push(z.name);
           if (import.meta.env.DEV) console.warn('[STEP2_RADIUS_POLYGON_MISSING]', { zone: z.name, reason: 'no_geometry' });
@@ -1512,6 +1503,14 @@ function Step2MapImpl({
       });
     }
     setMissingPolygonNames(missingGeometryNames);
+    if (containerRef.current) {
+      Object.assign(containerRef.current.dataset, {
+        coverageExpected: String(shouldRenderCoveragePolygons ? coveragePolygons.length : 0),
+        coverageDrawn: String(renderedCoveragePolygonLayers),
+        coverageOutside: String(outsideRadiusPolygons),
+        coverageMissing: String(missingGeometryNames.length),
+      });
+    }
 
     // ── Cerchio raggio + marker centro — disegnati DOPO i poligoni comuni
     // (sopra nell'ordine dei layer) così il cerchio resta sempre visibile e
@@ -1523,7 +1522,14 @@ function Step2MapImpl({
     const campaignOverlays = buildCampaignMapOverlays(campaignZones, activeZoneId, activeOverlayRows, zonesWithCoords || []);
     // Inactive PVs first, active PV last. Exact polygons; no synthesized NIL geometry.
     campaignOverlays.sort((a, b) => Number(a.active) - Number(b.active)).forEach(overlay => {
-      const geometry = parseAndValidateGeoJsonGeometry(overlay.geometry);
+      const fullGeometry = parseAndValidateGeoJsonGeometry(overlay.geometry);
+      const activeCircle = overlay.active && !isMunicipalityMode && !nilMode && hasConfirmedRadius
+        ? { lat: Number(city?.lat), lng: Number(city?.lng), radiusKm: Number(radius) }
+        : null;
+      const circle = activeCircle || overlay.clip;
+      const geometry = fullGeometry && circle
+        ? clipTerritoryToRadius(fullGeometry, circle.lat, circle.lng, circle.radiusKm)
+        : fullGeometry;
       if (!geometry) return;
       const layer = L.geoJSON(geometry, {
         pane: 'nilPolygonsPane',

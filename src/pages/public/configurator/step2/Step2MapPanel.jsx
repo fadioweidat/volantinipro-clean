@@ -10,7 +10,7 @@ import { getCoverageStatus } from "../../../../lib/step2/buildStep2ViewModel.js"
 import { normalizeMunicipalityName } from "../../../../lib/step2/addressIntent.js";
 import { truthfulSourceLabel } from "../../../../lib/step2/truthfulSourceLabel.js";
 
-export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, focusedNil, gisLoading, gisSlowConnection, gisRetrying = false, gisTimedOut, onRetryGis, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
+export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = false, containingNil, activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, focusedNil, gisLoading, gisSlowConnection, gisRetrying = false, gisTimedOut, onRetryGis, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
   return (
     <>
       {simplifiedMilano && <div className="vp-milano-map-toolbar" role="group" aria-label="Layer della mappa">
@@ -92,7 +92,7 @@ export function Step2MapPanel({ simplifiedMilano = false, containingNil, activeL
                 <span style={{
                 color: sharedCoveragePctText == null ? "#94A3B8" : getCoverageStatus(serviceKpis?.coverage) === "coperto" ? "#22C55E" : getCoverageStatus(serviceKpis?.coverage) === "parziale" ? "#FACC15" : "#F87171"
               }}>
-                  {sharedCoveragePctText == null ? "Copertura non disponibile" : `${sharedCoveragePctText} copertura`}
+                  {sharedCoveragePctText == null ? (coverageCalculating ? "Calcolo in corso…" : "Copertura non disponibile") : `${sharedCoveragePctText} copertura`}
                 </span>
               </div>}
             <Step2MapErrorBoundary resetKey={`${mapCityForStep2?.name || mapCityForStep2?.label || ""}|${data.activeZoneId || ""}`}>
