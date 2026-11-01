@@ -13,7 +13,8 @@ import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
-import { assignTerritoryColors } from '../lib/map/territoryColors.js';
+import { assignTerritoryColors, territoryColor } from '../lib/map/territoryColors.js';
+import { boundsOverlap, CONTEXT_FILL_OPACITY, CONTEXT_MIN_ZOOM, geometryOutsideRadius, loadContextComuni } from '../lib/map/radiusContextComuni.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
@@ -785,6 +786,7 @@ function Step2MapImpl({
   // Territori nel calcolo Raggio senza geometry disponibile — mostrati come
   // avviso opzionale in UI, senza nascondere i poligoni disponibili.
   const [missingPolygonNames, setMissingPolygonNames] = useState([]);
+  const territoryColorsRef = useRef(new Map());
 
   // Bonifica di eventuali tag CDN iniettati da versioni precedenti
   // (o da un'altra tab rimasta aperta): Leaflet ora arriva SOLO dal bundle.
@@ -1451,6 +1453,7 @@ function Step2MapImpl({
       // Il colore distingue il territorio; lo stato di copertura resta nel
       // tooltip e nel peso del bordo. Geometrie e quantita' non cambiano.
       const territoryColors = assignTerritoryColors(coveragePolygons.map(z => z.id ?? z.name));
+      territoryColorsRef.current = territoryColors;
       coveragePolygons.forEach(z => {
         const isNilCoverage = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
         if (simplifiedMilano && (isNilCoverage ? activeLayers?.nil === false : activeLayers?.comuni === false)) return;
@@ -1467,7 +1470,7 @@ function Step2MapImpl({
         // Nel raggio i territori devono essere riconoscibili anche senza hover.
         // L'opacità di copertura (spesso "non_coperto" = 0.05) non deve
         // determinare la visibilità della differenziazione territoriale.
-        const fillOpacity = Math.max(0.36, Math.min(0.46, coverageIntensity.fillOpacity * opacityScale));
+        const fillOpacity = Math.max(0.36, Math.min(0.45, coverageIntensity.fillOpacity * opacityScale));
         // NIL selezionabili (Quartieri): click aggiunge/rimuove tramite lo stesso
         // onToggleZone/`selected` usato da lista e ricerca. Le NIL scelte hanno
         // bordo piu' marcato e riempimento piu' pieno.
@@ -2097,6 +2100,48 @@ function Step2MapImpl({
   // Click su un risultato della ricerca NIL: inquadra ed evidenzia il poligono
   // con un layer temporaneo. Nessuna chiamata a onToggleZone: la selezione
   // cambia solo con "Aggiungi"/"Rimuovi" o con il click esplicito sulla mappa.
+  const contextCircle = svcType === 'd2d' && !isMunicipalityMode && !nilMode && hasConfirmedRadius && activeLayers?.comuni !== false
+    && isFiniteLatLng(city?.lat, city?.lng) ? `${city.lat}|${city.lng}|${radius}` : null;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !leafletLoaded || !contextCircle) return undefined;
+    const [lat, lng, radiusKm] = contextCircle.split('|').map(Number);
+    const layer = L.layerGroup().addTo(map);
+    const drawn = new Set();
+    let comuni = null;
+    let cancelled = false;
+    const draw = () => {
+      if (!comuni || map.getZoom() < CONTEXT_MIN_ZOOM) return;
+      const view = map.getBounds().pad(0.15);
+      const box = { west: view.getWest(), east: view.getEast(), south: view.getSouth(), north: view.getNorth() };
+      comuni.forEach((comune) => {
+        if (drawn.has(comune.id) || !boundsOverlap(comune.bounds, box)) return;
+        drawn.add(comune.id);
+        const color = territoryColorsRef.current.get(comune.id) || territoryColor(comune.id);
+        L.geoJSON(geometryOutsideRadius(comune.geometry, lat, lng, radiusKm), {
+          pane: 'municipalityFillPane',
+          interactive: false,
+          style: { color, weight: 0.8, opacity: 0.55, fillColor: color, fillOpacity: CONTEXT_FILL_OPACITY },
+        }).addTo(layer);
+      });
+      if (containerRef.current) containerRef.current.dataset.contextComuni = String(drawn.size);
+    };
+    loadContextComuni()
+      .then((rows) => {
+        if (cancelled) return;
+        comuni = rows;
+        draw();
+      })
+      .catch((error) => warnStep2('[RADIUS_CONTEXT_COMUNI_UNAVAILABLE]', { error }));
+    map.on('moveend', draw);
+    return () => {
+      cancelled = true;
+      map.off('moveend', draw);
+      layer.remove();
+      if (containerRef.current) delete containerRef.current.dataset.contextComuni;
+    };
+  }, [leafletLoaded, contextCircle, coveragePolygons]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const map = mapRef.current;
     if (!focusNil || !map || !leafletLoaded) return undefined;

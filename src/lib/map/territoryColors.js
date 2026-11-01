@@ -21,6 +21,11 @@ function shade(index) {
   return `hsl(${Math.round(step * 137.508) % 360} ${62 + step % 3 * 10}% ${56 + step % 4 * 5}%)`;
 }
 
+// Colore di un singolo territorio, anche fuori dall'elenco del raggio.
+export function territoryColor(id) {
+  return shade(hashId(id) % SHADES);
+}
+
 export function assignTerritoryColors(ids) {
   const unique = [...new Set(ids.map(String))].sort();
   const taken = new Set();

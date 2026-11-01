@@ -14,7 +14,8 @@ const { resolveZoneAutoSelection } = await import('../src/lib/step2/zoneSelectio
 const { useServiceAnalysis } = await import('../src/hooks/useServiceAnalysis.js');
 const { canonicalZoneId } = await import('../src/lib/step2/zoneGeoHelpers.js');
 const { fetchWithAttemptTimeout, resolveAnalysisStatus } = await import('../src/lib/step2/analysisStatus.js');
-const { assignTerritoryColors } = await import('../src/lib/map/territoryColors.js');
+const { assignTerritoryColors, territoryColor } = await import('../src/lib/map/territoryColors.js');
+const { boundsOverlap, CONTEXT_FILL_OPACITY, geometryOutsideRadius, prepareContextComuni } = await import('../src/lib/map/radiusContextComuni.js');
 const { clipTerritoryToRadius } = await import('../src/lib/map/clipTerritoryToRadius.js');
 const { buildCampaignMapOverlays } = await import('../src/lib/step2/campaignMapOverlays.js');
 
@@ -59,6 +60,15 @@ test('a real manual subset is still preserved across a radius change', () => {
   const manual = [ids[0]];
   const next = apiToZones(RADIUS_2, null).map((zone) => zone.id);
   assert.deepEqual(resolveZoneAutoSelection({ hasUsefulApiZones: true, availableIds: next, prevAvailableIds: ids, currentSelected: manual }), manual);
+});
+
+test('leaving Tutto Milano for a radius keeps the external comuni in the totals', () => {
+  const allNil = Array.from({ length: 88 }, (_, index) => `nil_${index}`);
+  const inRadius = [...allNil.slice(0, 27), ...Array.from({ length: 10 }, (_, index) => `api_${index}`)];
+  const next = resolveZoneAutoSelection({ hasUsefulApiZones: true, availableIds: inRadius, prevAvailableIds: allNil, currentSelected: allNil });
+  assert.deepEqual(next, inRadius);
+  const manual = allNil.slice(0, 3);
+  assert.deepEqual(resolveZoneAutoSelection({ hasUsefulApiZones: true, availableIds: inRadius, prevAvailableIds: allNil, currentSelected: manual }), manual);
 });
 
 function deferred() {
@@ -231,4 +241,35 @@ test('the map gets territory boundaries from the analysis, not from Nominatim pe
   assert.doesNotMatch(source, /radiusComuneGeometr/);
   assert.match(source, /mapCoverageZones=\{mapCoverageZones\}/);
   assert.doesNotMatch(source, /comuneRows\.slice\(/);
+});
+
+test('the municipalities file is real, complete and light enough for the public map', () => {
+  const raw = readFileSync(new URL('../public/data/territories/lombardia-comuni.json', import.meta.url));
+  const comuni = prepareContextComuni(JSON.parse(raw));
+  assert.equal(comuni.length, 1502);
+  assert.ok(raw.length < 1024 * 1024);
+  const cormano = comuni.find((row) => row.name === 'Cormano');
+  assert.equal(cormano.id, 'api_015086');
+  assert.ok(boundsOverlap(cormano.bounds, { west: 9.15, east: 9.2, south: 45.53, north: 45.55 }));
+  assert.ok(!boundsOverlap(cormano.bounds, { west: 10, east: 10.1, south: 45, north: 45.1 }));
+});
+
+test('outside the radius a comune keeps its color, lighter than the active territories', () => {
+  assert.ok(CONTEXT_FILL_OPACITY >= 0.15 && CONTEXT_FILL_OPACITY <= 0.25);
+  assert.match(territoryColor('api_015086'), /^(#|hsl)/);
+  assert.equal(territoryColor('api_015086'), territoryColor('api_015086'));
+  const map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
+  assert.match(map, /Math\.max\(0\.36, Math\.min\(0\.45,/);
+  assert.match(map, /pane: 'municipalityFillPane',\s+interactive: false,\s+style: \{ color, weight: 0\.8/);
+  assert.match(map, /activeLayers\?\.comuni !== false\s+&& isFiniteLatLng/);
+});
+
+test('the part inside the circle becomes a hole, so NIL colors stay clean', () => {
+  const center = { lat: 45.5289, lng: 9.1666 };
+  const multi = { type: 'MultiPolygon', coordinates: [square(9.1, 45.45, 0.2).coordinates] };
+  const out = geometryOutsideRadius(multi, center.lat, center.lng, 1);
+  assert.equal(out.coordinates[0].length, 2);
+  for (const point of out.coordinates[0][1]) assert.ok(distanceKm(point, center) <= 1.01);
+  const far = { type: 'MultiPolygon', coordinates: [square(9.5, 45.9, 0.01).coordinates] };
+  assert.equal(geometryOutsideRadius(far, center.lat, center.lng, 1).coordinates[0].length, 1);
 });
