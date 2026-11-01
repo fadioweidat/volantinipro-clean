@@ -121,7 +121,8 @@ async function hashPayload(payload: unknown) {
 // Whitelist stretta sui campi di primo livello del body e limiti dimensionali
 // espliciti: il body arbitrario del client non arriva mai cosi' com'e' a
 // OpenAI, solo snapshot/question dopo questi controlli.
-const MAX_QUESTION_LENGTH = 500;
+// Tetto assoluto: il limite di ogni categoria e' in AI_LIMITS.
+const MAX_QUESTION_LENGTH = 2000;
 // Tetto alla risposta del modello, su tutte le chiamate OpenAI.
 const OPENAI_MAX_TOKENS = 800;
 
@@ -134,6 +135,15 @@ const AI_LIMITS = {
   admin: { perHour: 300, dailyTotal: null, maxMessage: 2000 },
 } as const;
 type AiTier = keyof typeof AI_LIMITS;
+// Assistente spento per i visitatori anonimi (decisione del 2026-11-01): si
+// riattiva qui e in src/ai/assistantAccess.js dopo la suite delle risposte attese.
+const ANONYMOUS_AI_ENABLED = false;
+// Tentativi restituiti al massimo ogni ora: senza tetto, una domanda che fa
+// scartare la risposta darebbe chiamate a OpenAI illimitate.
+const AI_MAX_REFUNDS_PER_HOUR = 10;
+// Stesso testo di ASSISTANT_OFF_TEXT nel sito: la chat lo riconosce e mostra i contatti.
+const ASSISTANT_OFF_TEXT = "L'assistente non è disponibile in questo momento. Scrivici su WhatsApp +39 351 767 3737 o via email a info@volantinipro.it.";
+type AiMeter = { contextType?: string; consumed: null | { scope: string; identifierType: string; identifierHash: string; tokens: number } };
 
 async function aiTier(user: { id: string } | null, contextType: string): Promise<AiTier> {
   if (contextType === "driver_assignment") return "driver";
@@ -168,15 +178,18 @@ function aiMessageTooLong(tier: AiTier, contextType: string, body: any) {
 
 // Da chiamare subito prima del modello: risposte in cache e deterministiche non
 // consumano messaggi. Se il limite non e' verificabile non si chiama OpenAI.
-async function aiLimitExceeded(req: Request, user: { id: string } | null, tier: AiTier, contextType: string) {
+async function aiLimitExceeded(req: Request, user: { id: string } | null, tier: AiTier, contextType: string, meter: AiMeter) {
   const supabase = supabaseAdmin();
   const unavailable = () => aiLimitReply(contextType, "L'assistente non è disponibile in questo momento. Riprova tra qualche minuto.", "AI_LIMIT_UNAVAILABLE");
   if (!supabase) return tier === "admin" ? null : unavailable();
   const limits = AI_LIMITS[tier];
+  const ownScope = `ai_core_${tier}`;
+  const ownType = user ? "user" : "ip";
+  const ownHash = await sha256Hex(user ? user.id : clientIp(req));
   const own = await supabase.rpc("consume_edge_rate_limit", {
-    p_scope: `ai_core_${tier}`,
-    p_identifier_type: user ? "user" : "ip",
-    p_identifier_hash: await sha256Hex(user ? user.id : clientIp(req)),
+    p_scope: ownScope,
+    p_identifier_type: ownType,
+    p_identifier_hash: ownHash,
     p_max_requests: limits.perHour,
     p_window_seconds: 3600,
   });
@@ -185,6 +198,7 @@ async function aiLimitExceeded(req: Request, user: { id: string } | null, tier: 
     const minutes = Math.max(1, Math.ceil(Number(own.data?.retry_after_seconds || 60) / 60));
     return aiLimitReply(contextType, `Hai raggiunto il limite di messaggi all'assistente. Potrai scrivere di nuovo tra circa ${minutes} minuti.`, "AI_RATE_LIMITED", minutes * 60);
   }
+  meter.consumed = { scope: ownScope, identifierType: ownType, identifierHash: ownHash, tokens: Number(own.data?.tokens) };
   if (limits.dailyTotal === null) return null;
   const total = await supabase.rpc("consume_edge_rate_limit", {
     p_scope: `ai_core_${tier}_total`,
@@ -198,6 +212,52 @@ async function aiLimitExceeded(req: Request, user: { id: string } | null, tier: 
     return aiLimitReply(contextType, "Per oggi l'assistente ha raggiunto il limite di messaggi. Riprova domani oppure contattaci.", "AI_DAILY_LIMIT", Number(total.data?.retry_after_seconds || 3600));
   }
   return null;
+}
+
+// Il tentativo orario torna al cliente se l'assistente non ha risposto. Il tetto
+// giornaliero non si restituisce: la chiamata a OpenAI e' comunque pagata.
+async function openAiFailure(res: Response) {
+  const body = await res.json().catch(() => null);
+  const noCredit = res.status === 429 && (body?.error?.type === "insufficient_quota" || body?.error?.code === "insufficient_quota");
+  return new Error(noCredit ? "OPENAI_NO_CREDIT" : `OPENAI_${res.status}`);
+}
+
+// Senza credito il cliente non deve leggere un errore ne' un "dato non disponibile".
+async function aiNoCreditReply(meter: AiMeter, response: Response) {
+  const body = await response.clone().json().catch(() => null);
+  const warnings = Array.isArray(body?.warnings) ? body.warnings : [];
+  if (!warnings.some((warning: unknown) => String(warning).includes("OPENAI_NO_CREDIT"))) return response;
+  return aiLimitReply(meter.contextType || "", ASSISTANT_OFF_TEXT, "AI_NO_CREDIT");
+}
+
+async function aiRefundIfUnanswered(meter: AiMeter, response: Response | null) {
+  const consumed = meter.consumed;
+  if (!consumed || !Number.isFinite(consumed.tokens) || consumed.tokens < 1) return;
+  const body = response ? await response.clone().json().catch(() => null) : null;
+  if (body && body.answer) return;
+  if (body && body.status !== "fallback" && body.status !== "error") return;
+  try {
+    const supabase = supabaseAdmin();
+    if (!supabase) return;
+    const allowance = await supabase.rpc("consume_edge_rate_limit", {
+      p_scope: `${consumed.scope}_refund`,
+      p_identifier_type: consumed.identifierType,
+      p_identifier_hash: consumed.identifierHash,
+      p_max_requests: AI_MAX_REFUNDS_PER_HOUR,
+      p_window_seconds: 3600,
+    });
+    if (allowance.error || !allowance.data?.allowed) return;
+    // Solo se il contatore e' ancora quello letto: una richiesta parallela lo
+    // ha cambiato? Nessuna restituzione, mai un conteggio falsato verso il basso.
+    await supabase.from("edge_rate_limit_buckets")
+      .update({ tokens: consumed.tokens - 1 })
+      .eq("scope", consumed.scope)
+      .eq("identifier_type", consumed.identifierType)
+      .eq("identifier_hash", consumed.identifierHash)
+      .eq("tokens", consumed.tokens);
+  } catch {
+    // Il tentativo resta contato: la risposta al cliente non cambia.
+  }
 }
 const MAX_SNAPSHOT_JSON_LENGTH = 20000; // ~20KB, ampiamente sufficiente per uno snapshot territoriale reale
 const MAX_SNAPSHOT_ARRAY_LENGTH = 200;
@@ -509,7 +569,7 @@ async function callOpenAi(contextType: string, snapshot: Record<string, unknown>
       }),
     });
 
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -547,7 +607,7 @@ async function callAdminOpenAi(snapshot: Record<string, unknown>, question: stri
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -582,7 +642,7 @@ async function callCustomerOpenAi(snapshot: Record<string, unknown>, question: s
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -618,7 +678,7 @@ async function callControlCenterOpenAi(snapshot: Record<string, unknown>, warnin
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const content = (await res.json())?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
     const parsed = JSON.parse(content);
@@ -654,7 +714,7 @@ async function callTerritorialReportOpenAi(snapshot: Record<string, unknown>, qu
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -689,7 +749,7 @@ async function callDriverOpenAi(snapshot: Record<string, unknown>, question: str
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -724,7 +784,7 @@ async function callSupplierOpenAi(snapshot: Record<string, unknown>, question: s
         ],
       }),
     });
-    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    if (!res.ok) throw await openAiFailure(res);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
@@ -744,7 +804,7 @@ async function callSupplierOpenAi(snapshot: Record<string, unknown>, question: s
 // (l'unica identita' possibile e' quella verificata da getAuthedUser, mai
 // quella del payload). `user` puo' essere null: in quel caso la richiesta
 // procede comunque, solo senza cache.
-async function handleQuoteStep(req: Request, tier: AiTier, contextType: string, user: { id: string } | null, body: any) {
+async function handleQuoteStep(req: Request, tier: AiTier, meter: AiMeter, contextType: string, user: { id: string } | null, body: any) {
   const validation = validateQuotePayload(contextType, body);
   if (!validation.ok) {
     return json({ answer: null, status: "error", error: validation.error }, 400);
@@ -759,7 +819,7 @@ async function handleQuoteStep(req: Request, tier: AiTier, contextType: string, 
   // fase: gli anonimi semplicemente saltano la cache e richiamano OpenAI ad
   // ogni domanda.
   if (!user) {
-    const limited = await aiLimitExceeded(req, user, tier, contextType);
+    const limited = await aiLimitExceeded(req, user, tier, contextType, meter);
     if (limited) return limited;
     const warnings: string[] = [];
     const aiResult = await callOpenAi(contextType, snapshot, question, warnings);
@@ -787,7 +847,7 @@ async function handleQuoteStep(req: Request, tier: AiTier, contextType: string, 
     }
   }
 
-  const limited = await aiLimitExceeded(req, user, tier, contextType);
+  const limited = await aiLimitExceeded(req, user, tier, contextType, meter);
   if (limited) return limited;
 
   const warnings: string[] = [];
@@ -1577,50 +1637,62 @@ async function handleSupplierDashboard(user: { id: string } | null, body: any) {
   return json({ ...aiResult, status: "ai", cached: false });
 }
 
+async function routeAiRequest(req: Request, meter: AiMeter) {
+  const body = await req.json().catch(() => null);
+  const contextType = body?.contextType;
+  meter.contextType = contextType;
+
+  if (!isKnownContextType(contextType)) {
+    return json({ answer: null, status: "error", error: "INVALID_CONTEXT_TYPE" }, 400);
+  }
+  if (!isImplementedContextType(contextType)) {
+    return json({ answer: null, status: "error", error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501);
+  }
+
+  // Identita' risolta una sola volta, sempre in modo opzionale a questo
+  // livello: e' il singolo branch contextType a decidere se e' obbligatoria.
+  // Step2 e territorial_report accettano user===null; i contesti Admin, Customer
+  // e Supplier respingono l'anonimo e verificano ruolo/ownership nel proprio handler.
+  // Driver verifica l'access_token dell'incarico.
+  const user = await getAuthedUser(req);
+  const collectorSecret = Deno.env.get("PLATFORM_HEALTH_COLLECTOR_SECRET");
+  const trustedCollector = Boolean(collectorSecret && req.headers.get("x-collector-secret") === collectorSecret);
+
+  if (!ANONYMOUS_AI_ENABLED && !user && (QUOTE_CONTEXT_TYPES.has(contextType) || contextType === "territorial_report")) {
+    return json({ answer: null, status: "disabled", error: "AI_ANONYMOUS_DISABLED" });
+  }
+  if (contextType === "action_verify") return await handleActionVerify(supabaseAdmin, json, req, user, body?.action, body?.assignmentId);
+  const metered = !(contextType === "control_center_diagnosis" && trustedCollector);
+  const tier = await aiTier(user, contextType);
+  if (metered) {
+    const tooLong = aiMessageTooLong(tier, contextType, body);
+    if (tooLong) return tooLong;
+  }
+  if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(req, tier, meter, contextType, user, body);
+  if (metered) {
+    const limited = await aiLimitExceeded(req, user, tier, contextType, meter);
+    if (limited) return limited;
+  }
+  if (contextType === "customer_dashboard") return await handleCustomerDashboard(user, body);
+  if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);
+  if (contextType === "driver_assignment") return await handleDriverAssignment(req, body);
+  if (contextType === "supplier_dashboard") return await handleSupplierDashboard(user, body);
+  if (contextType === "control_center_diagnosis") return await handleControlCenterDiagnosis(user, body, trustedCollector);
+  if (contextType === "territorial_report") return await handleTerritorialReport(user, body);
+  return json({ answer: null, status: "error", error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501);
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ answer: null, status: "error", error: "METHOD_NOT_ALLOWED" }, 405);
 
+  const meter: AiMeter = { consumed: null };
   try {
-    const body = await req.json().catch(() => null);
-    const contextType = body?.contextType;
-
-    if (!isKnownContextType(contextType)) {
-      return json({ answer: null, status: "error", error: "INVALID_CONTEXT_TYPE" }, 400);
-    }
-    if (!isImplementedContextType(contextType)) {
-      return json({ answer: null, status: "error", error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501);
-    }
-
-    // Identita' risolta una sola volta, sempre in modo opzionale a questo
-    // livello: e' il singolo branch contextType a decidere se e' obbligatoria.
-    // Step2 e territorial_report accettano user===null; i contesti Admin, Customer
-    // e Supplier respingono l'anonimo e verificano ruolo/ownership nel proprio handler.
-    // Driver verifica l'access_token dell'incarico.
-    const user = await getAuthedUser(req);
-    const collectorSecret = Deno.env.get("PLATFORM_HEALTH_COLLECTOR_SECRET");
-    const trustedCollector = Boolean(collectorSecret && req.headers.get("x-collector-secret") === collectorSecret);
-
-    if (contextType === "action_verify") return await handleActionVerify(supabaseAdmin, json, req, user, body?.action, body?.assignmentId);
-    const metered = !(contextType === "control_center_diagnosis" && trustedCollector);
-    const tier = await aiTier(user, contextType);
-    if (metered) {
-      const tooLong = aiMessageTooLong(tier, contextType, body);
-      if (tooLong) return tooLong;
-    }
-    if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(req, tier, contextType, user, body);
-    if (metered) {
-      const limited = await aiLimitExceeded(req, user, tier, contextType);
-      if (limited) return limited;
-    }
-    if (contextType === "customer_dashboard") return await handleCustomerDashboard(user, body);
-    if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);
-    if (contextType === "driver_assignment") return await handleDriverAssignment(req, body);
-    if (contextType === "supplier_dashboard") return await handleSupplierDashboard(user, body);
-    if (contextType === "control_center_diagnosis") return await handleControlCenterDiagnosis(user, body, trustedCollector);
-    if (contextType === "territorial_report") return await handleTerritorialReport(user, body);
-    return json({ answer: null, status: "error", error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501);
+    const response = await routeAiRequest(req, meter);
+    await aiRefundIfUnanswered(meter, response);
+    return await aiNoCreditReply(meter, response);
   } catch (error) {
+    await aiRefundIfUnanswered(meter, null);
     return json(
       { answer: null, status: "error", error: error instanceof Error ? error.message : "UNKNOWN_ERROR" },
       500

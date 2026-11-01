@@ -112,7 +112,7 @@ test("InlineHelpCta: launcher fisso apre l'assistente contestuale senza logica S
 test("assistente negli Step: WhatsApp ed email (contatto umano) restano nel pannello", () => {
   const panel = read("src/components/ai/quote/QuoteAssistantPanel.jsx");
   assert.match(panel, /showHumanContacts=\{true\}/);
-  assert.match(read("src/app/PublicRoutes.jsx"), /isConfiguratorStep && <QuoteAssistantPanel open=\{assistantOpen\}/);
+  assert.match(read("src/app/PublicRoutes.jsx"), /isConfiguratorStep && assistantAllowed && <QuoteAssistantPanel open=\{assistantOpen\}/);
   const drawer = read("src/components/ai/global/VolantiniProAssistantDrawer.jsx");
   assert.match(drawer, /\{showHumanContacts && <AssistantContactLinks \/>\}/);
   assert.match(drawer, /const whatsappUrl = buildInfoWhatsAppUrl\(\) \|\| ASSISTANT_WHATSAPP_URL;/);
@@ -149,8 +149,8 @@ test("HomePage: monta ContattiSection una sola volta, prima della FinalCtaSectio
 test("PublicRoutes: InlineHelpCta e pannello contestuale sono resi solo per Step1-4", () => {
   const src = read("src/app/PublicRoutes.jsx");
   assert.match(src, /import InlineHelpCta from "\.\.\/components\/common\/InlineHelpCta\.jsx"/);
-  assert.match(src, /isConfiguratorStep && <InlineHelpCta expanded=\{assistantOpen\}/);
-  assert.match(src, /isConfiguratorStep && <QuoteAssistantPanel/);
+  assert.match(src, /isConfiguratorStep && assistantAllowed && <InlineHelpCta expanded=\{assistantOpen\}/);
+  assert.match(src, /isConfiguratorStep && assistantAllowed && <QuoteAssistantPanel/);
   assert.doesNotMatch(src, /onAsk=\{\(\) => goTo\("step2"\)\}/);
   assert.match(src, /page === "step1" \|\| page === "step2" \|\| page === "step3" \|\| page === "step4"/);
 });

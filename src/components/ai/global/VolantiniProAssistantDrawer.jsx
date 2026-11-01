@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { buildInfoMailtoUrl, buildInfoWhatsAppUrl } from "../../../lib/contactConfig.js";
 import AssistantActionCard from "../actions/AssistantActionCard.jsx";
 import "../quote/quote-assistant.css";
+import { ASSISTANT_MAX_MESSAGE } from "../../../ai/assistantMessageLimits.js";
+import { isAssistantOff, markAssistantOffIfNeeded } from "../../../ai/assistantAccess.js";
 
 const ASSISTANT_WHATSAPP_URL = "https://wa.me/393517673737";
 
@@ -38,6 +40,7 @@ export default function VolantiniProAssistantDrawer({
   onAsk,
   disclaimer = "Solo dati del preventivo. Nessuna modifica automatica.",
   inputPlaceholder = "Scrivi una domanda sul preventivo",
+  maxLength = null,
   welcomeTitle = "Come posso aiutarti?",
   welcomeText = "Conosco le scelte e i valori mostrati qui, ma non posso modificare il preventivo.",
   thinkingText = "Sto leggendo i dati dello Step…",
@@ -52,6 +55,7 @@ export default function VolantiniProAssistantDrawer({
   const [history, setHistory] = useState([]);
   const [sending, setSending] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [assistantOff, setAssistantOff] = useState(isAssistantOff);
   const inputRef = useRef(null);
 
   // Focus management and escape listener
@@ -89,6 +93,10 @@ export default function VolantiniProAssistantDrawer({
     setSending(true);
     try {
       const response = await onAsk(question);
+      if (markAssistantOffIfNeeded(response?.text)) {
+        setAssistantOff(true);
+        return;
+      }
       if (response && response.text) {
         setHistory((items) => [
           ...items,
@@ -139,7 +147,7 @@ export default function VolantiniProAssistantDrawer({
         <div className="quote-ai__body">
           {contextCard}
 
-          {Array.isArray(quickQuestions) && quickQuestions.length > 0 && (
+          {!assistantOff && Array.isArray(quickQuestions) && quickQuestions.length > 0 && (
             <div className="quote-ai__questions" aria-label="Domande suggerite">
               {quickQuestions.map((question) => (
                 <button type="button" key={question} disabled={sending} onClick={() => submit(question)}>
@@ -186,10 +194,18 @@ export default function VolantiniProAssistantDrawer({
             </div>
           )}
 
+          {assistantOff && (
+            <div className="quote-ai__fallback" role="status" data-testid="assistant-off-box">
+              <strong>Hai domande? Scrivici</strong>
+              <p>L'assistente non è disponibile in questo momento.</p>
+              <AssistantContactLinks />
+            </div>
+          )}
+
           {children}
         </div>
 
-        <form
+        {!assistantOff && <form
           className="quote-ai__form"
           onSubmit={(event) => {
             event.preventDefault();
@@ -204,7 +220,7 @@ export default function VolantiniProAssistantDrawer({
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               disabled={sending}
-              maxLength={500}
+              maxLength={maxLength ?? ASSISTANT_MAX_MESSAGE[role] ?? ASSISTANT_MAX_MESSAGE.guest}
               autoComplete="off"
               placeholder={inputPlaceholder}
             />
@@ -213,7 +229,7 @@ export default function VolantiniProAssistantDrawer({
             </button>
           </div>
           {disclaimer && <small>{disclaimer}</small>}
-        </form>
+        </form>}
       </aside>
     </>
   );

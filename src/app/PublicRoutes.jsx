@@ -3,6 +3,8 @@ import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx
 import Footer from "../components/home/Footer.jsx";
 import { preloadablePage } from "../bootstrap/preloadablePage.jsx";
 import InlineHelpCta from "../components/common/InlineHelpCta.jsx";
+import PublicContactBox from "../components/common/PublicContactBox.jsx";
+import { canUseAssistant } from "../ai/assistantAccess.js";
 import { CITY_PAGE_KEYS, PRICES_PAGE_KEY } from "../lib/seo/seoLandingRoutes.js";
 import QuoteAssistantPanel from "../components/ai/quote/QuoteAssistantPanel.jsx";
 import { buildQuoteAssistantBaseContext, quickQuestionsForPage } from "../ai/context/buildQuoteAssistantContext.js";
@@ -99,6 +101,7 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
 
   if (!content) return null;
   const isConfiguratorStep = page === "step1" || page === "step2" || page === "step3" || page === "step4";
+  const assistantAllowed = canUseAssistant();
   // Every rendered public route shares the footer, including future pricing/city/guide pages.
   // Home already renders Footer; feasibility-library is customer-only.
   const showFooter = page !== "home" && page !== "feasibility-library";
@@ -106,8 +109,9 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     <Suspense fallback={<RouteLoadingFallback />}>
       <div className={`configurator-assistant-layout${isConfiguratorStep && assistantOpen ? " configurator-assistant-layout--open" : ""}`}>{content}</div>
       {showFooter && <Footer onNav={goTo} onHowItWorks={() => { goTo("home"); setTimeout(() => document.getElementById("come-funziona")?.scrollIntoView({ behavior: "smooth" }), 150); }} />}
-      {isConfiguratorStep && <InlineHelpCta expanded={assistantOpen} onAsk={() => setAssistantOpen(true)} />}
-      {isConfiguratorStep && <QuoteAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} page={page} context={assistantContext} quickQuestions={quickQuestionsForPage(page, assistantContext)} />}
+      {isConfiguratorStep && !assistantAllowed && <PublicContactBox />}
+      {isConfiguratorStep && assistantAllowed && <InlineHelpCta expanded={assistantOpen} onAsk={() => setAssistantOpen(true)} />}
+      {isConfiguratorStep && assistantAllowed && <QuoteAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} page={page} context={assistantContext} quickQuestions={quickQuestionsForPage(page, assistantContext)} />}
     </Suspense>
   );
 }

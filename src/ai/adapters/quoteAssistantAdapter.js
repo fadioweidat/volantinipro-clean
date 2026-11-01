@@ -1,4 +1,4 @@
-import { supabase } from "../../supabaseClient.js";
+import { supabase, ensureSupabaseSessionBridge } from "../../supabaseClient.js";
 import { generateClientStep2Answer } from "../context/buildQuoteAssistantContext.js";
 
 const VALID_CONTEXT_TYPES = new Set(["step1", "step2", "step3", "step4"]);
@@ -18,6 +18,8 @@ export async function runQuoteAssistant({ contextType, snapshot, question }) {
 
   let invokeError = null;
   try {
+    // Senza il bridge ai-core vede solo la anon key e tratta il cliente come anonimo.
+    await ensureSupabaseSessionBridge();
     const { data, error } = await supabase.functions.invoke("ai-core", {
       body: { contextType, snapshot, question: normalizedQuestion },
     });

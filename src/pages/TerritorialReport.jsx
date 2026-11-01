@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { getServiceAccent } from "../lib/services/service-config.js";
 import { buildTerritorialReportSnapshot } from "../ai/context/buildTerritorialReportSnapshot.js";
 import { runTerritorialReport } from "../ai/adapters/territorialReportAdapter.js";
+import { canUseAssistant } from "../ai/assistantAccess.js";
 
 /**
  * Report Territoriale Avanzato — dashboard modulare, service-adaptive (D2D / H2H / Business).
@@ -29,6 +30,11 @@ function useAiTerritorySummary(p) {
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading", summary: null, strengths: [], risks: [], recommendations: [], warnings: [], sources: [], error: null });
+
+    if (!canUseAssistant()) {
+      setState({ status: "unavailable", summary: "L'analisi AI non è disponibile in questo momento. I dati territoriali del report restano validi.", strengths: [], risks: [], recommendations: [], warnings: [], sources: [], error: null });
+      return undefined;
+    }
 
     (async () => {
       const snapshot = buildTerritorialReportSnapshot({ truthModel: p.truthModel, presentation: p });

@@ -30,3 +30,25 @@ test("the limit reaches the chat as an answer, not as a generic failure", () => 
   assert.match(source, /json\(\{ answer, status: "limited", code, retryAfterSeconds \}\)/);
   assert.match(source, /if \(metered\) \{\s+const limited = await aiLimitExceeded/);
 });
+
+test("the chat field follows the real limit of each category", () => {
+  const web = readFileSync(new URL("../src/ai/assistantMessageLimits.js", import.meta.url), "utf8");
+  for (const [role, value] of [["guest", 500], ["driver", 500], ["customer", 1000], ["supplier", 1000], ["admin", 2000]]) {
+    assert.match(web, new RegExp(role + ": " + value + ","));
+  }
+  assert.match(source, /MAX_QUESTION_LENGTH = 2000/);
+  const drawer = readFileSync(new URL("../src/components/ai/global/VolantiniProAssistantDrawer.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(drawer, /maxLength=\{500\}/);
+  assert.match(drawer, /ASSISTANT_MAX_MESSAGE\[role\]/);
+});
+
+test("an unanswered message gives back the hourly attempt, within a cap, never the daily total", () => {
+  const refund = source.slice(source.indexOf("async function aiRefundIfUnanswered("), source.indexOf("async function aiRefundIfUnanswered(") + 1500);
+  assert.match(source, /AI_MAX_REFUNDS_PER_HOUR = 10/);
+  assert.match(refund, /if \(body && body\.answer\) return;/);
+  assert.ok(refund.indexOf('_refund') < refund.indexOf('.update({ tokens: consumed.tokens - 1 })'));
+  assert.match(refund, /\.eq\("tokens", consumed\.tokens\)/);
+  assert.doesNotMatch(refund, /_total/);
+  assert.match(source, /await aiRefundIfUnanswered\(meter, response\)/);
+  assert.match(source, /await aiRefundIfUnanswered\(meter, null\)/);
+});
