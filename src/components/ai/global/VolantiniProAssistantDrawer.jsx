@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { buildInfoMailtoUrl, buildInfoWhatsAppUrl } from "../../../lib/contactConfig.js";
 import AssistantActionCard from "../actions/AssistantActionCard.jsx";
 import "../quote/quote-assistant.css";
+import { ASSISTANT_MAX_MESSAGE } from "../../../ai/assistantMessageLimits.js";
 
 const ASSISTANT_WHATSAPP_URL = "https://wa.me/393517673737";
 
@@ -38,6 +39,7 @@ export default function VolantiniProAssistantDrawer({
   onAsk,
   disclaimer = "Solo dati del preventivo. Nessuna modifica automatica.",
   inputPlaceholder = "Scrivi una domanda sul preventivo",
+  maxLength = null,
   welcomeTitle = "Come posso aiutarti?",
   welcomeText = "Conosco le scelte e i valori mostrati qui, ma non posso modificare il preventivo.",
   thinkingText = "Sto leggendo i dati dello Step…",
@@ -204,7 +206,7 @@ export default function VolantiniProAssistantDrawer({
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               disabled={sending}
-              maxLength={500}
+              maxLength={maxLength ?? ASSISTANT_MAX_MESSAGE[role] ?? ASSISTANT_MAX_MESSAGE.guest}
               autoComplete="off"
               placeholder={inputPlaceholder}
             />

@@ -46,7 +46,7 @@ test('ai-core: step2 NON impone JWT — l\'identità è risolta ma mai bloccante
 });
 
 test('ai-core: handleQuoteStep gestisce esplicitamente user === null e arriva comunque a OpenAI', () => {
-  const fnStart = indexSource.indexOf('async function handleQuoteStep(req: Request, tier: AiTier, contextType: string, user: { id: string } | null, body: any) {');
+  const fnStart = indexSource.indexOf('async function handleQuoteStep(req: Request, tier: AiTier, meter: AiMeter, contextType: string, user: { id: string } | null, body: any) {');
   assert.ok(fnStart >= 0, 'la firma deve accettare user nullable, non solo { id: string }');
   const fnEnd = indexSource.indexOf('\nserve(async (req: Request)', fnStart);
   const fnBody = indexSource.slice(fnStart, fnEnd);
@@ -66,7 +66,7 @@ test('ai-core: handleQuoteStep gestisce esplicitamente user === null e arriva co
 });
 
 test('ai-core: utente autenticato continua a usare la cache ai_territorial_chat_cache', () => {
-  const fnStart = indexSource.indexOf('async function handleQuoteStep(req: Request, tier: AiTier, contextType: string, user: { id: string } | null, body: any) {');
+  const fnStart = indexSource.indexOf('async function handleQuoteStep(req: Request, tier: AiTier, meter: AiMeter, contextType: string, user: { id: string } | null, body: any) {');
   const fnEnd = indexSource.indexOf('\nserve(async (req: Request)', fnStart);
   const fnBody = indexSource.slice(fnStart, fnEnd);
   const afterAnonBranch = fnBody.slice(fnBody.indexOf('if (!user) {'));
@@ -88,7 +88,7 @@ test('ai-core: validazione input — limiti dimensionali e struttura sicura prim
   const openAiDefIndex = indexSource.indexOf('async function callOpenAi');
   assert.ok(validateIndex >= 0 && validateIndex < openAiDefIndex);
 
-  assert.match(indexSource, /MAX_QUESTION_LENGTH = 500/);
+  assert.match(indexSource, /MAX_QUESTION_LENGTH = 2000/);
   assert.match(indexSource, /MAX_SNAPSHOT_JSON_LENGTH = 20000/);
   assert.match(indexSource, /error: "SNAPSHOT_TOO_LARGE"/);
   assert.match(indexSource, /error: "INVALID_SNAPSHOT_STRUCTURE"/);

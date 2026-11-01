@@ -1,11 +1,21 @@
 import React, { useCallback, useMemo } from "react";
 import VolantiniProAssistantDrawer, { AssistantContactLinks } from "../global/VolantiniProAssistantDrawer.jsx";
 import { runQuoteAssistant } from "../../../ai/adapters/quoteAssistantAdapter.js";
+import { ASSISTANT_MAX_MESSAGE } from "../../../ai/assistantMessageLimits.js";
 import { buildInfoMailtoUrl, buildInfoWhatsAppUrl } from "../../../lib/contactConfig.js";
+import { getSessionEmail, getStoredSupabaseSession, isStoredSupabaseSessionValid } from "../../../auth/session.js";
+import { isAuthorizedAdminEmail } from "../../../auth/adminAuthorization.js";
 import "./quote-assistant.css";
 
 export const HUMAN_REQUEST = /(?:parlare|sentire|contattare|scrivere).*(?:persona|operatore|consulente|umano)|(?:persona|operatore|consulente|umano).*(?:parlare|sentire|contattare|scrivere)/i;
 export const ASSISTANT_WHATSAPP_URL = "https://wa.me/393517673737";
+
+// Il configuratore e' aperto a tutti: il campo segue chi e' collegato.
+function quoteMaxMessage() {
+  const session = getStoredSupabaseSession();
+  if (!isStoredSupabaseSessionValid(session)) return ASSISTANT_MAX_MESSAGE.guest;
+  return isAuthorizedAdminEmail(getSessionEmail(session)) ? ASSISTANT_MAX_MESSAGE.admin : ASSISTANT_MAX_MESSAGE.customer;
+}
 
 export function ContactLinks({ compact = false }) {
   const whatsappUrl = buildInfoWhatsAppUrl() || ASSISTANT_WHATSAPP_URL;
@@ -102,6 +112,7 @@ export default function QuoteAssistantPanel({ open, onClose, page, context, quic
       open={open}
       onClose={onClose}
       role="guest"
+      maxLength={open ? quoteMaxMessage() : undefined}
       eyebrow={`Preventivo · Step ${step}`}
       title="Assistente VolantiniPro"
       subtitle="Risposte brevi basate sui dati reali di questo Step."
