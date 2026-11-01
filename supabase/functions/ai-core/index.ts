@@ -135,6 +135,9 @@ const AI_LIMITS = {
   admin: { perHour: 300, dailyTotal: null, maxMessage: 2000 },
 } as const;
 type AiTier = keyof typeof AI_LIMITS;
+// Assistente spento per i visitatori anonimi (decisione del 2026-11-01): si
+// riattiva qui e in src/ai/assistantAccess.js dopo la suite delle risposte attese.
+const ANONYMOUS_AI_ENABLED = false;
 // Tentativi restituiti al massimo ogni ora: senza tetto, una domanda che fa
 // scartare la risposta darebbe chiamate a OpenAI illimitate.
 const AI_MAX_REFUNDS_PER_HOUR = 10;
@@ -1638,6 +1641,9 @@ async function routeAiRequest(req: Request, meter: AiMeter) {
   const collectorSecret = Deno.env.get("PLATFORM_HEALTH_COLLECTOR_SECRET");
   const trustedCollector = Boolean(collectorSecret && req.headers.get("x-collector-secret") === collectorSecret);
 
+  if (!ANONYMOUS_AI_ENABLED && !user && (QUOTE_CONTEXT_TYPES.has(contextType) || contextType === "territorial_report")) {
+    return json({ answer: null, status: "disabled", error: "AI_ANONYMOUS_DISABLED" });
+  }
   if (contextType === "action_verify") return await handleActionVerify(supabaseAdmin, json, req, user, body?.action, body?.assignmentId);
   const metered = !(contextType === "control_center_diagnosis" && trustedCollector);
   const tier = await aiTier(user, contextType);
