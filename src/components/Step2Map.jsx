@@ -1406,6 +1406,37 @@ function Step2MapImpl({
       });
     }
 
+    // Confini di riferimento in Raggio: usa le geometrie comunali complete
+    // gia' restituite dall'analisi, senza ulteriori query al DB/Nominatim.
+    // Questi contorni restano visibili anche fuori dal cerchio; il fill di
+    // copertura, i KPI e la selezione continuano a usare i poligoni ritagliati.
+    // Se un comune non e' nella risposta geografica non inventiamo il confine.
+    if (!isMunicipalityMode && activeLayers?.comuni !== false && Array.isArray(coveragePolygons)) {
+      const seenComuneNames = new Set();
+      coveragePolygons.forEach(zone => {
+        if (zone.type === 'nil' || zone.isNil || zone.territoryLevel === 'nil') return;
+        const key = String(zone.name || zone.id || '').trim().toLowerCase();
+        if (seenComuneNames.has(key)) return;
+        const geometry = zone.geometry ? parseAndValidateGeoJsonGeometry(zone.geometry) : null;
+        if (!geometry) return;
+        seenComuneNames.add(key);
+        try {
+          const outline = L.geoJSON(geometry, {
+            pane: 'municipalityBoundaryPane',
+            interactive: false,
+            style: {
+              color: '#cbd5e1', weight: 1.2, opacity: 0.75,
+              fill: false, fillOpacity: 0,
+              dashArray: '4 4'
+            }
+          });
+          outline.addTo(group);
+        } catch (error) {
+          warnStep2('[RADIUS_CONTEXT_COMUNE_BOUNDARY_ERROR]', { name: zone.name, error });
+        }
+      });
+    }
+
     // ── 2b. Poligoni di copertura Raggio (coveragePolygons) ─────────────────
     // Territori REALMENTE usati nel calcolo (comuni o NIL, secondo
     // zonesInRadius) passati da volantinipro-final.jsx — sostituisce il
