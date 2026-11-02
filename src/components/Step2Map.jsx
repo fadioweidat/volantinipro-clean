@@ -1471,7 +1471,7 @@ function Step2MapImpl({
         // Nel raggio i territori devono essere riconoscibili anche senza hover.
         // L'opacità di copertura (spesso "non_coperto" = 0.05) non deve
         // determinare la visibilità della differenziazione territoriale.
-        const fillOpacity = Math.max(0.36, Math.min(0.45, coverageIntensity.fillOpacity * opacityScale));
+        const fillOpacity = Math.max(0.6, Math.min(0.68, coverageIntensity.fillOpacity * opacityScale));
         // NIL selezionabili (Quartieri): click aggiunge/rimuove tramite lo stesso
         // onToggleZone/`selected` usato da lista e ricerca. Le NIL scelte hanno
         // bordo piu' marcato e riempimento piu' pieno.
@@ -2124,7 +2124,7 @@ function Step2MapImpl({
         L.geoJSON(territory.keepInsideRadius ? territory.geometry : geometryOutsideRadius(territory.geometry, lat, lng, radiusKm), {
           pane: 'municipalityFillPane',
           interactive: false,
-          style: { color, weight: 0.8, opacity: 0.55, fillColor: color, fillOpacity: CONTEXT_FILL_OPACITY },
+          style: { color, weight: 1, opacity: 0.85, fillColor: color, fillOpacity: CONTEXT_FILL_OPACITY },
         }).addTo(layer);
       });
       if (containerRef.current) containerRef.current.dataset.contextComuni = String(drawn.size);
@@ -2137,10 +2137,10 @@ function Step2MapImpl({
         territories = selectContextTerritories({ comuni: comuni.value, nil: nil.value, showComuni: showContextComuni, showNil: showContextNil });
         draw();
       });
-    map.on('moveend', draw);
+    map.on('moveend resize', draw);
     return () => {
       cancelled = true;
-      map.off('moveend', draw);
+      map.off('moveend resize', draw);
       layer.remove();
       if (containerRef.current) delete containerRef.current.dataset.contextComuni;
     };

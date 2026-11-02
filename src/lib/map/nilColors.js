@@ -3,15 +3,15 @@
 // confinanti i piu' lontani possibile. Non dipendono dal raggio ne' dal caricamento
 // delle geometrie, quindi un NIL ha lo stesso colore dentro e fuori dal cerchio.
 export const NIL_COLORS = [
-  '#55E7AD', '#7A561F', '#1F317A', '#E6D119', '#57E619', '#1919E6', '#B3920F', '#0F1FB3',
-  '#D1E619', '#E61919', '#B30F82', '#E7CA55', '#55E772', '#1F1F7A', '#E6196B', '#AD55E7',
-  '#7A1F43', '#92B30F', '#0FA3B3', '#196BE6', '#3A7A1F', '#19D1E6', '#D119E6', '#0F71B3',
-  '#7A1F1F', '#0F61B3', '#8019E6', '#E755BB', '#0F40B3', '#7A7A1F', '#920FB3', '#0F82B3',
-  '#B30F50', '#E75581', '#94E619', '#1F7A3A', '#19BDE6', '#561F7A', '#E619A8', '#1F7A4D',
-  '#7A1F7A', '#E75555', '#0F50B3', '#E619BD', '#E7E755', '#0FB371', '#A819E6', '#D855E7',
-  '#55E7CA', '#B30F2F', '#1F5F7A', '#61B30F', '#B30FA3', '#7A1F31', '#BBE755', '#1980E6',
-  '#7255E7', '#E7AD55', '#E61942', '#1F7A5F', '#7A1F5F', '#0F92B3', '#64E755', '#E61980',
-  '#1F437A', '#90E755', '#0FB3A3', '#1FB30F', '#1994E6', '#610FB3', '#B30F0F', '#1942E6',
-  '#E61994', '#0F2FB3', '#19E694', '#B3B30F', '#19E657', '#19E6E6', '#1957E6', '#1F7A7A',
-  '#E7559E', '#E69419', '#E61957', '#0FB340', '#E6A819', '#19A8E6', '#E755D8', '#B3710F',
+  '#97AAF7', '#F7DA97', '#ED97F7', '#95FB6A', '#97F7E4', '#8B3DFF', '#FBDE6A', '#FF3DFF',
+  '#FF3DD8', '#FB6A6A', '#97BDF7', '#FBFB6A', '#25B6F4', '#F425DF', '#A1F425', '#FB6A95',
+  '#6AA4FB', '#FF3D9E', '#A1F797', '#9797F7', '#3DFFEC', '#C53DFF', '#6AFB87', '#6AB3FB',
+  '#FBC16A', '#F797E4', '#FF3D51', '#6AFBD0', '#FF3D64', '#3DFFC5', '#FFEC3D', '#97D0F7',
+  '#FF3D8B', '#FB6AED', '#8BFF3D', '#25A1F4', '#D0FB6A', '#DF25F4', '#3DFFB1', '#25F4CA',
+  '#6AFBA4', '#F79797', '#258CF4', '#FB6AD0', '#25F478', '#ED6AFB', '#6AFB6A', '#F797AA',
+  '#3DECFF', '#F43A25', '#2578F4', '#C5FF3D', '#FF513D', '#B3FB6A', '#FB6AB3', '#876AFB',
+  '#F797C7', '#FFB13D', '#6A95FB', '#97F7BD', '#FF3DB1', '#97F7D0', '#3D8BFF', '#97F7AA',
+  '#C797F7', '#51FF3D', '#97EDF7', '#3DFF64', '#2563F4', '#F425B6', '#FF3D3D', '#6AFBFB',
+  '#FB6AA4', '#6AD0FB', '#6A78FB', '#F7F797', '#3DD8FF', '#D0F797', '#C16AFB', '#3DFF9E',
+  '#6A87FB', '#DFF425', '#6AC1FB', '#FF3D77', '#FFD83D', '#FFC53D', '#3D9EFF', '#FFFF3D',
 ];

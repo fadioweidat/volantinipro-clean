@@ -15,7 +15,7 @@ const { useServiceAnalysis } = await import('../src/hooks/useServiceAnalysis.js'
 const { canonicalZoneId } = await import('../src/lib/step2/zoneGeoHelpers.js');
 const { fetchWithAttemptTimeout, resolveAnalysisStatus } = await import('../src/lib/step2/analysisStatus.js');
 const { assignTerritoryColors, territoryColor } = await import('../src/lib/map/territoryColors.js');
-const { boundsOverlap, CONTEXT_FILL_OPACITY, geometryOutsideRadius, prepareContextComuni, prepareContextNil, selectContextTerritories } = await import('../src/lib/map/radiusContextComuni.js');
+const { boundsOverlap, CONTEXT_COMUNI_ASSET, CONTEXT_FILL_OPACITY, CONTEXT_NIL_ASSET, geometryOutsideRadius, prepareContextComuni, prepareContextNil, selectContextTerritories } = await import('../src/lib/map/radiusContextComuni.js');
 const { clipTerritoryToRadius } = await import('../src/lib/map/clipTerritoryToRadius.js');
 const { buildCampaignMapOverlays } = await import('../src/lib/step2/campaignMapOverlays.js');
 
@@ -255,12 +255,12 @@ test('the municipalities file is real, complete and light enough for the public 
 });
 
 test('outside the radius a comune keeps its color, lighter than the active territories', () => {
-  assert.ok(CONTEXT_FILL_OPACITY >= 0.15 && CONTEXT_FILL_OPACITY <= 0.25);
+  assert.ok(CONTEXT_FILL_OPACITY >= 0.3 && CONTEXT_FILL_OPACITY <= 0.45);
   assert.match(territoryColor('api_015086'), /^(#|hsl)/);
   assert.equal(territoryColor('api_015086'), territoryColor('api_015086'));
   const map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
-  assert.match(map, /Math\.max\(0\.36, Math\.min\(0\.45,/);
-  assert.match(map, /pane: 'municipalityFillPane',\s+interactive: false,\s+style: \{ color, weight: 0\.8/);
+  assert.match(map, /Math\.max\(0\.6, Math\.min\(0\.68,/);
+  assert.match(map, /pane: 'municipalityFillPane',\s+interactive: false,\s+style: \{ color, weight: 1/);
   assert.match(map, /const showContextComuni = activeLayers\?\.comuni !== false;/);
   assert.match(map, /const showContextNil = activeLayers\?\.nil !== false;/);
 });
@@ -311,6 +311,22 @@ test('Comuni and NIL toggles are independent, and Milano is never colored twice'
   assert.deepEqual(ids({ showComuni: false, showNil: false }), []);
   const map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
   assert.match(map, /if \(isNilCoverage \? activeLayers\?\.nil === false : activeLayers\?\.comuni === false\) return;/);
+});
+
+test('every file the map loads is deployed: .vercelignore does not exclude it', () => {
+  const ignore = readFileSync(new URL('../.vercelignore', import.meta.url), 'utf8');
+  assert.match(ignore, /^public\/data\/territories\/\*\r?$/m);
+  for (const asset of [CONTEXT_COMUNI_ASSET, CONTEXT_NIL_ASSET]) {
+    assert.ok(ignore.split(/\r?\n/).includes(`!public${asset}`), asset);
+  }
+});
+
+test('NIL colors stay bright enough to read on the dark map', () => {
+  const luminance = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  for (let code = 1; code <= 88; code += 1) assert.ok(luminance(territoryColor(`nil_${code}`)) > 85, `NIL ${code}`);
 });
 
 test('without the NIL file Milano keeps its single color', () => {

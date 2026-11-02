@@ -7,7 +7,8 @@ import { clipTerritoryToRadius } from './clipTerritoryToRadius.js';
 export const CONTEXT_COMUNI_ASSET = '/data/territories/lombardia-comuni.json';
 export const CONTEXT_NIL_ASSET = '/data/territories/milano-nil.json';
 const MILANO_COMUNE_ID = 'api_015146';
-export const CONTEXT_FILL_OPACITY = 0.2;
+// Tarata sulla mappa scura Mapbox della produzione: con 0,2 i territori non si leggevano.
+export const CONTEXT_FILL_OPACITY = 0.38;
 export const CONTEXT_MIN_ZOOM = 9;
 
 function boundsOf(geometry) {
@@ -50,7 +51,9 @@ export function prepareContextNil(payload) {
 export function selectContextTerritories({ comuni, nil, showComuni, showNil }) {
   const nilRows = showNil && nil?.length ? nil : [];
   const comuneRows = showComuni && comuni?.length ? comuni : [];
-  return [...nilRows, ...(nilRows.length ? comuneRows.filter((row) => row.id !== MILANO_COMUNE_ID) : comuneRows)];
+  if (nilRows.length) return [...nilRows, ...comuneRows.filter((row) => row.id !== MILANO_COMUNE_ID)];
+  // Con i NIL spenti nessun territorio dell'analisi copre Milano dentro il cerchio.
+  return showNil ? comuneRows : comuneRows.map((row) => (row.id === MILANO_COMUNE_ID ? { ...row, keepInsideRadius: true } : row));
 }
 
 function loadOnce(asset, prepare) {
