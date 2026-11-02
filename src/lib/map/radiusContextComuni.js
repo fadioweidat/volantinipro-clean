@@ -11,8 +11,8 @@ export const CONTEXT_MIN_ZOOM = 9;
 
 // Linee sottili e neutre: la cartografia sotto resta leggibile. Il NIL e'
 // tratteggiato per distinguerlo a colpo d'occhio dal confine comunale.
-export const CONTEXT_COMUNE_STYLE = { color: '#CBD5E1', weight: 1.1, opacity: 0.6, fill: false };
-export const CONTEXT_NIL_STYLE = { color: '#94A3B8', weight: 0.8, opacity: 0.55, dashArray: '3 4', fill: false };
+export const CONTEXT_COMUNE_STYLE = { color: '#94A3B8', weight: 0.8, opacity: 0.4 };
+export const CONTEXT_NIL_STYLE = { color: '#94A3B8', weight: 0.6, opacity: 0.35, dashArray: '2 4' };
 
 function boundsOf(geometry) {
   let west = Infinity;
@@ -56,9 +56,59 @@ export function milanoRestInsideRadius(rest, latitude, longitude, radiusKm) {
   return coordinates.length ? { type: 'MultiPolygon', coordinates } : null;
 }
 
-// NIL sotto, comuni sopra: il confine comunale resta continuo dove coincidono.
+// Prima i comuni: dove i confini coincidono resta la linea comunale, continua.
 export function selectContextTerritories({ comuni, nil, showComuni, showNil }) {
-  return [...(showNil && nil?.length ? nil : []), ...(showComuni && comuni?.length ? comuni : [])];
+  return [...(showComuni && comuni?.length ? comuni : []), ...(showNil && nil?.length ? nil : [])];
+}
+
+// Tratti del segmento fuori dal cerchio, come coppie di posizioni tra 0 e 1.
+function partsOutsideCircle(ax, ay, bx, by, radius) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const a = dx * dx + dy * dy;
+  const b = 2 * (ax * dx + ay * dy);
+  const c = ax * ax + ay * ay - radius * radius;
+  const disc = b * b - 4 * a * c;
+  if (a === 0 || disc <= 0) return c > 0 ? [[0, 1]] : [];
+  const first = (-b - Math.sqrt(disc)) / (2 * a);
+  const second = (-b + Math.sqrt(disc)) / (2 * a);
+  return [[0, Math.min(first, 1)], [Math.max(second, 0), 1]].filter(([from, to]) => to > from);
+}
+
+// Contorni fuori dal cerchio: dentro ci sono gia' i poligoni dell'analisi. Un
+// confine condiviso da due territori esiste due volte nei dati: `seen` lo fa
+// disegnare una sola, altrimenti le due trasparenze si sommano e la linea spicca.
+export function outlineOutsideRadius(geometry, latitude, longitude, radiusKm, seen = new Set()) {
+  const kmLng = 111.32 * Math.cos((latitude * Math.PI) / 180);
+  const kmLat = 110.95;
+  const lines = [];
+  let line = null;
+  const addPart = (from, to) => {
+    if (line && line[line.length - 1][0] === from[0] && line[line.length - 1][1] === from[1]) {
+      line.push(to);
+    } else {
+      line = [from, to];
+      lines.push(line);
+    }
+  };
+  for (const polygon of geometry.coordinates) {
+    for (const ring of polygon) {
+      for (let index = 1; index < ring.length; index += 1) {
+        const start = ring[index - 1];
+        const end = ring[index];
+        const key = [start.join(), end.join()].sort().join('|');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const ax = (start[0] - longitude) * kmLng;
+        const ay = (start[1] - latitude) * kmLat;
+        const bx = (end[0] - longitude) * kmLng;
+        const by = (end[1] - latitude) * kmLat;
+        const at = (t) => (t <= 0 ? start : t >= 1 ? end : [start[0] + (end[0] - start[0]) * t, start[1] + (end[1] - start[1]) * t]);
+        for (const [from, to] of partsOutsideCircle(ax, ay, bx, by, radiusKm)) addPart(at(from), at(to));
+      }
+    }
+  }
+  return lines.length ? { type: 'MultiLineString', coordinates: lines } : null;
 }
 
 function loadOnce(asset, prepare) {

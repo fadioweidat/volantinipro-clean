@@ -22,7 +22,7 @@ export const SERVICE_LAYERS = {
     layers: [
       { id: 'radius',   label: 'Raggio',        defaultOn: true,  available: true,  future: false, category: 'base'      },
       { id: 'comuni',   label: 'Comuni',         defaultOn: true,  available: true,  future: false, category: 'territory' },
-      { id: 'nil',      label: 'NIL / Quartieri', defaultOn: true,  available: true,  future: false, category: 'territory' },
+      { id: 'nilOutlines', label: 'NIL / Quartieri', defaultOn: false, available: true,  future: false, category: 'territory' },
       { id: 'settori',  label: 'Settori censuari', defaultOn: true,  available: true,  future: false, category: 'territory' },
       { id: 'density',  label: 'Densità fam.',   defaultOn: false, available: true,  future: false, category: 'overlay'   },
       { id: 'poi',      label: 'POI',            defaultOn: false, available: true,  future: false, category: 'points'    },

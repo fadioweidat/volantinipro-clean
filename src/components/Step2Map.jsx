@@ -14,7 +14,7 @@ import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
 import { assignTerritoryColors, territoryColor } from '../lib/map/territoryColors.js';
-import { boundsOverlap, CONTEXT_MIN_ZOOM, loadContextComuni, loadContextNil, milanoRestInsideRadius, selectContextTerritories } from '../lib/map/radiusContextComuni.js';
+import { boundsOverlap, CONTEXT_MIN_ZOOM, loadContextComuni, loadContextNil, milanoRestInsideRadius, outlineOutsideRadius, selectContextTerritories } from '../lib/map/radiusContextComuni.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
@@ -295,7 +295,7 @@ const LAYER_META = {
   radius:   { color: '#C4852A', icon: '○', label: 'Raggio'        },
   // Territory
   comuni:   { color: '#5B7FA6', icon: '▭', label: 'Comuni'        },
-  nil:      { color: '#7C8FD6', icon: '▱', label: 'NIL / Quartieri' },
+  nilOutlines: { color: '#7C8FD6', icon: '▱', label: 'NIL / Quartieri' },
   settori:  { color: '#4A6E8A', icon: '▤', label: 'Settori'       },
   // Points
   poi:      { color: '#4E8E6E', icon: '⊙', label: 'POI'           },
@@ -311,7 +311,7 @@ const LAYER_META = {
 function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opacityLevel, onOpacityChange, onReset }) {
   const [collapsed, setCollapsed] = useState(false);
   if (!config || config.length === 0) return null;
-  const primaryLayers = config.filter(layer => ['radius', 'comuni', 'nil', 'settori', 'civici', 'poi'].includes(layer.id));
+  const primaryLayers = config.filter(layer => ['radius', 'comuni', 'nilOutlines', 'settori', 'civici', 'poi'].includes(layer.id));
   const hasAdvancedLayers = config.length > primaryLayers.length;
   const civiciCount = Number(civiciState?.count || 0) || Number(civiciState?.bboxCount || 0);
   const civiciAvailable = Boolean(civiciState?.available) || civiciCount > 0;
@@ -2079,13 +2079,15 @@ function Step2MapImpl({
   const contextCircle = svcType === 'd2d' && !isMunicipalityMode && !nilMode && hasConfirmedRadius
     && isFiniteLatLng(city?.lat, city?.lng) ? `${city.lat}|${city.lng}|${radius}` : null;
   const showContextComuni = activeLayers?.comuni !== false;
-  const showContextNil = activeLayers?.nil !== false;
+  // I NIL esterni sono 88 confini in piu': si vedono solo su richiesta.
+  const showContextNil = activeLayers?.nilOutlines === true;
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !leafletLoaded || !contextCircle) return undefined;
     const [lat, lng, radiusKm] = contextCircle.split('|').map(Number);
     const layer = L.layerGroup().addTo(map);
     const drawn = new Set();
+    const drawnSegments = new Set();
     let territories = null;
     let cancelled = false;
     const draw = () => {
@@ -2095,7 +2097,8 @@ function Step2MapImpl({
       territories.forEach((territory) => {
         if (drawn.has(territory.id) || !boundsOverlap(territory.bounds, box)) return;
         drawn.add(territory.id);
-        L.geoJSON(territory.geometry, { pane: 'municipalityFillPane', interactive: false, style: territory.style }).addTo(layer);
+        const outline = outlineOutsideRadius(territory.geometry, lat, lng, radiusKm, drawnSegments);
+        if (outline) L.geoJSON(outline, { pane: 'municipalityFillPane', interactive: false, style: territory.style }).addTo(layer);
       });
       if (containerRef.current) containerRef.current.dataset.contextComuni = String(drawn.size);
     };

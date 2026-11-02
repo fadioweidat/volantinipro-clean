@@ -14,8 +14,9 @@ const { resolveZoneAutoSelection } = await import('../src/lib/step2/zoneSelectio
 const { useServiceAnalysis } = await import('../src/hooks/useServiceAnalysis.js');
 const { canonicalZoneId } = await import('../src/lib/step2/zoneGeoHelpers.js');
 const { fetchWithAttemptTimeout, resolveAnalysisStatus } = await import('../src/lib/step2/analysisStatus.js');
+const { defaultLayersForService } = await import('../src/lib/services/service-config.js');
 const { assignTerritoryColors, territoryColor } = await import('../src/lib/map/territoryColors.js');
-const { boundsOverlap, CONTEXT_COMUNE_STYLE, CONTEXT_COMUNI_ASSET, CONTEXT_NIL_ASSET, CONTEXT_NIL_STYLE, milanoRestInsideRadius, prepareContextComuni, prepareContextNil, selectContextTerritories } = await import('../src/lib/map/radiusContextComuni.js');
+const { boundsOverlap, CONTEXT_COMUNE_STYLE, CONTEXT_COMUNI_ASSET, CONTEXT_NIL_ASSET, CONTEXT_NIL_STYLE, milanoRestInsideRadius, outlineOutsideRadius, prepareContextComuni, prepareContextNil, selectContextTerritories } = await import('../src/lib/map/radiusContextComuni.js');
 const { clipTerritoryToRadius } = await import('../src/lib/map/clipTerritoryToRadius.js');
 const { buildCampaignMapOverlays } = await import('../src/lib/step2/campaignMapOverlays.js');
 
@@ -256,15 +257,33 @@ test('the municipalities file is real, complete and light enough for the public 
 
 test('outside the radius only thin neutral outlines are drawn, colors stay inside', () => {
   for (const style of [CONTEXT_COMUNE_STYLE, CONTEXT_NIL_STYLE]) {
-    assert.equal(style.fill, false);
-    assert.ok(style.weight <= 1.2 && style.opacity <= 0.65);
+    assert.ok(style.weight <= 0.8 && style.opacity <= 0.4);
   }
   assert.notEqual(CONTEXT_COMUNE_STYLE.dashArray, CONTEXT_NIL_STYLE.dashArray);
   const map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
   assert.match(map, /Math\.max\(0\.6, Math\.min\(0\.68,/);
-  assert.match(map, /pane: 'municipalityFillPane', interactive: false, style: territory\.style/);
+  assert.match(map, /L\.geoJSON\(outline, \{ pane: 'municipalityFillPane', interactive: false, style: territory\.style \}/);
   assert.match(map, /const showContextComuni = activeLayers\?\.comuni !== false;/);
-  assert.match(map, /const showContextNil = activeLayers\?\.nil !== false;/);
+  assert.match(map, /const showContextNil = activeLayers\?\.nilOutlines === true;/);
+  assert.equal(defaultLayersForService('d2d').nilOutlines, false);
+});
+
+test('outlines stop at the circle and a shared border is drawn once', () => {
+  const center = { lat: 45.5289, lng: 9.1666 };
+  const crossing = { type: 'MultiPolygon', coordinates: [square(center.lng - 0.1, center.lat - 0.002, 0.2).coordinates] };
+  const lines = outlineOutsideRadius(crossing, center.lat, center.lng, 1);
+  for (const line of lines.coordinates) {
+    for (const point of line) assert.ok(distanceKm(point, center) >= 0.99);
+  }
+  assert.ok(lines.coordinates.length >= 2);
+  const inside = { type: 'MultiPolygon', coordinates: [square(center.lng, center.lat, 0.001).coordinates] };
+  assert.equal(outlineOutsideRadius(inside, center.lat, center.lng, 1), null);
+  const left = { type: 'MultiPolygon', coordinates: [square(9.5, 45.9, 0.01).coordinates] };
+  const right = { type: 'MultiPolygon', coordinates: [square(9.51, 45.9, 0.01).coordinates] };
+  const seen = new Set();
+  const segments = (geometry) => geometry.coordinates.reduce((sum, line) => sum + line.length - 1, 0);
+  assert.equal(segments(outlineOutsideRadius(left, center.lat, center.lng, 1, seen)), 4);
+  assert.equal(segments(outlineOutsideRadius(right, center.lat, center.lng, 1, seen)), 3);
 });
 
 const nilPayload = JSON.parse(readFileSync(new URL('../public/data/territories/milano-nil.json', import.meta.url)));
@@ -303,7 +322,7 @@ test('Comuni and NIL toggles act on the reference outlines only, independently',
   const comuni = [{ id: 'api_015146' }, { id: 'api_015086' }];
   const nil = [{ id: 'nil_83' }];
   const ids = (options) => selectContextTerritories({ comuni, nil, ...options }).map((row) => row.id);
-  assert.deepEqual(ids({ showComuni: true, showNil: true }), ['nil_83', 'api_015146', 'api_015086']);
+  assert.deepEqual(ids({ showComuni: true, showNil: true }), ['api_015146', 'api_015086', 'nil_83']);
   assert.deepEqual(ids({ showComuni: false, showNil: true }), ['nil_83']);
   assert.deepEqual(ids({ showComuni: true, showNil: false }), ['api_015146', 'api_015086']);
   assert.deepEqual(ids({ showComuni: false, showNil: false }), []);
