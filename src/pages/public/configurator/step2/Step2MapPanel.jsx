@@ -16,9 +16,7 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
       {simplifiedMilano && <div className="vp-milano-map-toolbar" role="group" aria-label="Layer della mappa">
         <span>Mostra sulla mappa</span>
         {isRadiusMode && <button type="button" data-testid="map-toggle-comuni" aria-pressed={activeMapLayers?.comuni !== false} onClick={() => setActiveMapLayers(prev => ({ ...prev, comuni: prev.comuni === false }))}>Comuni {activeMapLayers?.comuni !== false ? "ON" : "OFF"}</button>}
-        {isRadiusMode
-          ? <button type="button" data-testid="map-toggle-nil" aria-pressed={activeMapLayers?.nilOutlines === true} onClick={() => setActiveMapLayers(prev => ({ ...prev, nilOutlines: prev.nilOutlines !== true }))}>NIL / Quartieri {activeMapLayers?.nilOutlines === true ? "ON" : "OFF"}</button>
-          : <button type="button" data-testid="map-toggle-nil" aria-pressed={activeMapLayers?.nil !== false} onClick={() => setActiveMapLayers(prev => ({ ...prev, nil: prev.nil === false }))}>NIL / Quartieri {activeMapLayers?.nil !== false ? "ON" : "OFF"}</button>}
+        <button type="button" data-testid="map-toggle-nil" aria-pressed={activeMapLayers?.nil !== false} onClick={() => setActiveMapLayers(prev => ({ ...prev, nil: prev.nil === false }))}>NIL / Quartieri {activeMapLayers?.nil !== false ? "ON" : "OFF"}</button>
         <small>{isNilManualMode ? "Clicca un quartiere per aggiungerlo o rimuoverlo." : "I confini sono un riferimento: non selezionano una zona."}</small>
       </div>}
       {/* MAPPA GRANDE — solo Vista Cliente. */}

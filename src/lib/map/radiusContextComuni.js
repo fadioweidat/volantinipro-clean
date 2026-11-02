@@ -1,20 +1,24 @@
-// Confini di riferimento attorno al raggio: file statici generati una sola
-// volta (scripts/build-lombardia-comuni.mjs, scripts/build-milano-nil.mjs),
-// nessuna query a Supabase dalla mappa. Fuori dal cerchio solo contorni: i
-// territori colorati sono quelli dell'analisi, dentro il cerchio.
-// Solo visualizzazione: KPI e quantita' usano le geometrie dell'analisi.
-import { clipTerritoryToRadius } from './clipTerritoryToRadius.js';
+// Livello geografico attorno al raggio: file statici generati una sola volta
+// (scripts/build-lombardia-comuni.mjs, scripts/build-milano-nil.mjs), nessuna
+// query a Supabase dalla mappa. Disegna i territori con il confine completo; il
+// livello operativo dell'analisi resta sopra, invisibile, e non ne cambia il
+// colore: KPI e quantita' continuano a usare le geometrie dell'analisi.
+import { territoryColor } from './territoryColors.js';
 
 export const CONTEXT_COMUNI_ASSET = '/data/territories/lombardia-comuni.json';
 export const CONTEXT_NIL_ASSET = '/data/territories/milano-nil.json';
 export const CONTEXT_MIN_ZOOM = 9;
+const MILANO_COMUNE_ID = 'api_015146';
 
-// Linee sottili e neutre: la cartografia sotto resta leggibile. Il NIL e'
-// tratteggiato per distinguerlo a colpo d'occhio dal confine comunale.
+// Stessa opacita' per ogni territorio, dentro e fuori dal cerchio.
+export const TERRITORY_FILL_OPACITY = 0.42;
+export const TERRITORY_LINE_OPACITY = 0.75;
+
+// Territori non coinvolti: solo linee sottili e neutre.
 export const CONTEXT_COMUNE_STYLE = { color: '#94A3B8', weight: 0.8, opacity: 0.4 };
 export const CONTEXT_NIL_STYLE = { color: '#94A3B8', weight: 0.6, opacity: 0.35, dashArray: '2 4' };
-export const CONTINUATION_FILL_OPACITY = 0.2;
-export const CONTINUATION_LINE_OPACITY = 0.6;
+// Il comune di Milano non si riempie: sopra i NIL resta solo il suo confine.
+export const MILANO_BOUNDARY_STYLE = { color: '#E2E8F0', weight: 1.6, opacity: 0.8 };
 
 function boundsOf(geometry) {
   let west = Infinity;
@@ -46,85 +50,58 @@ export function prepareContextNil(payload) {
     .map((row) => ({ id: `nil_${row.c}`, name: row.n, geometry: row.g, bounds: boundsOf(row.g), style: CONTEXT_NIL_STYLE }));
 }
 
-// I confini NIL e quello ISTAT del comune non coincidono: la parte di Milano
-// fuori da ogni NIL non e' un territorio dell'analisi e dentro il cerchio
-// resterebbe un buco scuro. Si colora solo quella porzione, mai fuori.
-export function milanoRestInsideRadius(rest, latitude, longitude, radiusKm) {
-  const coordinates = (rest?.type === 'MultiPolygon' ? rest.coordinates : []).flatMap((polygon) => {
-    const inside = clipTerritoryToRadius({ type: 'Polygon', coordinates: polygon }, latitude, longitude, radiusKm);
-    if (!inside) return [];
-    return inside.type === 'Polygon' ? [inside.coordinates] : inside.coordinates;
-  });
-  return coordinates.length ? { type: 'MultiPolygon', coordinates } : null;
-}
-
-// Prima i comuni coinvolti dal raggio, poi gli altri, poi i NIL: dove i confini
-// coincidono vince la linea del comune che continua oltre il cerchio.
-export function selectContextTerritories({ comuni, nil, showComuni, showNil, involvedColors = new Map() }) {
+// Prima i confini piu' importanti: dove coincidono resta il primo.
+// La parte di Milano fuori da ogni NIL ha il colore del comune, altrimenti
+// resterebbe un buco scuro: i confini NIL e quello ISTAT non coincidono.
+export function selectContextTerritories({ comuni, nil, rest, showComuni, showNil, involvedColors = new Map() }) {
   const comuneRows = showComuni && comuni?.length ? comuni : [];
-  const involved = comuneRows.filter((row) => involvedColors.has(row.id)).map((row) => ({ ...row, continuationColor: involvedColors.get(row.id) }));
-  return [...involved, ...comuneRows.filter((row) => !involvedColors.has(row.id)), ...(showNil && nil?.length ? nil : [])];
+  const milanoInvolved = [...involvedColors.keys()].some((id) => id.startsWith('nil_'));
+  const milano = comuneRows.filter((row) => row.id === MILANO_COMUNE_ID)
+    .map((row) => ({ ...row, style: MILANO_BOUNDARY_STYLE, pane: 'municipalityBoundaryPane' }));
+  const others = comuneRows.filter((row) => row.id !== MILANO_COMUNE_ID);
+  const nilRows = showNil && nil?.length ? nil : [];
+  const restRows = rest?.type === 'MultiPolygon' && nilRows.length && milanoInvolved
+    ? [{ id: 'milano_rest', geometry: rest, bounds: boundsOf(rest), fillColor: territoryColor(MILANO_COMUNE_ID), outline: false }]
+    : [];
+  return [
+    ...milano,
+    ...others.filter((row) => involvedColors.has(row.id)).map((row) => ({ ...row, fillColor: involvedColors.get(row.id) })),
+    ...others.filter((row) => !involvedColors.has(row.id)),
+    ...nilRows.map((row) => (milanoInvolved ? { ...row, fillColor: territoryColor(row.id) } : row)),
+    ...restRows,
+  ];
 }
 
-// Il comune che entra nel raggio prosegue fuori con lo stesso colore, tenue. La
-// parte dentro il cerchio diventa un buco (Leaflet riempie con evenodd): li'
-// comanda il poligono dell'analisi e i due colori non si sommano.
-export function geometryOutsideRadius(geometry, latitude, longitude, radiusKm) {
-  return {
-    type: 'MultiPolygon',
-    coordinates: geometry.coordinates.map((polygon) => {
-      const inside = clipTerritoryToRadius({ type: 'Polygon', coordinates: polygon }, latitude, longitude, radiusKm);
-      if (!inside) return polygon;
-      const parts = inside.type === 'Polygon' ? [inside.coordinates] : inside.coordinates;
-      return [...polygon, ...parts.flat()];
-    }),
-  };
+// Il livello operativo si fa invisibile solo se il territorio e' gia' disegnato
+// nel livello geografico: se il file manca o il controllo e' spento resta lui.
+export function isDrawnByGeographicLayer(id, { ready, showComuni, showNil }) {
+  const territory = String(id);
+  if (!ready) return false;
+  if (territory.startsWith('nil_')) return showNil;
+  return territory.startsWith('api_') && territory !== MILANO_COMUNE_ID && showComuni;
 }
 
-// Tratti del segmento fuori dal cerchio, come coppie di posizioni tra 0 e 1.
-function partsOutsideCircle(ax, ay, bx, by, radius) {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const a = dx * dx + dy * dy;
-  const b = 2 * (ax * dx + ay * dy);
-  const c = ax * ax + ay * ay - radius * radius;
-  const disc = b * b - 4 * a * c;
-  if (a === 0 || disc <= 0) return c > 0 ? [[0, 1]] : [];
-  const first = (-b - Math.sqrt(disc)) / (2 * a);
-  const second = (-b + Math.sqrt(disc)) / (2 * a);
-  return [[0, Math.min(first, 1)], [Math.max(second, 0), 1]].filter(([from, to]) => to > from);
-}
-
-// Contorni fuori dal cerchio: dentro ci sono gia' i poligoni dell'analisi. Un
-// confine condiviso da due territori esiste due volte nei dati: `seen` lo fa
+// Un confine condiviso da due territori esiste due volte nei dati: `seen` lo fa
 // disegnare una sola, altrimenti le due trasparenze si sommano e la linea spicca.
-export function outlineOutsideRadius(geometry, latitude, longitude, radiusKm, seen = new Set()) {
-  const kmLng = 111.32 * Math.cos((latitude * Math.PI) / 180);
-  const kmLat = 110.95;
+export function uniqueOutline(geometry, seen = new Set()) {
   const lines = [];
-  let line = null;
-  const addPart = (from, to) => {
-    if (line && line[line.length - 1][0] === from[0] && line[line.length - 1][1] === from[1]) {
-      line.push(to);
-    } else {
-      line = [from, to];
-      lines.push(line);
-    }
-  };
   for (const polygon of geometry.coordinates) {
     for (const ring of polygon) {
+      let line = null;
       for (let index = 1; index < ring.length; index += 1) {
         const start = ring[index - 1];
         const end = ring[index];
         const key = [start.join(), end.join()].sort().join('|');
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const ax = (start[0] - longitude) * kmLng;
-        const ay = (start[1] - latitude) * kmLat;
-        const bx = (end[0] - longitude) * kmLng;
-        const by = (end[1] - latitude) * kmLat;
-        const at = (t) => (t <= 0 ? start : t >= 1 ? end : [start[0] + (end[0] - start[0]) * t, start[1] + (end[1] - start[1]) * t]);
-        for (const [from, to] of partsOutsideCircle(ax, ay, bx, by, radiusKm)) addPart(at(from), at(to));
+        if (seen.has(key)) {
+          line = null;
+        } else {
+          seen.add(key);
+          if (!line) {
+            line = [start];
+            lines.push(line);
+          }
+          line.push(end);
+        }
       }
     }
   }

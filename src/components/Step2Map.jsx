@@ -13,8 +13,8 @@ import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
-import { assignTerritoryColors, territoryColor } from '../lib/map/territoryColors.js';
-import { boundsOverlap, CONTEXT_MIN_ZOOM, CONTINUATION_FILL_OPACITY, CONTINUATION_LINE_OPACITY, geometryOutsideRadius, loadContextComuni, loadContextNil, milanoRestInsideRadius, outlineOutsideRadius, selectContextTerritories } from '../lib/map/radiusContextComuni.js';
+import { assignTerritoryColors } from '../lib/map/territoryColors.js';
+import { boundsOverlap, CONTEXT_MIN_ZOOM, isDrawnByGeographicLayer, loadContextComuni, loadContextNil, selectContextTerritories, TERRITORY_FILL_OPACITY, TERRITORY_LINE_OPACITY, uniqueOutline } from '../lib/map/radiusContextComuni.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
@@ -295,7 +295,7 @@ const LAYER_META = {
   radius:   { color: '#C4852A', icon: '○', label: 'Raggio'        },
   // Territory
   comuni:   { color: '#5B7FA6', icon: '▭', label: 'Comuni'        },
-  nilOutlines: { color: '#7C8FD6', icon: '▱', label: 'NIL / Quartieri' },
+  nil:      { color: '#7C8FD6', icon: '▱', label: 'NIL / Quartieri' },
   settori:  { color: '#4A6E8A', icon: '▤', label: 'Settori'       },
   // Points
   poi:      { color: '#4E8E6E', icon: '⊙', label: 'POI'           },
@@ -311,7 +311,7 @@ const LAYER_META = {
 function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opacityLevel, onOpacityChange, onReset }) {
   const [collapsed, setCollapsed] = useState(false);
   if (!config || config.length === 0) return null;
-  const primaryLayers = config.filter(layer => ['radius', 'comuni', 'nilOutlines', 'settori', 'civici', 'poi'].includes(layer.id));
+  const primaryLayers = config.filter(layer => ['radius', 'comuni', 'nil', 'settori', 'civici', 'poi'].includes(layer.id));
   const hasAdvancedLayers = config.length > primaryLayers.length;
   const civiciCount = Number(civiciState?.count || 0) || Number(civiciState?.bboxCount || 0);
   const civiciAvailable = Boolean(civiciState?.available) || civiciCount > 0;
@@ -797,6 +797,7 @@ function Step2MapImpl({
   // Territori nel calcolo Raggio senza geometry disponibile — mostrati come
   // avviso opzionale in UI, senza nascondere i poligoni disponibili.
   const [missingPolygonNames, setMissingPolygonNames] = useState([]);
+  const [geographicLayerReady, setGeographicLayerReady] = useState(false);
 
   // Bonifica di eventuali tag CDN iniettati da versioni precedenti
   // (o da un'altra tab rimasta aperta): Leaflet ora arriva SOLO dal bundle.
@@ -1448,7 +1449,7 @@ function Step2MapImpl({
         // Nel raggio i territori devono essere riconoscibili anche senza hover.
         // L'opacità di copertura (spesso "non_coperto" = 0.05) non deve
         // determinare la visibilità della differenziazione territoriale.
-        const fillOpacity = Math.max(0.6, Math.min(0.68, coverageIntensity.fillOpacity * opacityScale));
+        const fillOpacity = TERRITORY_FILL_OPACITY;
         // NIL selezionabili (Quartieri): click aggiunge/rimuove tramite lo stesso
         // onToggleZone/`selected` usato da lista e ricerca. Le NIL scelte hanno
         // bordo piu' marcato e riempimento piu' pieno.
@@ -1456,10 +1457,18 @@ function Step2MapImpl({
         // Nel Raggio tutte le zone sono selezionate in automatico: il bordo di
         // scelta vale solo dove il cliente sceglie davvero i NIL.
         const isManualNilChoice = Boolean(z.isSelected && z.selectable);
+        // Livello operativo: se il territorio e' gia' nel livello geografico resta
+        // solo per tooltip e clic, cosi' il colore non cambia sul bordo del cerchio.
+        const drawnByGeographicLayer = !nilMode && hasConfirmedRadius && svcType === 'd2d' && isDrawnByGeographicLayer(z.id, {
+          ready: geographicLayerReady,
+          showComuni: activeLayers?.comuni !== false,
+          showNil: activeLayers?.nil !== false,
+        });
         const gisStyle = {
+          stroke: !drawnByGeographicLayer,
           color: isManualNilChoice ? '#E8571A' : territoryColors.get(String(z.id ?? z.name)),
           fillColor: territoryColors.get(String(z.id ?? z.name)),
-          fillOpacity: isManualNilChoice ? Math.max(fillOpacity, 0.28) : fillOpacity,
+          fillOpacity: drawnByGeographicLayer ? 0 : fillOpacity,
           weight: isManualNilChoice ? Math.max(coverageIntensity.weight, 2.4) : Math.min(coverageIntensity.weight, 1.3),
           opacity: isManualNilChoice ? 1 : 0.9,
           lineCap: 'round',
@@ -2052,7 +2061,7 @@ function Step2MapImpl({
       };
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode, simplifiedMilano, containingNil, centerLabel, viewportShiftX]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, geographicLayerReady, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode, simplifiedMilano, containingNil, centerLabel, viewportShiftX]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click da lista H2H/Business: centra la mappa sul POI ed evidenzia il
   // marker, senza toccare assegnazione/selezione (nessuna chiamata a
@@ -2081,8 +2090,7 @@ function Step2MapImpl({
   const contextCircle = svcType === 'd2d' && !isMunicipalityMode && !nilMode && hasConfirmedRadius
     && isFiniteLatLng(city?.lat, city?.lng) ? `${city.lat}|${city.lng}|${radius}` : null;
   const showContextComuni = activeLayers?.comuni !== false;
-  // I NIL esterni sono 88 confini in piu': si vedono solo su richiesta.
-  const showContextNil = activeLayers?.nilOutlines === true;
+  const showContextNil = activeLayers?.nil !== false;
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !leafletLoaded || !contextCircle) return undefined;
@@ -2099,17 +2107,17 @@ function Step2MapImpl({
       territories.forEach((territory) => {
         if (drawn.has(territory.id) || !boundsOverlap(territory.bounds, box)) return;
         drawn.add(territory.id);
-        const color = territory.continuationColor;
+        const color = territory.fillColor;
         if (color) {
-          L.geoJSON(geometryOutsideRadius(territory.geometry, lat, lng, radiusKm), {
+          L.geoJSON(territory.geometry, {
             pane: 'municipalityFillPane',
             interactive: false,
-            style: { stroke: false, fillColor: color, fillOpacity: CONTINUATION_FILL_OPACITY },
+            style: { stroke: false, fillColor: color, fillOpacity: TERRITORY_FILL_OPACITY },
           }).addTo(layer);
         }
-        const outline = outlineOutsideRadius(territory.geometry, lat, lng, radiusKm, drawnSegments);
-        const style = color ? { color, weight: 1, opacity: CONTINUATION_LINE_OPACITY } : territory.style;
-        if (outline) L.geoJSON(outline, { pane: 'municipalityFillPane', interactive: false, style }).addTo(layer);
+        const outline = territory.outline === false ? null : uniqueOutline(territory.geometry, drawnSegments);
+        const style = color ? { color, weight: 1, opacity: TERRITORY_LINE_OPACITY } : territory.style;
+        if (outline) L.geoJSON(outline, { pane: territory.pane || 'municipalityFillPane', interactive: false, style }).addTo(layer);
       });
       if (containerRef.current) containerRef.current.dataset.contextComuni = String(drawn.size);
     };
@@ -2118,9 +2126,8 @@ function Step2MapImpl({
         [comuni, nil].filter(result => result.status === 'rejected')
           .forEach(({ reason }) => warnStep2('[RADIUS_CONTEXT_TERRITORIES_UNAVAILABLE]', { error: reason }));
         if (cancelled) return;
-        const rest = milanoRestInsideRadius(nil.value?.rest, lat, lng, radiusKm);
-        if (rest) L.geoJSON(rest, { pane: 'municipalityFillPane', interactive: false, style: { stroke: false, fillColor: territoryColor('api_015146'), fillOpacity: 0.6 } }).addTo(layer);
-        territories = selectContextTerritories({ comuni: comuni.value, nil: nil.value?.nil, showComuni: showContextComuni, showNil: showContextNil, involvedColors: territoryColorsRef.current });
+        territories = selectContextTerritories({ comuni: comuni.value, nil: nil.value?.nil, rest: nil.value?.rest, showComuni: showContextComuni, showNil: showContextNil, involvedColors: territoryColorsRef.current });
+        setGeographicLayerReady((!showContextComuni || Boolean(comuni.value)) && (!showContextNil || Boolean(nil.value)));
         draw();
       });
     // La mappa puo' nascere senza altezza: quando la riceve il cerchio deve entrare.

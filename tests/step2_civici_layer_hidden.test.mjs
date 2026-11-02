@@ -10,5 +10,5 @@ test("no service offers the Civici layer; the other layers are unchanged", () =>
     assert.ok(!ids.includes("civici"), `${svc} still offers civici`);
     assert.ok(ids.includes("radius") && ids.includes("poi") && ids.includes("comuni") && ids.includes("settori"), svc);
   }
-  assert.deepEqual(SERVICE_LAYERS.d2d.layers.map((l) => l.id), ["radius", "comuni", "nilOutlines", "settori", "density", "poi", "tracking"]);
+  assert.deepEqual(SERVICE_LAYERS.d2d.layers.map((l) => l.id), ["radius", "comuni", "nil", "settori", "density", "poi", "tracking"]);
 });
