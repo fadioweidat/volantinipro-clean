@@ -4,6 +4,7 @@
 // Step 2: KPI e quantita' continuano a usare le geometrie dell'analisi.
 // Uso: node scripts/build-lombardia-comuni.mjs <lettura.json>
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const TOLERANCE_DEGREES = 0.0004; // circa 40 m a queste latitudini
 const OUTPUT = new URL("../public/data/territories/lombardia-comuni.json", import.meta.url);
@@ -54,7 +55,7 @@ export function simplifyGeometry(geometry) {
 }
 
 const input = process.argv[2];
-if (input) {
+if (input && process.argv[1] === fileURLToPath(import.meta.url)) {
   const raw = readFileSync(input, "utf8");
   const { rows } = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
   const comuni = rows.map((row) => ({ c: row.c, n: row.n, g: simplifyGeometry(row.g) }));

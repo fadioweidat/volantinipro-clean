@@ -14,7 +14,7 @@ import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
 import { assignTerritoryColors, territoryColor } from '../lib/map/territoryColors.js';
-import { boundsOverlap, CONTEXT_FILL_OPACITY, CONTEXT_MIN_ZOOM, geometryOutsideRadius, loadContextComuni } from '../lib/map/radiusContextComuni.js';
+import { boundsOverlap, CONTEXT_FILL_OPACITY, CONTEXT_MIN_ZOOM, geometryOutsideRadius, loadContextComuni, loadContextNil, selectContextTerritories } from '../lib/map/radiusContextComuni.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
@@ -286,6 +286,7 @@ const LAYER_META = {
   radius:   { color: '#C4852A', icon: '○', label: 'Raggio'        },
   // Territory
   comuni:   { color: '#5B7FA6', icon: '▭', label: 'Comuni'        },
+  nil:      { color: '#7C8FD6', icon: '▱', label: 'NIL / Quartieri' },
   settori:  { color: '#4A6E8A', icon: '▤', label: 'Settori'       },
   // Points
   poi:      { color: '#4E8E6E', icon: '⊙', label: 'POI'           },
@@ -301,7 +302,7 @@ const LAYER_META = {
 function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opacityLevel, onOpacityChange, onReset }) {
   const [collapsed, setCollapsed] = useState(false);
   if (!config || config.length === 0) return null;
-  const primaryLayers = config.filter(layer => ['radius', 'comuni', 'settori', 'civici', 'poi'].includes(layer.id));
+  const primaryLayers = config.filter(layer => ['radius', 'comuni', 'nil', 'settori', 'civici', 'poi'].includes(layer.id));
   const hasAdvancedLayers = config.length > primaryLayers.length;
   const civiciCount = Number(civiciState?.count || 0) || Number(civiciState?.bboxCount || 0);
   const civiciAvailable = Boolean(civiciState?.available) || civiciCount > 0;
@@ -1456,7 +1457,7 @@ function Step2MapImpl({
       territoryColorsRef.current = territoryColors;
       coveragePolygons.forEach(z => {
         const isNilCoverage = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
-        if (simplifiedMilano && (isNilCoverage ? activeLayers?.nil === false : activeLayers?.comuni === false)) return;
+        if (isNilCoverage ? activeLayers?.nil === false : activeLayers?.comuni === false) return;
         const coverageColors = COVERAGE_MAP_COLORS[z.status] || COVERAGE_MAP_COLORS.non_coperto;
         const coverageIntensity = z.status === 'preview_main'
           ? { fillOpacity: 0.28, weight: 2.4, opacity: 0.95 }
@@ -2100,25 +2101,27 @@ function Step2MapImpl({
   // Click su un risultato della ricerca NIL: inquadra ed evidenzia il poligono
   // con un layer temporaneo. Nessuna chiamata a onToggleZone: la selezione
   // cambia solo con "Aggiungi"/"Rimuovi" o con il click esplicito sulla mappa.
-  const contextCircle = svcType === 'd2d' && !isMunicipalityMode && !nilMode && hasConfirmedRadius && activeLayers?.comuni !== false
+  const contextCircle = svcType === 'd2d' && !isMunicipalityMode && !nilMode && hasConfirmedRadius
     && isFiniteLatLng(city?.lat, city?.lng) ? `${city.lat}|${city.lng}|${radius}` : null;
+  const showContextComuni = activeLayers?.comuni !== false;
+  const showContextNil = activeLayers?.nil !== false;
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !leafletLoaded || !contextCircle) return undefined;
+    if (!map || !leafletLoaded || !contextCircle || (!showContextComuni && !showContextNil)) return undefined;
     const [lat, lng, radiusKm] = contextCircle.split('|').map(Number);
     const layer = L.layerGroup().addTo(map);
     const drawn = new Set();
-    let comuni = null;
+    let territories = null;
     let cancelled = false;
     const draw = () => {
-      if (!comuni || map.getZoom() < CONTEXT_MIN_ZOOM) return;
+      if (!territories || map.getZoom() < CONTEXT_MIN_ZOOM) return;
       const view = map.getBounds().pad(0.15);
       const box = { west: view.getWest(), east: view.getEast(), south: view.getSouth(), north: view.getNorth() };
-      comuni.forEach((comune) => {
-        if (drawn.has(comune.id) || !boundsOverlap(comune.bounds, box)) return;
-        drawn.add(comune.id);
-        const color = territoryColorsRef.current.get(comune.id) || territoryColor(comune.id);
-        L.geoJSON(geometryOutsideRadius(comune.geometry, lat, lng, radiusKm), {
+      territories.forEach((territory) => {
+        if (drawn.has(territory.id) || !boundsOverlap(territory.bounds, box)) return;
+        drawn.add(territory.id);
+        const color = territoryColorsRef.current.get(territory.id) || territoryColor(territory.id);
+        L.geoJSON(territory.keepInsideRadius ? territory.geometry : geometryOutsideRadius(territory.geometry, lat, lng, radiusKm), {
           pane: 'municipalityFillPane',
           interactive: false,
           style: { color, weight: 0.8, opacity: 0.55, fillColor: color, fillOpacity: CONTEXT_FILL_OPACITY },
@@ -2126,13 +2129,14 @@ function Step2MapImpl({
       });
       if (containerRef.current) containerRef.current.dataset.contextComuni = String(drawn.size);
     };
-    loadContextComuni()
-      .then((rows) => {
+    Promise.allSettled([showContextComuni ? loadContextComuni() : null, showContextNil ? loadContextNil() : null])
+      .then(([comuni, nil]) => {
+        [comuni, nil].filter(result => result.status === 'rejected')
+          .forEach(({ reason }) => warnStep2('[RADIUS_CONTEXT_TERRITORIES_UNAVAILABLE]', { error: reason }));
         if (cancelled) return;
-        comuni = rows;
+        territories = selectContextTerritories({ comuni: comuni.value, nil: nil.value, showComuni: showContextComuni, showNil: showContextNil });
         draw();
-      })
-      .catch((error) => warnStep2('[RADIUS_CONTEXT_COMUNI_UNAVAILABLE]', { error }));
+      });
     map.on('moveend', draw);
     return () => {
       cancelled = true;
@@ -2140,7 +2144,7 @@ function Step2MapImpl({
       layer.remove();
       if (containerRef.current) delete containerRef.current.dataset.contextComuni;
     };
-  }, [leafletLoaded, contextCircle, coveragePolygons]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, contextCircle, coveragePolygons, showContextComuni, showContextNil]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const map = mapRef.current;

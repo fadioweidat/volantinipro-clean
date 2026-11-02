@@ -6,6 +6,8 @@ const PALETTE = [
   '#F472B6', '#FACC15', '#818CF8', '#4ADE80', '#FB923C', '#22D3EE',
 ];
 
+import { NIL_COLORS } from './nilColors.js';
+
 // Costante: se dipendesse dal numero di territori i colori cambierebbero col raggio.
 const SHADES = 211;
 
@@ -21,15 +23,22 @@ function shade(index) {
   return `hsl(${Math.round(step * 137.508) % 360} ${62 + step % 3 * 10}% ${56 + step % 4 * 5}%)`;
 }
 
+function nilColor(id) {
+  const match = /^nil_(\d+)(?:__\d+)?$/.exec(String(id));
+  return match ? NIL_COLORS[Number(match[1]) - 1] || null : null;
+}
+
 // Colore di un singolo territorio, anche fuori dall'elenco del raggio.
 export function territoryColor(id) {
-  return shade(hashId(id) % SHADES);
+  return nilColor(id) || shade(hashId(id) % SHADES);
 }
 
 export function assignTerritoryColors(ids) {
   const unique = [...new Set(ids.map(String))].sort();
   const taken = new Set();
   return new Map(unique.map((id) => {
+    const fixed = nilColor(id);
+    if (fixed) return [id, fixed];
     let index = hashId(id) % SHADES;
     while (taken.has(index)) index = (index + 1) % SHADES;
     taken.add(index);

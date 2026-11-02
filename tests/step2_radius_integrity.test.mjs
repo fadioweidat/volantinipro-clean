@@ -15,7 +15,7 @@ const { useServiceAnalysis } = await import('../src/hooks/useServiceAnalysis.js'
 const { canonicalZoneId } = await import('../src/lib/step2/zoneGeoHelpers.js');
 const { fetchWithAttemptTimeout, resolveAnalysisStatus } = await import('../src/lib/step2/analysisStatus.js');
 const { assignTerritoryColors, territoryColor } = await import('../src/lib/map/territoryColors.js');
-const { boundsOverlap, CONTEXT_FILL_OPACITY, geometryOutsideRadius, prepareContextComuni } = await import('../src/lib/map/radiusContextComuni.js');
+const { boundsOverlap, CONTEXT_FILL_OPACITY, geometryOutsideRadius, prepareContextComuni, prepareContextNil, selectContextTerritories } = await import('../src/lib/map/radiusContextComuni.js');
 const { clipTerritoryToRadius } = await import('../src/lib/map/clipTerritoryToRadius.js');
 const { buildCampaignMapOverlays } = await import('../src/lib/step2/campaignMapOverlays.js');
 
@@ -261,7 +261,61 @@ test('outside the radius a comune keeps its color, lighter than the active terri
   const map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
   assert.match(map, /Math\.max\(0\.36, Math\.min\(0\.45,/);
   assert.match(map, /pane: 'municipalityFillPane',\s+interactive: false,\s+style: \{ color, weight: 0\.8/);
-  assert.match(map, /activeLayers\?\.comuni !== false\s+&& isFiniteLatLng/);
+  assert.match(map, /const showContextComuni = activeLayers\?\.comuni !== false;/);
+  assert.match(map, /const showContextNil = activeLayers\?\.nil !== false;/);
+});
+
+const nilPayload = JSON.parse(readFileSync(new URL('../public/data/territories/milano-nil.json', import.meta.url)));
+
+test('the NIL file holds the 88 official NIL with the ids used by the analysis', () => {
+  const rows = prepareContextNil(nilPayload);
+  const nil = rows.filter((row) => row.id.startsWith('nil_'));
+  assert.equal(nil.length, 88);
+  assert.equal(new Set(nil.map((row) => row.id)).size, 88);
+  assert.match(nilPayload.source, /DS964/);
+  assert.ok(nil.every((row) => /^nil_\d+$/.test(row.id) && row.geometry.coordinates.length > 0));
+  assert.ok(JSON.stringify(nilPayload).length < 100 * 1024);
+  const rest = rows.find((row) => row.id === 'api_015146');
+  assert.equal(rest.keepInsideRadius, true);
+  assert.ok(rest.geometry.coordinates.length > 0);
+});
+
+test('every NIL has its own color, the same whatever the radius, and neighbours stay apart', () => {
+  const nil = prepareContextNil(nilPayload).filter((row) => row.id.startsWith('nil_'));
+  assert.equal(new Set(nil.map((row) => territoryColor(row.id))).size, 88);
+  const inRadius = assignTerritoryColors(['nil_83', 'nil_82', 'api_015086']);
+  const wider = assignTerritoryColors(nil.map((row) => row.id).concat('api_015086'));
+  for (const id of ['nil_83', 'nil_82']) {
+    assert.equal(inRadius.get(id), territoryColor(id));
+    assert.equal(wider.get(id), territoryColor(id));
+  }
+  const points = (row) => new Set(row.geometry.coordinates.flat(2).map(([lng, lat]) => `${lng}|${lat}`));
+  const sets = nil.map(points);
+  for (let a = 0; a < nil.length; a += 1) {
+    for (let b = a + 1; b < nil.length; b += 1) {
+      if (![...sets[a]].some((point) => sets[b].has(point))) continue;
+      const rgb = (id) => [1, 3, 5].map((start) => parseInt(territoryColor(id).slice(start, start + 2), 16));
+      const [x, y] = [rgb(nil[a].id), rgb(nil[b].id)];
+      assert.ok(Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) > 60, `${nil[a].name} / ${nil[b].name}`);
+    }
+  }
+});
+
+test('Comuni and NIL toggles are independent, and Milano is never colored twice', () => {
+  const comuni = [{ id: 'api_015146' }, { id: 'api_015086' }];
+  const nil = [{ id: 'nil_83' }];
+  const ids = (options) => selectContextTerritories({ comuni, nil, ...options }).map((row) => row.id);
+  assert.deepEqual(ids({ showComuni: true, showNil: true }), ['nil_83', 'api_015086']);
+  assert.deepEqual(ids({ showComuni: false, showNil: true }), ['nil_83']);
+  assert.deepEqual(ids({ showComuni: true, showNil: false }), ['api_015146', 'api_015086']);
+  assert.deepEqual(ids({ showComuni: false, showNil: false }), []);
+  const map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
+  assert.match(map, /if \(isNilCoverage \? activeLayers\?\.nil === false : activeLayers\?\.comuni === false\) return;/);
+});
+
+test('without the NIL file Milano keeps its single color', () => {
+  const comuni = [{ id: 'api_015146' }];
+  assert.deepEqual(selectContextTerritories({ comuni, nil: undefined, showComuni: true, showNil: true }), comuni);
 });
 
 test('the part inside the circle becomes a hole, so NIL colors stay clean', () => {
