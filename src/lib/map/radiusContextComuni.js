@@ -13,6 +13,8 @@ export const CONTEXT_MIN_ZOOM = 9;
 // tratteggiato per distinguerlo a colpo d'occhio dal confine comunale.
 export const CONTEXT_COMUNE_STYLE = { color: '#94A3B8', weight: 0.8, opacity: 0.4 };
 export const CONTEXT_NIL_STYLE = { color: '#94A3B8', weight: 0.6, opacity: 0.35, dashArray: '2 4' };
+export const CONTINUATION_FILL_OPACITY = 0.2;
+export const CONTINUATION_LINE_OPACITY = 0.6;
 
 function boundsOf(geometry) {
   let west = Infinity;
@@ -56,9 +58,27 @@ export function milanoRestInsideRadius(rest, latitude, longitude, radiusKm) {
   return coordinates.length ? { type: 'MultiPolygon', coordinates } : null;
 }
 
-// Prima i comuni: dove i confini coincidono resta la linea comunale, continua.
-export function selectContextTerritories({ comuni, nil, showComuni, showNil }) {
-  return [...(showComuni && comuni?.length ? comuni : []), ...(showNil && nil?.length ? nil : [])];
+// Prima i comuni coinvolti dal raggio, poi gli altri, poi i NIL: dove i confini
+// coincidono vince la linea del comune che continua oltre il cerchio.
+export function selectContextTerritories({ comuni, nil, showComuni, showNil, involvedColors = new Map() }) {
+  const comuneRows = showComuni && comuni?.length ? comuni : [];
+  const involved = comuneRows.filter((row) => involvedColors.has(row.id)).map((row) => ({ ...row, continuationColor: involvedColors.get(row.id) }));
+  return [...involved, ...comuneRows.filter((row) => !involvedColors.has(row.id)), ...(showNil && nil?.length ? nil : [])];
+}
+
+// Il comune che entra nel raggio prosegue fuori con lo stesso colore, tenue. La
+// parte dentro il cerchio diventa un buco (Leaflet riempie con evenodd): li'
+// comanda il poligono dell'analisi e i due colori non si sommano.
+export function geometryOutsideRadius(geometry, latitude, longitude, radiusKm) {
+  return {
+    type: 'MultiPolygon',
+    coordinates: geometry.coordinates.map((polygon) => {
+      const inside = clipTerritoryToRadius({ type: 'Polygon', coordinates: polygon }, latitude, longitude, radiusKm);
+      if (!inside) return polygon;
+      const parts = inside.type === 'Polygon' ? [inside.coordinates] : inside.coordinates;
+      return [...polygon, ...parts.flat()];
+    }),
+  };
 }
 
 // Tratti del segmento fuori dal cerchio, come coppie di posizioni tra 0 e 1.

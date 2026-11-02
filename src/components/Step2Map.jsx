@@ -14,7 +14,7 @@ import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
 import { assignTerritoryColors, territoryColor } from '../lib/map/territoryColors.js';
-import { boundsOverlap, CONTEXT_MIN_ZOOM, loadContextComuni, loadContextNil, milanoRestInsideRadius, outlineOutsideRadius, selectContextTerritories } from '../lib/map/radiusContextComuni.js';
+import { boundsOverlap, CONTEXT_MIN_ZOOM, CONTINUATION_FILL_OPACITY, CONTINUATION_LINE_OPACITY, geometryOutsideRadius, loadContextComuni, loadContextNil, milanoRestInsideRadius, outlineOutsideRadius, selectContextTerritories } from '../lib/map/radiusContextComuni.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
@@ -786,6 +786,7 @@ function Step2MapImpl({
   const campaignBoundsRef = useRef(null);
   const campaignViewRef = useRef('');
   const viewRef = useRef({ lat: null, lng: null, radius: null });
+  const territoryColorsRef = useRef(new Map());
   const autoFitRef = useRef({ operational: '', assignments: '' });
   // Leaflet e' bundlato (import L): sempre disponibile, nessun caricamento
   // asincrono da CDN. Lo stato resta per compatibilita' con gli overlay/dep
@@ -1431,6 +1432,7 @@ function Step2MapImpl({
       // Il colore distingue il territorio; lo stato di copertura resta nel
       // tooltip e nel peso del bordo. Geometrie e quantita' non cambiano.
       const territoryColors = assignTerritoryColors(coveragePolygons.map(z => z.id ?? z.name));
+      territoryColorsRef.current = territoryColors;
       coveragePolygons.forEach(z => {
         const isNilCoverage = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
         const coverageColors = COVERAGE_MAP_COLORS[z.status] || COVERAGE_MAP_COLORS.non_coperto;
@@ -2097,8 +2099,17 @@ function Step2MapImpl({
       territories.forEach((territory) => {
         if (drawn.has(territory.id) || !boundsOverlap(territory.bounds, box)) return;
         drawn.add(territory.id);
+        const color = territory.continuationColor;
+        if (color) {
+          L.geoJSON(geometryOutsideRadius(territory.geometry, lat, lng, radiusKm), {
+            pane: 'municipalityFillPane',
+            interactive: false,
+            style: { stroke: false, fillColor: color, fillOpacity: CONTINUATION_FILL_OPACITY },
+          }).addTo(layer);
+        }
         const outline = outlineOutsideRadius(territory.geometry, lat, lng, radiusKm, drawnSegments);
-        if (outline) L.geoJSON(outline, { pane: 'municipalityFillPane', interactive: false, style: territory.style }).addTo(layer);
+        const style = color ? { color, weight: 1, opacity: CONTINUATION_LINE_OPACITY } : territory.style;
+        if (outline) L.geoJSON(outline, { pane: 'municipalityFillPane', interactive: false, style }).addTo(layer);
       });
       if (containerRef.current) containerRef.current.dataset.contextComuni = String(drawn.size);
     };
@@ -2109,7 +2120,7 @@ function Step2MapImpl({
         if (cancelled) return;
         const rest = milanoRestInsideRadius(nil.value?.rest, lat, lng, radiusKm);
         if (rest) L.geoJSON(rest, { pane: 'municipalityFillPane', interactive: false, style: { stroke: false, fillColor: territoryColor('api_015146'), fillOpacity: 0.6 } }).addTo(layer);
-        territories = selectContextTerritories({ comuni: comuni.value, nil: nil.value?.nil, showComuni: showContextComuni, showNil: showContextNil });
+        territories = selectContextTerritories({ comuni: comuni.value, nil: nil.value?.nil, showComuni: showContextComuni, showNil: showContextNil, involvedColors: territoryColorsRef.current });
         draw();
       });
     // La mappa puo' nascere senza altezza: quando la riceve il cerchio deve entrare.

@@ -16,7 +16,7 @@ const { canonicalZoneId } = await import('../src/lib/step2/zoneGeoHelpers.js');
 const { fetchWithAttemptTimeout, resolveAnalysisStatus } = await import('../src/lib/step2/analysisStatus.js');
 const { defaultLayersForService } = await import('../src/lib/services/service-config.js');
 const { assignTerritoryColors, territoryColor } = await import('../src/lib/map/territoryColors.js');
-const { boundsOverlap, CONTEXT_COMUNE_STYLE, CONTEXT_COMUNI_ASSET, CONTEXT_NIL_ASSET, CONTEXT_NIL_STYLE, milanoRestInsideRadius, outlineOutsideRadius, prepareContextComuni, prepareContextNil, selectContextTerritories } = await import('../src/lib/map/radiusContextComuni.js');
+const { boundsOverlap, CONTEXT_COMUNE_STYLE, CONTEXT_COMUNI_ASSET, CONTEXT_NIL_ASSET, CONTEXT_NIL_STYLE, CONTINUATION_FILL_OPACITY, geometryOutsideRadius, milanoRestInsideRadius, outlineOutsideRadius, prepareContextComuni, prepareContextNil, selectContextTerritories } = await import('../src/lib/map/radiusContextComuni.js');
 const { clipTerritoryToRadius } = await import('../src/lib/map/clipTerritoryToRadius.js');
 const { buildCampaignMapOverlays } = await import('../src/lib/step2/campaignMapOverlays.js');
 
@@ -255,14 +255,14 @@ test('the municipalities file is real, complete and light enough for the public 
   assert.ok(!boundsOverlap(cormano.bounds, { west: 10, east: 10.1, south: 45, north: 45.1 }));
 });
 
-test('outside the radius only thin neutral outlines are drawn, colors stay inside', () => {
+test('comuni outside the analysis are thin neutral outlines, strong colors stay inside', () => {
   for (const style of [CONTEXT_COMUNE_STYLE, CONTEXT_NIL_STYLE]) {
     assert.ok(style.weight <= 0.8 && style.opacity <= 0.4);
   }
   assert.notEqual(CONTEXT_COMUNE_STYLE.dashArray, CONTEXT_NIL_STYLE.dashArray);
   const map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
   assert.match(map, /Math\.max\(0\.6, Math\.min\(0\.68,/);
-  assert.match(map, /L\.geoJSON\(outline, \{ pane: 'municipalityFillPane', interactive: false, style: territory\.style \}/);
+  assert.match(map, /L\.geoJSON\(outline, \{ pane: 'municipalityFillPane', interactive: false, style \}/);
   assert.match(map, /const showContextComuni = activeLayers\?\.comuni !== false;/);
   assert.match(map, /const showContextNil = activeLayers\?\.nilOutlines === true;/);
   assert.equal(defaultLayersForService('d2d').nilOutlines, false);
@@ -326,6 +326,11 @@ test('Comuni and NIL toggles act on the reference outlines only, independently',
   assert.deepEqual(ids({ showComuni: false, showNil: true }), ['nil_83']);
   assert.deepEqual(ids({ showComuni: true, showNil: false }), ['api_015146', 'api_015086']);
   assert.deepEqual(ids({ showComuni: false, showNil: false }), []);
+  const involved = selectContextTerritories({ comuni, nil, showComuni: true, showNil: true, involvedColors: new Map([['api_015086', '#123456']]) });
+  assert.deepEqual(involved.map((row) => row.id), ['api_015086', 'api_015146', 'nil_83']);
+  assert.equal(involved[0].continuationColor, '#123456');
+  assert.equal(involved[1].continuationColor, undefined);
+  assert.deepEqual(selectContextTerritories({ comuni, nil, showComuni: false, showNil: true, involvedColors: new Map([['api_015086', '#123456']]) }).map((row) => row.id), ['nil_83']);
   const map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
   assert.doesNotMatch(map, /isNilCoverage \? activeLayers/);
 });
@@ -360,6 +365,15 @@ test('the part of Milano outside every NIL is colored only inside the circle', (
   for (const point of inside.coordinates[0][0]) assert.ok(distanceKm(point, center) <= 1.01);
   assert.equal(milanoRestInsideRadius(undefined, center.lat, center.lng, 1), null);
   assert.equal(milanoRestInsideRadius({ type: 'MultiPolygon', coordinates: [square(9.5, 45.9, 0.01).coordinates] }, center.lat, center.lng, 1), null);
+});
+
+test('a comune crossing the circle continues outside, with a hole where the analysis draws it', () => {
+  const center = { lat: 45.5289, lng: 9.1666 };
+  const crossing = { type: 'MultiPolygon', coordinates: [square(9.1, 45.45, 0.2).coordinates] };
+  const outside = geometryOutsideRadius(crossing, center.lat, center.lng, 1);
+  assert.equal(outside.coordinates[0].length, 2);
+  for (const point of outside.coordinates[0][1]) assert.ok(distanceKm(point, center) <= 1.01);
+  assert.ok(CONTINUATION_FILL_OPACITY <= 0.25);
 });
 
 test('without the NIL file the comuni outlines still appear', () => {
