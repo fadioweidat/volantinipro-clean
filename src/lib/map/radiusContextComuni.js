@@ -1,15 +1,18 @@
-// Comuni e NIL di contesto attorno al raggio: file statici generati una sola
+// Confini di riferimento attorno al raggio: file statici generati una sola
 // volta (scripts/build-lombardia-comuni.mjs, scripts/build-milano-nil.mjs),
-// nessuna query a Supabase dalla mappa.
+// nessuna query a Supabase dalla mappa. Fuori dal cerchio solo contorni: i
+// territori colorati sono quelli dell'analisi, dentro il cerchio.
 // Solo visualizzazione: KPI e quantita' usano le geometrie dell'analisi.
 import { clipTerritoryToRadius } from './clipTerritoryToRadius.js';
 
 export const CONTEXT_COMUNI_ASSET = '/data/territories/lombardia-comuni.json';
 export const CONTEXT_NIL_ASSET = '/data/territories/milano-nil.json';
-const MILANO_COMUNE_ID = 'api_015146';
-// Tarata sulla mappa scura Mapbox della produzione: con 0,2 i territori non si leggevano.
-export const CONTEXT_FILL_OPACITY = 0.38;
 export const CONTEXT_MIN_ZOOM = 9;
+
+// Linee sottili e neutre: la cartografia sotto resta leggibile. Il NIL e'
+// tratteggiato per distinguerlo a colpo d'occhio dal confine comunale.
+export const CONTEXT_COMUNE_STYLE = { color: '#CBD5E1', weight: 1.1, opacity: 0.6, fill: false };
+export const CONTEXT_NIL_STYLE = { color: '#94A3B8', weight: 0.8, opacity: 0.55, dashArray: '3 4', fill: false };
 
 function boundsOf(geometry) {
   let west = Infinity;
@@ -32,28 +35,30 @@ function boundsOf(geometry) {
 export function prepareContextComuni(payload) {
   return (Array.isArray(payload?.comuni) ? payload.comuni : [])
     .filter((row) => row?.c && row.g?.type === 'MultiPolygon')
-    .map((row) => ({ id: `api_${String(row.c).toLowerCase()}`, name: row.n, geometry: row.g, bounds: boundsOf(row.g) }));
+    .map((row) => ({ id: `api_${String(row.c).toLowerCase()}`, name: row.n, geometry: row.g, bounds: boundsOf(row.g), style: CONTEXT_COMUNE_STYLE }));
+}
+
+export function prepareContextNil(payload) {
+  return (Array.isArray(payload?.nil) ? payload.nil : [])
+    .filter((row) => row?.c && row.g?.type === 'MultiPolygon')
+    .map((row) => ({ id: `nil_${row.c}`, name: row.n, geometry: row.g, bounds: boundsOf(row.g), style: CONTEXT_NIL_STYLE }));
 }
 
 // I confini NIL e quello ISTAT del comune non coincidono: la parte di Milano
-// fuori da ogni NIL resta del colore del comune e non si ritaglia, perche' dentro
-// il cerchio nessun territorio dell'analisi la colora.
-export function prepareContextNil(payload) {
-  const nil = (Array.isArray(payload?.nil) ? payload.nil : [])
-    .filter((row) => row?.c && row.g?.type === 'MultiPolygon')
-    .map((row) => ({ id: `nil_${row.c}`, name: row.n, geometry: row.g, bounds: boundsOf(row.g) }));
-  if (nil.length === 0 || payload.rest?.type !== 'MultiPolygon') return nil;
-  return [...nil, { id: MILANO_COMUNE_ID, name: 'Milano', geometry: payload.rest, bounds: boundsOf(payload.rest), keepInsideRadius: true }];
+// fuori da ogni NIL non e' un territorio dell'analisi e dentro il cerchio
+// resterebbe un buco scuro. Si colora solo quella porzione, mai fuori.
+export function milanoRestInsideRadius(rest, latitude, longitude, radiusKm) {
+  const coordinates = (rest?.type === 'MultiPolygon' ? rest.coordinates : []).flatMap((polygon) => {
+    const inside = clipTerritoryToRadius({ type: 'Polygon', coordinates: polygon }, latitude, longitude, radiusKm);
+    if (!inside) return [];
+    return inside.type === 'Polygon' ? [inside.coordinates] : inside.coordinates;
+  });
+  return coordinates.length ? { type: 'MultiPolygon', coordinates } : null;
 }
 
-// I NIL dividono Milano: con i NIL visibili il comune non si colora, altrimenti
-// i due riempimenti si sommerebbero. Se i NIL non arrivano resta il comune.
+// NIL sotto, comuni sopra: il confine comunale resta continuo dove coincidono.
 export function selectContextTerritories({ comuni, nil, showComuni, showNil }) {
-  const nilRows = showNil && nil?.length ? nil : [];
-  const comuneRows = showComuni && comuni?.length ? comuni : [];
-  if (nilRows.length) return [...nilRows, ...comuneRows.filter((row) => row.id !== MILANO_COMUNE_ID)];
-  // Con i NIL spenti nessun territorio dell'analisi copre Milano dentro il cerchio.
-  return showNil ? comuneRows : comuneRows.map((row) => (row.id === MILANO_COMUNE_ID ? { ...row, keepInsideRadius: true } : row));
+  return [...(showNil && nil?.length ? nil : []), ...(showComuni && comuni?.length ? comuni : [])];
 }
 
 function loadOnce(asset, prepare) {
@@ -76,22 +81,8 @@ function loadOnce(asset, prepare) {
 }
 
 export const loadContextComuni = loadOnce(CONTEXT_COMUNI_ASSET, prepareContextComuni);
-export const loadContextNil = loadOnce(CONTEXT_NIL_ASSET, prepareContextNil);
+export const loadContextNil = loadOnce(CONTEXT_NIL_ASSET, (payload) => ({ nil: prepareContextNil(payload), rest: payload?.rest }));
 
 export function boundsOverlap(a, b) {
   return a.west <= b.east && a.east >= b.west && a.south <= b.north && a.north >= b.south;
-}
-
-// La parte dentro il cerchio diventa un buco (Leaflet riempie con evenodd):
-// il contesto non si somma mai ai colori dei territori nel raggio.
-export function geometryOutsideRadius(geometry, latitude, longitude, radiusKm) {
-  return {
-    type: 'MultiPolygon',
-    coordinates: geometry.coordinates.map((polygon) => {
-      const inside = clipTerritoryToRadius({ type: 'Polygon', coordinates: polygon }, latitude, longitude, radiusKm);
-      if (!inside) return polygon;
-      const parts = inside.type === 'Polygon' ? [inside.coordinates] : inside.coordinates;
-      return [...polygon, ...parts.flat()];
-    }),
-  };
 }

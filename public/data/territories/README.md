@@ -27,8 +27,9 @@ browser caching and successful page-lifetime caching; no hover requests or polli
 `milano-nil.json` contains the 88 NIL in force (Comune di Milano, DS964 NIL vigenti
 PGT 2030), read from `public.geo_nil_milano` and simplified to about 40 m with
 `scripts/build-milano-nil.mjs`. `rest` is the part of the ISTAT comune boundary that
-no NIL covers: the two sources do not match exactly. The file only colors the Step 2
-map: it must not be used for coverage, pricing, quantity, or demographic calculations.
+no NIL covers: the two sources do not match exactly. The file only draws reference
+outlines on the Step 2 map: it must not be used for coverage, pricing, quantity, or
+demographic calculations.
 
 ## Milano civic → CAP presentation index
 

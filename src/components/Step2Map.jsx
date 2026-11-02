@@ -14,7 +14,7 @@ import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
 import { assignTerritoryColors, territoryColor } from '../lib/map/territoryColors.js';
-import { boundsOverlap, CONTEXT_FILL_OPACITY, CONTEXT_MIN_ZOOM, geometryOutsideRadius, loadContextComuni, loadContextNil, selectContextTerritories } from '../lib/map/radiusContextComuni.js';
+import { boundsOverlap, CONTEXT_MIN_ZOOM, loadContextComuni, loadContextNil, milanoRestInsideRadius, selectContextTerritories } from '../lib/map/radiusContextComuni.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
 import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
 
@@ -61,6 +61,15 @@ function getZoomForRadius(km) {
   if (km <= 5)   return 12;
   if (km <= 8)   return 11;
   return 11;
+}
+
+// Su una mappa piccola (mobile) lo zoom fisso taglierebbe il cerchio.
+function getRadiusViewZoom(map, city, km) {
+  const zoom = getZoomForRadius(km);
+  const size = map.getSize();
+  if (size.x < 120 || size.y < 120) return zoom;
+  const circle = L.latLng(Number(city.lat), Number(city.lng)).toBounds(km * 2000);
+  return Math.min(zoom, map.getBoundsZoom(circle, false, L.point(8, 8)));
 }
 
 function esc(s) {
@@ -787,7 +796,6 @@ function Step2MapImpl({
   // Territori nel calcolo Raggio senza geometry disponibile — mostrati come
   // avviso opzionale in UI, senza nascondere i poligoni disponibili.
   const [missingPolygonNames, setMissingPolygonNames] = useState([]);
-  const territoryColorsRef = useRef(new Map());
 
   // Bonifica di eventuali tag CDN iniettati da versioni precedenti
   // (o da un'altra tab rimasta aperta): Leaflet ora arriva SOLO dal bundle.
@@ -1054,7 +1062,7 @@ function Step2MapImpl({
           map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
         }
       } else {
-        map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
+        map.setView([city.lat, city.lng], getRadiusViewZoom(map, city, effectiveMapRadius), { animate: false });
       }
     }
 
@@ -1409,37 +1417,6 @@ function Step2MapImpl({
       });
     }
 
-    // Confini di riferimento in Raggio: usa le geometrie comunali complete
-    // gia' restituite dall'analisi, senza ulteriori query al DB/Nominatim.
-    // Questi contorni restano visibili anche fuori dal cerchio; il fill di
-    // copertura, i KPI e la selezione continuano a usare i poligoni ritagliati.
-    // Se un comune non e' nella risposta geografica non inventiamo il confine.
-    if (!isMunicipalityMode && activeLayers?.comuni !== false && Array.isArray(coveragePolygons)) {
-      const seenComuneNames = new Set();
-      coveragePolygons.forEach(zone => {
-        if (zone.type === 'nil' || zone.isNil || zone.territoryLevel === 'nil') return;
-        const key = String(zone.name || zone.id || '').trim().toLowerCase();
-        if (seenComuneNames.has(key)) return;
-        const geometry = zone.geometry ? parseAndValidateGeoJsonGeometry(zone.geometry) : null;
-        if (!geometry) return;
-        seenComuneNames.add(key);
-        try {
-          const outline = L.geoJSON(geometry, {
-            pane: 'municipalityBoundaryPane',
-            interactive: false,
-            style: {
-              color: '#cbd5e1', weight: 1.2, opacity: 0.75,
-              fill: false, fillOpacity: 0,
-              dashArray: '4 4'
-            }
-          });
-          outline.addTo(group);
-        } catch (error) {
-          warnStep2('[RADIUS_CONTEXT_COMUNE_BOUNDARY_ERROR]', { name: zone.name, error });
-        }
-      });
-    }
-
     // ── 2b. Poligoni di copertura Raggio (coveragePolygons) ─────────────────
     // Territori REALMENTE usati nel calcolo (comuni o NIL, secondo
     // zonesInRadius) passati da volantinipro-final.jsx — sostituisce il
@@ -1454,10 +1431,8 @@ function Step2MapImpl({
       // Il colore distingue il territorio; lo stato di copertura resta nel
       // tooltip e nel peso del bordo. Geometrie e quantita' non cambiano.
       const territoryColors = assignTerritoryColors(coveragePolygons.map(z => z.id ?? z.name));
-      territoryColorsRef.current = territoryColors;
       coveragePolygons.forEach(z => {
         const isNilCoverage = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
-        if (isNilCoverage ? activeLayers?.nil === false : activeLayers?.comuni === false) return;
         const coverageColors = COVERAGE_MAP_COLORS[z.status] || COVERAGE_MAP_COLORS.non_coperto;
         const coverageIntensity = z.status === 'preview_main'
           ? { fillOpacity: 0.28, weight: 2.4, opacity: 0.95 }
@@ -2107,7 +2082,7 @@ function Step2MapImpl({
   const showContextNil = activeLayers?.nil !== false;
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !leafletLoaded || !contextCircle || (!showContextComuni && !showContextNil)) return undefined;
+    if (!map || !leafletLoaded || !contextCircle) return undefined;
     const [lat, lng, radiusKm] = contextCircle.split('|').map(Number);
     const layer = L.layerGroup().addTo(map);
     const drawn = new Set();
@@ -2120,27 +2095,31 @@ function Step2MapImpl({
       territories.forEach((territory) => {
         if (drawn.has(territory.id) || !boundsOverlap(territory.bounds, box)) return;
         drawn.add(territory.id);
-        const color = territoryColorsRef.current.get(territory.id) || territoryColor(territory.id);
-        L.geoJSON(territory.keepInsideRadius ? territory.geometry : geometryOutsideRadius(territory.geometry, lat, lng, radiusKm), {
-          pane: 'municipalityFillPane',
-          interactive: false,
-          style: { color, weight: 1, opacity: 0.85, fillColor: color, fillOpacity: CONTEXT_FILL_OPACITY },
-        }).addTo(layer);
+        L.geoJSON(territory.geometry, { pane: 'municipalityFillPane', interactive: false, style: territory.style }).addTo(layer);
       });
       if (containerRef.current) containerRef.current.dataset.contextComuni = String(drawn.size);
     };
-    Promise.allSettled([showContextComuni ? loadContextComuni() : null, showContextNil ? loadContextNil() : null])
+    Promise.allSettled([showContextComuni ? loadContextComuni() : null, loadContextNil()])
       .then(([comuni, nil]) => {
         [comuni, nil].filter(result => result.status === 'rejected')
           .forEach(({ reason }) => warnStep2('[RADIUS_CONTEXT_TERRITORIES_UNAVAILABLE]', { error: reason }));
         if (cancelled) return;
-        territories = selectContextTerritories({ comuni: comuni.value, nil: nil.value, showComuni: showContextComuni, showNil: showContextNil });
+        const rest = milanoRestInsideRadius(nil.value?.rest, lat, lng, radiusKm);
+        if (rest) L.geoJSON(rest, { pane: 'municipalityFillPane', interactive: false, style: { stroke: false, fillColor: territoryColor('api_015146'), fillOpacity: 0.6 } }).addTo(layer);
+        territories = selectContextTerritories({ comuni: comuni.value, nil: nil.value?.nil, showComuni: showContextComuni, showNil: showContextNil });
         draw();
       });
+    // La mappa puo' nascere senza altezza: quando la riceve il cerchio deve entrare.
+    const fitCircle = () => {
+      const zoom = getRadiusViewZoom(map, { lat, lng }, radiusKm);
+      if (zoom < map.getZoom()) map.setView([lat, lng], zoom, { animate: false });
+    };
     map.on('moveend resize', draw);
+    map.on('resize', fitCircle);
     return () => {
       cancelled = true;
       map.off('moveend resize', draw);
+      map.off('resize', fitCircle);
       layer.remove();
       if (containerRef.current) delete containerRef.current.dataset.contextComuni;
     };
