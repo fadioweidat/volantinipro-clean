@@ -62,7 +62,9 @@ test('successo: 200 { elements, cached:false, source:"live" } dal PRIMO provider
   const mock = overpassMock({ [HOSTS[0]]: { elements: [el(1), el(2)] } });
   const res = await call(newHandler(mock), SEVESO);
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), { elements: [el(1), el(2)], cached: false, source: 'live' });
+  const { fetchedAt, ...body } = res.json();
+  assert.deepEqual(body, { elements: [el(1), el(2)], cached: false, source: 'live' });
+  assert.ok(Math.abs(Date.parse(fetchedAt) - Date.now()) < 5000, 'fetchedAt = momento della lettura da Overpass');
   assert.equal(res.headers['content-type'], 'application/json');
   assert.equal(res.headers['access-control-allow-origin'], '*');
   assert.equal(mock.calls.length, 1);
@@ -80,7 +82,8 @@ test('zero attività REALI: 200 { elements: [] } senza temporaryUnavailable', as
   const res = await call(newHandler(overpassMock({ [HOSTS[0]]: { elements: [] } })), SEVESO);
   assert.equal(res.statusCode, 200);
   const body = res.json();
-  assert.deepEqual(body, { elements: [], cached: false, source: 'live' });
+  assert.deepEqual({ ...body, fetchedAt: undefined }, { elements: [], cached: false, source: 'live', fetchedAt: undefined });
+  assert.equal(typeof body.fetchedAt, 'string', "anche lo zero confermato dichiara quando e' stato letto");
   assert.equal('temporaryUnavailable' in body, false);
 });
 
@@ -116,9 +119,9 @@ test('tutti i provider falliti: 200 degradato con temporaryUnavailable:true (mai
 test('cache fresca: seconda richiesta identica servita dalla cache, senza contattare i provider', async () => {
   const mock = overpassMock({ [HOSTS[0]]: { elements: [el(5)] } });
   const handler = newHandler(mock);
-  await call(handler, SEVESO);
+  const first = (await call(handler, SEVESO)).json();
   const res = await call(handler, SEVESO);
-  assert.deepEqual(res.json(), { elements: [el(5)], cached: true, source: 'cache' });
+  assert.deepEqual(res.json(), { elements: [el(5)], cached: true, source: 'cache', fetchedAt: first.fetchedAt });
   assert.equal(mock.calls.length, 1);
 });
 
@@ -138,8 +141,20 @@ test('cache stale: dopo un successo, un fallimento successivo serve l\'ultimo da
   fail = true;
   const other = await call(handler, { ...SEVESO, centerLat: 45.7 });
   assert.equal(other.json().temporaryUnavailable, true, 'bbox senza stale -> indisponibile, non zero');
-  assert.match(vercelSrc, /const stale = poiStaleCache\.get\(cacheKey\);[\s\S]*degradedBody\(reason, stale \?\? \[\], lastErr\)/);
-  assert.match(vercelSrc, /temporaryUnavailable: elements\.length === 0,\n\s+stale: elements\.length > 0,/);
+  // Stessa bbox dopo la scadenza della cache fresca (1h): si serve l'ultimo
+  // dato buono, dichiarato come cache con la sua data, mai come dato live.
+  const realNow = Date.now;
+  try {
+    const later = realNow() + 2 * 3600 * 1000;
+    Date.now = () => later;
+    const stale = (await call(handler, SEVESO)).json();
+    assert.deepEqual(
+      { elements: stale.elements, stale: stale.stale, source: stale.source, temporaryUnavailable: stale.temporaryUnavailable, fetchedAt: stale.fetchedAt },
+      { elements: [el(7)], stale: true, source: 'cache', temporaryUnavailable: false, fetchedAt: ok.json().fetchedAt },
+    );
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 test('input non valido -> 400 INVALID_INPUT; JSON assente -> 400 INVALID_JSON; nessuna chiamata ai provider', async () => {

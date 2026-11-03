@@ -1,7 +1,8 @@
 // poi-search — guscio Vercel (Node) del proxy Overpass "attivita' / POI" di
-// Step 2. Gemello 1:1 di supabase/functions/poi-search/index.ts (guscio Deno):
-// stesso payload, stesse risposte, stessi budget/timeout, stesse cache e
-// stesso rate limit. La logica vive nei moduli condivisi, importati tali e
+// Step 2. Nato gemello di supabase/functions/poi-search/index.ts (guscio Deno), che
+// in produzione non e' piu' chiamato (VITE_POI_SEARCH_URL=/api/poi-search).
+// Da 2026-11-03 questo guscio ha in piu': timeout dedicato al primo provider,
+// salto dei mirror saturi e data di aggiornamento (fetchedAt) nelle risposte. La logica vive nei moduli condivisi, importati tali e
 // quali (nessun motore duplicato):
 //   supabase/functions/_shared/poiSearchProxy.ts   (validazione, QL, provider)
 //   supabase/functions/_shared/roadNetworkProxy.ts (fallback, cache TTL)
@@ -26,6 +27,7 @@ import {
   getServiceTargetTags,
   isTransientPoiFailure,
   makePoiCacheKey,
+  poiProviderGroup,
   resolvePoiEndpoints,
   resultCap,
   validatePoiInput,
@@ -93,11 +95,19 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
   const CACHE_TTL_MS = envInt(env, "POI_SEARCH_CACHE_TTL_MS", 3600000, 60000, 86400000);
   const TOTAL_BUDGET_MS = envInt(env, "POI_SEARCH_TOTAL_BUDGET_MS", 16000, 1500, 30000);
   const PROVIDER_TIMEOUT_MS = envInt(env, "POI_SEARCH_TIMEOUT_MS", 8500, 1000, 20000);
+  // Primo provider (overpass.openstreetmap.fr): unico che risponde con
+  // regolarita', in 3-5s ma con picchi a 11-12s (misure 2026-11-03). Con 8.5s
+  // veniva interrotto e il resto del budget finiva su mirror saturi. Il budget
+  // TOTALE resta 16s: cambia solo come viene distribuito.
+  const PRIMARY_TIMEOUT_MS = envInt(env, "POI_SEARCH_PRIMARY_TIMEOUT_MS", 13000, 1000, 25000);
   const RETRY_BACKOFF_MS = envInt(env, "POI_SEARCH_RETRY_BACKOFF_MS", 300, 0, 2000);
   const STALE_TTL_MS = envInt(env, "POI_SEARCH_STALE_TTL_MS", 86400000, 3600000, 604800000);
   const NEGATIVE_TTL_MS = envInt(env, "POI_SEARCH_NEGATIVE_TTL_MS", 10000, 2000, 600000);
-  const poiCache = createTtlCache<any[]>(CACHE_TTL_MS);
-  const poiStaleCache = createTtlCache<any[]>(STALE_TTL_MS, 400);
+  // Ogni voce conserva quando i POI sono stati letti da Overpass, cosi' una
+  // risposta dalla cache dichiara sempre la propria eta'.
+  type PoiCacheEntry = { elements: any[]; fetchedAt: string };
+  const poiCache = createTtlCache<PoiCacheEntry>(CACHE_TTL_MS);
+  const poiStaleCache = createTtlCache<PoiCacheEntry>(STALE_TTL_MS, 400);
   const poiNegativeCache = createTtlCache<{ reason: string }>(NEGATIVE_TTL_MS, 400);
 
   const safeLog = (payload: Record<string, unknown>) => {
@@ -111,14 +121,15 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
   }
 
   // Degrado NON bloccante: sempre HTTP 200 con lista vuota + flag (o stale).
-  const degradedBody = (reason: string, elements: any[] = [], debugErr?: any) => ({
-    elements,
+  const degradedBody = (reason: string, stale: PoiCacheEntry | null = null, debugErr?: any) => ({
+    elements: stale?.elements ?? [],
     ok: false,
     degraded: true,
-    temporaryUnavailable: elements.length === 0,
-    stale: elements.length > 0,
-    cached: elements.length > 0,
-    source: elements.length > 0 ? "cache" : "none",
+    temporaryUnavailable: !stale,
+    stale: Boolean(stale),
+    cached: Boolean(stale),
+    source: stale ? "cache" : "none",
+    ...(stale ? { fetchedAt: stale.fetchedAt } : {}),
     reason,
     ...(debugErr ? { debug: String(debugErr?.message || debugErr), attemptsLog: debugErr?.attemptsLog } : {}),
   });
@@ -165,16 +176,16 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
 
     const cached = poiCache.get(cacheKey);
     if (cached) {
-      safeLog({ outcome: "cache_fresh", serviceType: input.serviceType, center, radiusKm: input.radiusKm, targets: input.targetSelection, count: cached.length });
-      return send(res, 200, { elements: cached, cached: true, source: "cache" });
+      safeLog({ outcome: "cache_fresh", serviceType: input.serviceType, center, radiusKm: input.radiusKm, targets: input.targetSelection, count: cached.elements.length });
+      return send(res, 200, { elements: cached.elements, cached: true, source: "cache", fetchedAt: cached.fetchedAt });
     }
 
     // Cache negativa: la stessa bbox ha appena fallito -> stale o degrado subito.
     const negative = poiNegativeCache.get(cacheKey);
     if (negative) {
       const staleForNeg = poiStaleCache.get(cacheKey);
-      safeLog({ outcome: "negative_cache", reason: negative.reason, serviceType: input.serviceType, center, radiusKm: input.radiusKm, elapsedMs: Date.now() - t0, count: staleForNeg?.length ?? 0 });
-      return send(res, 200, degradedBody(negative.reason, staleForNeg ?? []));
+      safeLog({ outcome: "negative_cache", reason: negative.reason, serviceType: input.serviceType, center, radiusKm: input.radiusKm, elapsedMs: Date.now() - t0, count: staleForNeg?.elements.length ?? 0 });
+      return send(res, 200, degradedBody(negative.reason, staleForNeg));
     }
 
     const deadline = t0 + TOTAL_BUDGET_MS;
@@ -183,6 +194,8 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
       endpoints,
       query,
       timeoutMs: PROVIDER_TIMEOUT_MS,
+      primaryTimeoutMs: PRIMARY_TIMEOUT_MS,
+      providerGroup: poiProviderGroup,
       deadlineMs: deadline,
     });
 
@@ -191,11 +204,12 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const result = await runFallback();
-        poiCache.set(cacheKey, result.elements);
-        poiStaleCache.set(cacheKey, result.elements);
+        const entry = { elements: result.elements, fetchedAt: new Date().toISOString() };
+        poiCache.set(cacheKey, entry);
+        poiStaleCache.set(cacheKey, entry);
         // Lista vuota = esito valido ("zero attivita' reali"): 200, MAI errore.
         safeLog({ outcome: "ok", serviceType: input.serviceType, center, radiusKm: input.radiusKm, targets: input.targetSelection, providers: endpoints.length, provider: endpoints[result.endpointIndex], elapsedMs: Date.now() - t0, count: result.elements.length, retried: attempt > 0 });
-        return send(res, 200, { elements: result.elements, cached: false, source: "live" });
+        return send(res, 200, { elements: result.elements, cached: false, source: "live", fetchedAt: entry.fetchedAt });
       } catch (err: any) {
         lastErr = err;
         const budgetLeft = deadline - Date.now();
@@ -218,8 +232,8 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
 
     poiNegativeCache.set(cacheKey, { reason });
     const stale = poiStaleCache.get(cacheKey);
-    safeLog({ outcome: stale ? "degraded_stale" : "degraded_empty", reason, serviceType: input.serviceType, center, radiusKm: input.radiusKm, providers: endpoints.length, elapsedMs: Date.now() - t0, attempts, count: stale?.length ?? 0 });
-    return send(res, 200, degradedBody(reason, stale ?? [], lastErr));
+    safeLog({ outcome: stale ? "degraded_stale" : "degraded_empty", reason, serviceType: input.serviceType, center, radiusKm: input.radiusKm, providers: endpoints.length, elapsedMs: Date.now() - t0, attempts, count: stale?.elements.length ?? 0, attemptsLog: lastErr?.attemptsLog });
+    return send(res, 200, degradedBody(reason, stale, lastErr));
   };
 }
 

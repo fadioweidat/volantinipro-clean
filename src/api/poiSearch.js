@@ -33,11 +33,85 @@ function readEnv(key) {
   return undefined;
 }
 
+// Copia locale (browser) degli ultimi POI verificati. Serve solo quando il
+// server non ha dati: la risposta viene dichiarata come cache con la sua data,
+// mai come dato aggiornato. Nessun dato lascia il browser.
+const BROWSER_CACHE_PREFIX = 'vp-poi-cache:v1:';
+const BROWSER_CACHE_MAX_ENTRIES = 12;
+const BROWSER_CACHE_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+
+function browserCacheKey({ centerLat, centerLng, radiusKm, serviceType, targetSelection }) {
+  const targets = (Array.isArray(targetSelection) ? [...targetSelection] : []).sort().join(',') || '-';
+  return `${BROWSER_CACHE_PREFIX}${serviceType}:${Number(centerLat).toFixed(3)},${Number(centerLng).toFixed(3)}:r${Math.round(Number(radiusKm) * 10) / 10}:${targets}`;
+}
+
+function browserStorage() {
+  try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }
+}
+
+function saveBrowserCopy(params, elements, fetchedAt) {
+  const store = browserStorage();
+  if (!store) return;
+  try {
+    const keys = [];
+    for (let i = 0; i < store.length; i += 1) {
+      const k = store.key(i);
+      if (k && k.startsWith(BROWSER_CACHE_PREFIX)) keys.push(k);
+    }
+    const key = browserCacheKey(params);
+    const others = keys.filter((k) => k !== key)
+      .map((k) => { try { return [k, Date.parse(JSON.parse(store.getItem(k)).fetchedAt) || 0]; } catch { return [k, 0]; } })
+      .sort((a, b) => a[1] - b[1]);
+    while (others.length >= BROWSER_CACHE_MAX_ENTRIES) store.removeItem(others.shift()[0]);
+    store.setItem(key, JSON.stringify({ fetchedAt, elements }));
+  } catch {
+    /* quota piena o storage bloccato: la copia locale e' facoltativa */
+  }
+}
+
+function readBrowserCopy(params, now = Date.now()) {
+  const store = browserStorage();
+  if (!store) return null;
+  try {
+    const hit = JSON.parse(store.getItem(browserCacheKey(params)) || 'null');
+    const at = Date.parse(hit?.fetchedAt);
+    if (!Array.isArray(hit?.elements) || !Number.isFinite(at) || now - at > BROWSER_CACHE_MAX_AGE_MS) return null;
+    return { elements: hit.elements, fetchedAt: hit.fetchedAt };
+  } catch {
+    return null;
+  }
+}
+
 /**
- * @param {{centerLat:number, centerLng:number, radiusKm:number, serviceType:'d2d'|'h2h'|'b2b', targetSelection?:string[]}} params
+ * Come fetchPoiSearch, ma restituisce solo gli elementi (contratto storico).
  * @returns {Promise<Array<object>>} elementi Overpass grezzi
  */
-export async function fetchPoiSearchElements({ centerLat, centerLng, radiusKm, serviceType, targetSelection = [] }) {
+export async function fetchPoiSearchElements(params) {
+  return (await fetchPoiSearch(params)).elements;
+}
+
+/**
+ * Tre esiti distinti:
+ * - { elements, stale:false, fetchedAt }: POI letti ora da Overpass (o dalla
+ *   cache fresca del server, entro un'ora). elements [] = zero confermato.
+ * - { elements, stale:true, fetchedAt }: Overpass non risponde; ultimo dato
+ *   verificato (server o copia locale), con la data della lettura.
+ * - Error('POI_SEARCH_UNAVAILABLE'): nessun dato disponibile.
+ * @param {{centerLat:number, centerLng:number, radiusKm:number, serviceType:'d2d'|'h2h'|'b2b', targetSelection?:string[]}} params
+ */
+export async function fetchPoiSearch(params) {
+  try {
+    const result = await fetchPoiSearchFromServer(params);
+    if (!result.stale && result.fetchedAt) saveBrowserCopy(params, result.elements, result.fetchedAt);
+    return result;
+  } catch (err) {
+    const copy = readBrowserCopy(params);
+    if (copy) return { ...copy, stale: true };
+    throw err;
+  }
+}
+
+async function fetchPoiSearchFromServer({ centerLat, centerLng, radiusKm, serviceType, targetSelection = [] }) {
   const base = readEnv('VITE_API_BASE_URL') || readEnv('VITE_SUPABASE_URL');
   const anonKey = readEnv('VITE_SUPABASE_ANON_KEY');
   // Interruttore SOLO per i POI (VITE_API_BASE_URL e' condivisa da altri
@@ -95,6 +169,7 @@ export async function fetchPoiSearchElements({ centerLat, centerLng, radiusKm, s
   // (badge "temporaneamente non disponibili"), non il badge "nessuna attivita'".
   if (data.temporaryUnavailable === true) throw new Error('POI_SEARCH_UNAVAILABLE');
   // Degrado con stale (elements popolati): si servono comunque, la mappa mostra
-  // l'ultimo dato buono invece di svuotarsi.
-  return data.elements;
+  // l'ultimo dato buono invece di svuotarsi, dichiarandone la data.
+  const fetchedAt = typeof data.fetchedAt === 'string' ? data.fetchedAt : null;
+  return { elements: data.elements, stale: data.stale === true, fetchedAt };
 }

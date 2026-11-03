@@ -131,6 +131,16 @@ function isRetriableStatus(status: number): boolean {
  * provider) e si lancia con `.deadlineExceeded = true`. Serve a garantire un
  * tempo di risposta massimo per un arricchimento opzionale (POI) invece di
  * sommare N timeout per-provider.
+ *
+ * Opzioni usate SOLO da poi-search (road-network non le passa: invariato):
+ * - `primaryTimeoutMs`: timeout del PRIMO provider, al posto di `timeoutMs`
+ *   (sempre entro la deadline). Il primo provider e' l'unico che restituisce
+ *   dati con regolarita': interromperlo a meta' e poi riprovarlo da capo
+ *   spreca il budget (log Vercel 2026-11-03: fr interrotto a 8.5s, poi
+ *   lz4 appeso fino alla deadline, 16s e zero POI).
+ * - `providerGroup`: mirror dello stesso servizio (stessa chiave) condividono
+ *   il carico. Se uno risponde 429/5xx o va in timeout, gli altri del gruppo
+ *   vengono saltati in questa passata ("at capacity" vale per tutti).
  */
 // User-Agent IDENTIFICATIVO verso Overpass. Un finto UA da browser
 // ("Mozilla/... Chrome/...") inviato da un server viene rifiutato dai mirror
@@ -145,9 +155,11 @@ export async function fetchRoadsWithFallback(opts: {
   query: string;
   timeoutMs: number;
   deadlineMs?: number;
+  primaryTimeoutMs?: number;
+  providerGroup?: (url: string) => string;
   AbortCtor?: typeof AbortController;
 }): Promise<RoadFetchResult> {
-  const { fetchImpl, endpoints, query, timeoutMs, deadlineMs } = opts;
+  const { fetchImpl, endpoints, query, timeoutMs, deadlineMs, primaryTimeoutMs, providerGroup } = opts;
   const AC = opts.AbortCtor || AbortController;
   const MIN_PROVIDER_MS = 700;
   if (!endpoints.length) {
@@ -163,7 +175,13 @@ export async function fetchRoadsWithFallback(opts: {
   // finale "bad_request" (query rifiutata ovunque, non solo da un mirror).
   let everyFailureNonRetriable4xx = true;
   const attemptsLog: string[] = [];
+  const saturatedGroups = new Set<string>();
+  const markSaturated = (url: string) => { if (providerGroup) saturatedGroups.add(providerGroup(url)); };
   for (let i = 0; i < endpoints.length; i += 1) {
+    if (providerGroup && saturatedGroups.has(providerGroup(endpoints[i]))) {
+      attemptsLog.push(`${endpoints[i]} -> skipped (mirror saturo)`);
+      continue;
+    }
     // Budget totale esaurito: non provare altri provider.
     if (deadlineMs != null) {
       const remaining = deadlineMs - Date.now();
@@ -177,9 +195,11 @@ export async function fetchRoadsWithFallback(opts: {
       }
     }
     attempts += 1;
+    const providerTimeout = i === 0 && primaryTimeoutMs != null ? primaryTimeoutMs : timeoutMs;
     const effectiveTimeout = deadlineMs != null
-      ? Math.max(MIN_PROVIDER_MS, Math.min(timeoutMs, deadlineMs - Date.now()))
-      : timeoutMs;
+      ? Math.max(MIN_PROVIDER_MS, Math.min(providerTimeout, deadlineMs - Date.now()))
+      : providerTimeout;
+    const startedAt = Date.now();
     const ctrl = new AC();
     const timer = setTimeout(() => ctrl.abort(), effectiveTimeout);
     const fetchUrl = endpoints[i];
@@ -204,8 +224,9 @@ export async function fetchRoadsWithFallback(opts: {
           errSnippet = ` [${t.replace(/\s+/g, ' ').slice(0, 500)}]`;
         } catch { /* ignore */ }
       }
-      attemptsLog.push(`${endpoints[i]} -> status ${res.status}${errSnippet}`);
+      attemptsLog.push(`${endpoints[i]} -> status ${res.status} in ${Date.now() - startedAt}ms${errSnippet}`);
       if (!res.ok) {
+        if (isRetriableStatus(res.status)) markSaturated(fetchUrl);
         if (isRetriableStatus(res.status) || res.status === 406) {
           lastError = new Error(`OVERPASS_HTTP_${res.status}`);
           everyFailureNonRetriable4xx = false;
@@ -222,7 +243,8 @@ export async function fetchRoadsWithFallback(opts: {
       const data = await res.json();
       return { elements: Array.isArray(data?.elements) ? data.elements : [], endpointIndex: i, attempts };
     } catch (err: any) {
-      attemptsLog.push(`${endpoints[i]} -> threw ${err?.message || String(err)}`);
+      attemptsLog.push(`${endpoints[i]} -> threw ${err?.message || String(err)} after ${Date.now() - startedAt}ms`);
+      markSaturated(fetchUrl);
       console.error(`[roadNetworkProxy] fetch error on ${endpoints[i]}:`, err?.message || String(err));
       lastError = err?.name === 'AbortError' ? new Error('OVERPASS_TIMEOUT') : err;
       everyFailureNonRetriable4xx = false;

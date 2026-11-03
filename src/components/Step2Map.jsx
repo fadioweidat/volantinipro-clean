@@ -740,6 +740,7 @@ function Step2MapImpl({
   loadingPois,
   poiEmptySectorLabel, // string|null — label del settore (es. "Palestre e sport") quando D2D e' filtrato per settore, la richiesta POI e' andata a buon fine, ma non ci sono risultati nell'area
   poiFetchFailed, // bool — la richiesta POI (Overpass) e' fallita/andata in timeout: NON e' uno zero risultati confermato, va mostrato un messaggio distinto
+  poiStaleAge = null, // string|null — i POI mostrati sono l'ultimo dato verificato in cache (es. "3 ore fa"), Overpass non ha risposto
   onRetryPoi, // () => void — ritenta la sola query POI senza ricaricare il resto di Step2
   operationalPoints, // Punti assegnati ai promoter H2H, geocodificati in Step 1
   poiAssignments,
@@ -2304,6 +2305,31 @@ function Step2MapImpl({
               fontSize: 10.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
             }}>
               Riprova
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* POI dall'ultimo dato verificato: Overpass non ha risposto. Si dichiara
+          l'eta' del dato, senza presentarlo come aggiornato. */}
+      {leafletLoaded && city && !loadingPois && !poiFetchFailed && poiStaleAge && (
+        <div role="status" className="vp-poi-stale-badge" style={{
+          position: 'absolute', right: 10, bottom: 12,
+          zIndex: 850, maxWidth: 360, padding: '7px 12px', borderRadius: 8,
+          background: 'rgba(8,15,30,.92)', border: '1px solid rgba(251,191,36,.35)',
+          boxShadow: '0 4px 16px rgba(0,0,0,.4)', textAlign: 'left',
+          fontFamily: 'system-ui,sans-serif', fontSize: 11, color: 'rgba(255,255,255,.82)',
+          display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto',
+        }}>
+          <span style={{ color: '#FBBF24', fontSize: 13, flexShrink: 0 }}>◷</span>
+          <span style={{ lineHeight: 1.35 }}>Attività commerciali dall'ultimo aggiornamento disponibile ({poiStaleAge}). Aggiornamento in tempo reale non riuscito.</span>
+          {onRetryPoi && (
+            <button type="button" onClick={onRetryPoi} style={{
+              padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(251,191,36,.45)',
+              background: 'rgba(251,191,36,.14)', color: '#FCD34D', fontFamily: 'system-ui,sans-serif',
+              fontSize: 10.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+            }}>
+              Aggiorna
             </button>
           )}
         </div>

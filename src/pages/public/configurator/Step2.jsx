@@ -57,6 +57,7 @@ import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
 import { useAddressPoints } from "../../../hooks/useAddressPoints.js";
 import { useDemographicIndicators } from "../../../hooks/useDemographicIndicators.js";
 import { usePoi } from "../../../hooks/usePoi.js";
+import { describePoiAge } from "../../../lib/services/poi-api.js";
 import { useSectors } from "../../../hooks/useSectors.js";
 import { useServiceAnalysis } from "../../../hooks/useServiceAnalysis.js";
 import { applyConfiguratorServiceChange } from "../../../lib/configuratorServiceTransition.js";
@@ -1541,8 +1542,13 @@ export function Step2({
     pois: fetchedPois,
     loading: poiLoading,
     error: poiError,
-    retry: retryPoi
+    retry: retryPoi,
+    stale: poiStale,
+    fetchedAt: poiFetchedAt
   } = usePoi(displayPoiLat, displayPoiLng, displayPoiRadius, svcType, distributionTargetSelection);
+  // POI mostrati dall'ultimo dato verificato (Overpass non ha risposto): la
+  // mappa lo dichiara con l'eta' del dato, non li presenta come aggiornati.
+  const poiStaleAge = !poiLoading && !poiError && poiStale ? describePoiAge(poiFetchedAt) || "data non nota" : null;
   const backendPois = useMemo(() => {
     if (!['d2d', 'h2h', 'b2b'].includes(svcType)) return [];
     const arr = apiData?.metadata?.nearby_activities;
@@ -5831,6 +5837,7 @@ export function Step2({
         pois={pois}
         poiEmptySectorLabel={poiEmptySectorLabel}
         poiFetchFailed={poiFetchFailed}
+        poiStaleAge={poiStaleAge}
         poiLoading={poiLoading}
         poiAssignments={poiAssignments}
         radius={radius}
