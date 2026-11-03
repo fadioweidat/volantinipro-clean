@@ -49,3 +49,33 @@ export function buildCampaignMapOverlays(zones, activeId, activeRows = [], avail
     });
   });
 }
+
+export function pointOfSaleCenter(pv) {
+  const point = pv?.searchMode === 'address' ? pv.selectedSearchPoint : null;
+  return point && Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng)) ? point : pv?.city || null;
+}
+
+// Cerchi dei punti vendita a raggio: uno per PV, anche senza territori salvati.
+// Il PV attivo usa il centro e il raggio correnti della mappa, gli altri quelli
+// salvati. Solo presentazione: quantita' e allocazioni non passano di qui.
+export function buildPointOfSaleRings(zones, activeId, activeView = null) {
+  if (!Array.isArray(zones) || zones.length < 2) return [];
+  return zones.flatMap((pv, index) => {
+    const active = pv.id === activeId;
+    const isRadius = active ? Boolean(activeView) : pv.searchMode === 'address' && !pv.nilManualMode && pv.areaMode !== 'custom_zone';
+    // Il centro di un PV a raggio e' il suo indirizzo; city e' solo il comune.
+    const center = active ? activeView : (pointOfSaleCenter(pv) || null);
+    const radiusKm = Number(active ? activeView?.radiusKm : pv.radiusKm ?? pv.radius);
+    if (!isRadius || !center || !Number.isFinite(Number(center.lat)) || !Number.isFinite(Number(center.lng)) || !(radiusKm > 0)) return [];
+    return [{ id: pv.id, active, number: index + 1, lat: Number(center.lat), lng: Number(center.lng), radiusKm,
+      color: pointOfSaleMapColor(pv.id, zones), label: pv.store_name || `Punto vendita ${index + 1}` }];
+  });
+}
+
+// Attivo: bordo continuo. Inattivo: tratteggiato. Nessun riempimento: i colori
+// dei territori restano quelli del livello geografico.
+export function pointOfSaleRingStyle(ring, activeColor) {
+  return ring.active
+    ? { color: activeColor, weight: 2.5, opacity: 0.95, fill: false, interactive: false }
+    : { color: ring.color, weight: 2, opacity: 0.9, dashArray: '6 5', fill: false, interactive: false };
+}

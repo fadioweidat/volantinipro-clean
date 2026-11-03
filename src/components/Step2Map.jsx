@@ -16,7 +16,7 @@ import { clipTerritoryToRadius } from '../lib/map/clipTerritoryToRadius.js';
 import { assignTerritoryColors } from '../lib/map/territoryColors.js';
 import { boundsOverlap, CONTEXT_MIN_ZOOM, isDrawnByGeographicLayer, loadContextComuni, loadContextNil, selectContextTerritories, TERRITORY_FILL_OPACITY, TERRITORY_LINE_OPACITY, uniqueOutline } from '../lib/map/radiusContextComuni.js';
 import { getPointOfSaleModeLabel, sanitizeStoreName } from '../lib/step2/campaignZonesModel.js';
-import { buildCampaignMapOverlays, pointOfSaleMapColor } from '../lib/step2/campaignMapOverlays.js';
+import { buildCampaignMapOverlays, buildPointOfSaleRings, pointOfSaleCenter, pointOfSaleMapColor, pointOfSaleRingStyle } from '../lib/step2/campaignMapOverlays.js';
 
 const debugStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
@@ -279,6 +279,17 @@ function informationalPoiIcon(L, color, category = '') {
 }
 
 // Centro città: discreto, brand color
+// Marker di un punto vendita: numero dentro un cerchio del suo colore.
+function pointOfSalePinIcon(L, color, number, active) {
+  const size = active ? 24 : 20;
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;color:#0b1220;font:800 11px system-ui,sans-serif;${active ? '' : 'opacity:0.9;'}">${number}</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 function pinIcon(L, color) {
   return L.divIcon({
     html: `<div style="width:11px;height:11px;border-radius:50%;background:${color};border:2px solid rgba(0,0,0,0.28);box-shadow:0 1px 5px rgba(0,0,0,0.35);pointer-events:none;"></div>`,
@@ -1540,39 +1551,43 @@ function Step2MapImpl({
     const activeOverlayRows = nilMode
       ? (zonesWithCoords || []).filter(row => selected?.includes(row.id))
       : coveragePolygons?.length ? coveragePolygons : (zonesWithCoords || []).filter(row => selected?.includes(row.id));
-    const campaignOverlays = buildCampaignMapOverlays(campaignZones, activeZoneId, activeOverlayRows, zonesWithCoords || []);
-    // Inactive PVs first, active PV last. Exact polygons; no synthesized NIL geometry.
-    campaignOverlays.sort((a, b) => Number(a.active) - Number(b.active)).forEach(overlay => {
-      const fullGeometry = parseAndValidateGeoJsonGeometry(overlay.geometry);
-      const activeCircle = overlay.active && !isMunicipalityMode && !nilMode && hasConfirmedRadius
-        ? { lat: Number(city?.lat), lng: Number(city?.lng), radiusKm: Number(radius) }
-        : null;
-      const circle = activeCircle || overlay.clip;
-      const geometry = fullGeometry && circle
-        ? clipTerritoryToRadius(fullGeometry, circle.lat, circle.lng, circle.radiusKm)
-        : fullGeometry;
+    // Un PV a raggio si vede dal suo cerchio; il PV attivo dai suoi territori.
+    // Restano solo i contorni dei PV inattivi non a raggio (NIL, comuni, CAP).
+    const campaignOverlays = buildCampaignMapOverlays(campaignZones, activeZoneId, activeOverlayRows, zonesWithCoords || [])
+      .filter(overlay => !overlay.active && !overlay.clip);
+    const pointOfSaleRings = buildPointOfSaleRings(campaignZones, activeZoneId,
+      !isMunicipalityMode && !nilMode && hasConfirmedRadius && isFiniteLatLng(city?.lat, city?.lng)
+        ? { lat: Number(city.lat), lng: Number(city.lng), radiusKm: Number(radius) } : null);
+    pointOfSaleRings.forEach(ring => campaignBounds.extend(L.latLng(ring.lat, ring.lng).toBounds(ring.radiusKm * 2000)));
+    campaignOverlays.forEach(overlay => {
+      const geometry = parseAndValidateGeoJsonGeometry(overlay.geometry);
       if (!geometry) return;
+      // Solo contorno: nessun riempimento sopra i colori dei territori.
       const layer = L.geoJSON(geometry, {
         pane: 'nilPolygonsPane',
-        style: { color: overlay.color, fillColor: overlay.color,
-          weight: overlay.active ? 3 : 2, opacity: overlay.active ? 1 : 0.8,
-          fillOpacity: overlay.active ? 0.22 : 0.1, dashArray: overlay.active ? null : '6 3',
-          className: `vp-pv-territory ${overlay.active ? 'vp-pv-active' : 'vp-pv-inactive'}` },
-        interactive: !overlay.active,
+        style: { color: overlay.color, weight: 2, opacity: 0.85, dashArray: '6 3', fillOpacity: 0,
+          className: 'vp-pv-territory vp-pv-inactive' },
+        interactive: true,
       });
-      layer.bindTooltip(`${esc(overlay.label)} · ${esc(overlay.name)}${overlay.active ? ' · Attivo' : ' · Clicca per attivare'}`);
-      if (!overlay.active) layer.on('click', () => onSelectZone?.(overlay.ownerId));
+      layer.bindTooltip(`${esc(overlay.label)} · ${esc(overlay.name)} · Clicca per attivare`);
+      layer.on('click', () => onSelectZone?.(overlay.ownerId));
       layer.addTo(group);
       const bounds = layer.getBounds();
       if (bounds.isValid()) campaignBounds.extend(bounds);
     });
     campaignBoundsRef.current = campaignBounds;
     if (campaignBounds.isValid()) {
-      const signature = `${activeZoneId}:${campaignOverlays.map(row => row.key).sort().join('|')}:${campaignBounds.toBBoxString()}`;
+      const signature = `${activeZoneId}:${campaignOverlays.map(row => row.key).concat(pointOfSaleRings.map(ring => `${ring.id}@${ring.radiusKm}`)).sort().join('|')}:${campaignBounds.toBBoxString()}`;
       if (viewChanged || campaignViewRef.current !== signature) {
         campaignViewRef.current = signature;
         const fitCampaign = () => {
           if (mapRef.current !== map || !map.getContainer()?.isConnected) return;
+          // Una mappa ancora senza dimensioni darebbe lo zoom massimo: si aspetta.
+          const size = map.getSize();
+          if (size.x < 120 || size.y < 120) {
+            map.once('resize', fitCampaign);
+            return;
+          }
           map.fitBounds(campaignBounds, { padding: [45, 45], maxZoom: 15, animate: false });
         };
         fitCampaign();
@@ -1583,13 +1598,16 @@ function Step2MapImpl({
 
     zonesList.forEach(z => {
       const isActive = z.id === activeZoneId || z.id === 'active_zone';
-      const zCity = isActive ? city : (z.city || null);
+      const zCity = isActive ? city : pointOfSaleCenter(z);
       // isFiniteLatLng, non un truthy-check: quest'ultimo lascia passare
       // Infinity (truthy) prima del L.circle/L.marker piu' sotto.
       if (!zCity || !isFiniteLatLng(zCity.lat, zCity.lng)) return;
 
       const zRadius = parseFloat((isActive ? (hasConfirmedRadius ? radius : null) : null) ?? z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
-      const zCol = isActive ? col : '#7F9BB0';
+      const pointOfSaleRing = pointOfSaleRings.find(ring => ring.id === z.id);
+      // Con piu' PV ognuno ha il suo colore e il suo numero, anche se non e' a raggio.
+      const pointOfSaleNumber = campaignZones?.length > 1 ? campaignZones.findIndex(pv => pv.id === z.id) + 1 : 0;
+      const zCol = isActive ? col : pointOfSaleNumber > 0 ? pointOfSaleMapColor(z.id, campaignZones) : '#7F9BB0';
       const isRingOn = isActive ? (activeLayers?.radius !== false) : true;
 
       // ── 1. Raggio / Circle — sempre nascosto in modalità comune intero,
@@ -1597,7 +1615,9 @@ function Step2MapImpl({
       // modalità raggio, coerente con lo stile del confine comunale. ──────
       const zoneIsRadius = isActive ? !isMunicipalityMode && !nilMode : z.searchMode === 'address' && !z.nilManualMode;
       const showCircle = isRingOn && zoneIsRadius && (!isActive || hasConfirmedRadius);
-      if (showCircle) {
+      if (showCircle && pointOfSaleRing) {
+        L.circle([zCity.lat, zCity.lng], { radius: zRadius * 1000, pane: 'radiusCirclePane', ...pointOfSaleRingStyle(pointOfSaleRing, col) }).addTo(group);
+      } else if (showCircle) {
         L.circle([zCity.lat, zCity.lng], {
           radius: zRadius * 1000,
           color: isActive ? col : zCol,
@@ -1624,7 +1644,7 @@ function Step2MapImpl({
         : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.75">${zRadius} km raggio<br><i>Clicca per attivare</i></span>`;
 
       const marker = L.marker([zCity.lat, zCity.lng], {
-        icon: pinIcon(L, zCol), zIndexOffset: isActive ? 2000 : 1000, pane: 'radiusCenterPane',
+        icon: pointOfSaleNumber > 0 ? pointOfSalePinIcon(L, zCol, pointOfSaleNumber, isActive) : pinIcon(L, zCol), zIndexOffset: isActive ? 2000 : 1000, pane: 'radiusCenterPane',
       });
       if (isActive && centerLabel) {
         // Etichetta centro PERMANENTE ancorata al punto (preview Hero).
