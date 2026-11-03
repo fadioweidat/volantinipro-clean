@@ -237,3 +237,75 @@ test('poi-tags.json allineato alle coppie interrogate da poi-search', async () =
   const file = JSON.parse(readFileSync(new URL('../scripts/poi-dataset/poi-tags.json', import.meta.url), 'utf8'));
   assert.deepEqual(file.pairs.map(({ key, val }) => `${key}=${val}`).sort(), expected);
 });
+
+function bytesReply(body) {
+  return { ok: true, status: 200, arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.length) };
+}
+
+test('fallimenti: puntatore 404 o bundle 500 -> resta la versione valida, mai un dataset parziale', async () => {
+  const v1 = buildDataset({ version: 'v1' });
+  const v2 = buildDataset({ version: 'v2' });
+  let phase = 'ok';
+  const fetchImpl = async (url) => {
+    if (url.endsWith('current.json')) {
+      if (phase === 'pointer404') return { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) };
+      return bytesReply(Buffer.from(JSON.stringify({ version: phase === 'ok' ? 'v1' : 'v2', base: `https://example.test/${phase === 'ok' ? 'v1' : 'v2'}` })));
+    }
+    const ds = url.includes('/v1/') ? v1 : v2;
+    if (url.endsWith('manifest.json')) return bytesReply(Buffer.from(JSON.stringify(ds.manifest)));
+    if (phase === 'bundle500') return { ok: false, status: 500, arrayBuffer: async () => new ArrayBuffer(0) };
+    return bytesReply(ds.gz);
+  };
+  const logs = [];
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  try {
+    const load = createPoiDatasetLoader({ env: { POI_DATASET_POINTER_URL: 'https://example.test/index/current.json' }, fetchImpl, rootDir: mkdtempSync(join(tmpdir(), 'poi-')), log: (p) => logs.push(p) });
+    assert.equal((await load()).manifest.version, 'v1');
+    for (const p of ['pointer404', 'bundle500']) {
+      phase = p; now += 7 * 3600 * 1000;
+      assert.equal((await load()).manifest.version, 'v1', `${p}: resta v1`);
+    }
+    phase = 'v2'; now += 7 * 3600 * 1000;
+    assert.equal((await load()).manifest.version, 'v2');
+    assert.deepEqual(logs.filter((l) => l.outcome === 'dataset_load_failed').map((l) => l.keptVersion), ['v1', 'v1']);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('senza versione valida: null, nuovo tentativo dopo 10 minuti (non 6 ore)', async () => {
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; return { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) }; };
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  try {
+    const load = createPoiDatasetLoader({ env: { POI_DATASET_POINTER_URL: 'https://example.test/index/current.json' }, fetchImpl, rootDir: mkdtempSync(join(tmpdir(), 'poi-')) });
+    assert.equal(await load(), null);
+    now += 5 * 60 * 1000;
+    assert.equal(await load(), null);
+    assert.equal(calls, 1, 'entro 10 minuti nessun nuovo tentativo');
+    now += 6 * 60 * 1000;
+    await load();
+    assert.equal(calls, 2);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('workflow per il branch predefinito: verify di default, codice da source_ref, sha256 degli asset pubblici prima del puntatore', () => {
+  const wf = readFileSync(new URL('../.github/workflows/poi-dataset.yml', import.meta.url), 'utf8');
+  assert.match(wf, /mode:[\s\S]*default: verify/);
+  assert.match(wf, /MODE: \$\{\{ inputs\.mode \|\| 'publish' \}\}/, 'la settimanale pubblica');
+  assert.match(wf, /ref: \$\{\{ env\.SOURCE_REF \}\}/);
+  assert.match(wf, /if: env\.SKIP != '1' && env\.MODE == 'publish'/);
+  assert.match(wf, /test "\$want" = "\$got"[\s\S]*current\.json/, 'sha256 verificato prima di spostare il puntatore');
+});
+
+test('Step 2: ripristino della bozza in modalita raggio ripristina anche il comune della mappa', () => {
+  const src = readFileSync(new URL('../src/pages/public/configurator/Step2.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const fn = src.slice(src.indexOf('const switchToRadiusMode = () => {'), src.indexOf('const switchToComuneMode = () => {'));
+  assert.match(fn, /if \(!city && restoredPoint\) \{\n\s+const parentCity = resolveStep2City\(restoredPoint\.parentComune \|\| restoredPoint\.city\);\n\s+if \(parentCity\) \{\n\s+setCity\(parentCity\);/);
+});

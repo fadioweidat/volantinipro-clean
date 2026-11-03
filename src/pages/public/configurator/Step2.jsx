@@ -949,6 +949,17 @@ export function Step2({
       setSearch("");
       setGeocodeSuggestions([]);
     }
+    // Bozza ripristinata con il solo contesto indirizzo (es. cambio servizio
+    // dallo Step 1): senza `city` i KPI partono dal punto ma la mappa resta
+    // sull'Italia. Si ripristina anche il comune del punto, come
+    // selectOperationalPoint.
+    if (!city && restoredPoint) {
+      const parentCity = resolveStep2City(restoredPoint.parentComune || restoredPoint.city);
+      if (parentCity) {
+        setCity(parentCity);
+        setSelectedComuni(prev => prev && prev.length > 0 ? prev : [parentCity]);
+      }
+    }
     const nextRad = radius || 3;
     const centerPoint = restoredPoint || selectedSearchPoint || city;
     const shouldConfirmRadius = Boolean(centerPoint && Number.isFinite(Number(centerPoint.lat)) && Number.isFinite(Number(centerPoint.lng)) && Number(nextRad) > 0);
