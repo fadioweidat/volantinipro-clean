@@ -2109,11 +2109,23 @@ function Step2MapImpl({
         drawn.add(territory.id);
         const color = territory.fillColor;
         if (color) {
+          // Un unico colore per il territorio completo: riferimento tenue fuori
+          // raggio, rinforzo SOLO nella porzione operativa dentro il cerchio.
+          // L'opacita' composta dentro e' 1 - (1-.18)*(1-.30) = .426.
+          // Geometrie/KPI non cambiano; il livello operativo resta interattivo.
           L.geoJSON(territory.geometry, {
             pane: 'municipalityFillPane',
             interactive: false,
-            style: { stroke: false, fillColor: color, fillOpacity: TERRITORY_FILL_OPACITY },
+            style: { stroke: false, fillColor: color, fillOpacity: 0.18 },
           }).addTo(layer);
+          const insideRadius = clipTerritoryToRadius(territory.geometry, lat, lng, radiusKm);
+          if (insideRadius) {
+            L.geoJSON(insideRadius, {
+              pane: 'municipalityFillPane',
+              interactive: false,
+              style: { stroke: false, fillColor: color, fillOpacity: 0.30 },
+            }).addTo(layer);
+          }
         }
         const outline = territory.outline === false ? null : uniqueOutline(territory.geometry, drawnSegments);
         const style = color ? { color, weight: 1, opacity: TERRITORY_LINE_OPACITY } : territory.style;
