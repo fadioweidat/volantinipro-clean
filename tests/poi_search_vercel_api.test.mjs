@@ -50,7 +50,7 @@ async function call(handler, body, opts) {
   await handler(makeReq(body, opts), res);
   return res;
 }
-const newHandler = (fetchImpl, env = {}) => createPoiSearchHandler({ fetchImpl, env: { POI_SEARCH_RETRY_BACKOFF_MS: '0', ...env }, log: () => {} });
+const newHandler = (fetchImpl, env = {}) => createPoiSearchHandler({ fetchImpl, env: { POI_SEARCH_RETRY_BACKOFF_MS: '0', ...env }, log: () => {}, getPoiDataset: async () => null });
 
 // ── Contratto HTTP ───────────────────────────────────────────────────────────
 test('export di default = handler Vercel (req, res)', () => {

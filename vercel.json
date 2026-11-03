@@ -161,5 +161,10 @@
       "source": "/(.*)",
       "destination": "/app-shell.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/poi-search.ts": {
+      "includeFiles": "poi-dataset/**"
+    }
+  }
 }

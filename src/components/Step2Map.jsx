@@ -28,6 +28,7 @@ const warnStep2 = (...args) => {
 // Ripiego interattivo se Mapbox non e' configurato o rifiuta il dominio.
 const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const POI_DATA_ATTR = 'Attività &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (ODbL)';
 
 // ── POI categories: palette GIS professionale, toni desaturati ──────────────
 const CATEGORY_COLORS = {
@@ -852,6 +853,9 @@ function Step2MapImpl({
       keyboard: interactive,
     });
     mapRef.current = map;
+    // Le attività commerciali sono dati OpenStreetMap (ODbL): l'attribuzione
+    // con il link ai diritti resta visibile qualunque sia lo sfondo.
+    map.attributionControl?.addAttribution(POI_DATA_ATTR);
     if (import.meta.env.DEV) window.__VOLANTINIPRO_STEP2_MAP__ = map;
 
     try {

@@ -58,6 +58,7 @@ const handlerWith = (fetchImpl, env = {}) => createPoiSearchHandler({
   fetchImpl,
   env: { POI_SEARCH_RETRY_BACKOFF_MS: '0', ...env },
   log: () => {},
+  getPoiDataset: async () => null,
 });
 
 test('gruppi provider: lz4/z/overpass-api.de nello stesso gruppo, fr e mail.ru separati', () => {

@@ -1,0 +1,110 @@
+# Dataset POI OpenStreetMap per lo Step 2 (Lombardia), aggiornato ogni settimana.
+#
+# 1. Scarica l'estratto Geofabrik Nord-Ovest e ne verifica l'MD5.
+# 2. Costruisce il dataset (scripts/poi-dataset/build_poi_dataset.py) e lo
+#    valida contro il dataset precedente (ultima release): totale, coppie di
+#    tag, celle interne. Se la validazione fallisce il job si ferma e resta
+#    in uso la versione precedente.
+# 3. Pubblica una release "poi-dataset-<data>" (bozza -> asset -> pubblica),
+#    MAI marcata "latest": releases/latest serve l'APK del driver
+#    (src/lib/services/driverAppDistribution.js).
+# 4. Solo a release completa aggiorna il puntatore current.json nella release
+#    fissa "poi-dataset-index" (POI_DATASET_POINTER_URL della funzione). Se il
+#    puntatore e' momentaneamente assente o incoerente, la funzione tiene la
+#    versione gia' caricata. Le versioni precedenti restano come release.
+#
+# I workflow pianificati girano solo dal branch predefinito del repository.
+name: poi-dataset
+
+on:
+  schedule:
+    - cron: "30 4 * * 1" # lunedi' 04:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: poi-dataset
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXTRACT_URL: https://download.geofabrik.de/europe/italy/nord-ovest-latest.osm.pbf
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dipendenze
+        run: python -m pip install --only-binary=:all: "osmium>=4,<5" "shapely>=2,<3"
+
+      - name: Estratto Geofabrik + MD5
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          # L'URL "latest" reindirizza al file datato: si scarica quello, con il suo .md5.
+          dated=$(curl -sI "$EXTRACT_URL" | awk 'tolower($1)=="location:"{print $2}' | tr -d '\r')
+          test -n "$dated"
+          echo "DATED_URL=$dated" >> "$GITHUB_ENV"
+          curl -sfL -o work/extract.osm.pbf "$dated"
+          curl -sfL -o work/extract.md5 "$dated.md5"
+          expected=$(cut -d' ' -f1 work/extract.md5)
+          actual=$(md5sum work/extract.osm.pbf | cut -d' ' -f1)
+          echo "md5 atteso $expected, calcolato $actual"
+          test "$expected" = "$actual"
+          version=$(basename "$dated" | sed -E 's/.*-([0-9]{6})\.osm\.pbf/20\1/; s/^(....)(..)(..)$/\1-\2-\3/')
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Dataset precedente (per la validazione)
+        run: |
+          set -euo pipefail
+          if gh release download poi-dataset-index --repo "$GITHUB_REPOSITORY" --pattern current.json --dir work/index 2>/dev/null; then
+            prev_tag=$(python -c "import json;print(json.load(open('work/index/current.json'))['tag'])")
+            gh release download "$prev_tag" --repo "$GITHUB_REPOSITORY" --pattern manifest.json --dir work/previous
+          fi
+          ls -l work/previous 2>/dev/null || echo "nessun dataset precedente"
+
+      - name: Costruzione e validazione
+        run: |
+          set -euo pipefail
+          if gh release view "poi-dataset-$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Versione $VERSION gia' pubblicata: niente da fare"; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0
+          fi
+          python scripts/poi-dataset/build_poi_dataset.py \
+            --pbf work/extract.osm.pbf \
+            --tags scripts/poi-dataset/poi-tags.json \
+            --boundary public/data/territories/lombardia-comuni.json \
+            --out work/out \
+            --version "$VERSION" \
+            --source-url "$DATED_URL" \
+            --previous work/previous/manifest.json
+
+      - name: Pubblicazione atomica
+        if: env.SKIP != '1'
+        run: |
+          set -euo pipefail
+          tag="poi-dataset-$VERSION"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft \
+            --title "Dataset POI Lombardia $VERSION" \
+            --notes "POI OpenStreetMap per lo Step 2 (Lombardia), estratto $(basename "$DATED_URL"). Dati © OpenStreetMap contributors, ODbL 1.0: https://www.openstreetmap.org/copyright"
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" \
+            work/out/manifest.json work/out/poi-lombardia.json.gz work/out/LICENSE-ODbL.txt
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
+          # Verifica che gli asset pubblici rispondano prima di spostare il puntatore.
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag"
+          curl -sfL -o /dev/null "$base/manifest.json"
+          curl -sfL -o /dev/null "$base/poi-lombardia.json.gz"
+          printf '{"version":"%s","tag":"%s","base":"%s"}\n' "$VERSION" "$tag" "$base" > work/current.json
+          if ! gh release view poi-dataset-index --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create poi-dataset-index --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+              --title "Dataset POI: versione corrente" \
+              --notes "Puntatore alla versione valida del dataset POI (current.json). Dati © OpenStreetMap contributors, ODbL 1.0."
+          fi
+          gh release upload poi-dataset-index --repo "$GITHUB_REPOSITORY" --clobber work/current.json

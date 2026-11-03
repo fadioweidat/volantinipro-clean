@@ -32,6 +32,8 @@ import {
   resultCap,
   validatePoiInput,
 } from "../supabase/functions/_shared/poiSearchProxy.js";
+import { queryPoiDataset } from "../src/lib/poi/poiDataset.js";
+import { createPoiDatasetLoader } from "./_lib/poiDatasetLoader.js";
 
 declare const process: any;
 
@@ -59,10 +61,16 @@ const round3 = (n: number) => Number(n.toFixed(3));
  * Factory (per i test: fetch/env iniettabili, cache e rate limit isolati per
  * istanza). In produzione si usa l'handler di default in fondo al file.
  */
-export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<string, string | undefined>; log?: (line: string) => void } = {}) {
+export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<string, string | undefined>; log?: (line: string) => void; getPoiDataset?: () => Promise<any> } = {}) {
   const env = deps.env || (typeof process !== "undefined" ? process.env : {}) || {};
   const fetchImpl = deps.fetchImpl || ((url: string, init: any) => fetch(url, init));
   const log = deps.log || ((line: string) => console.log(line));
+  // Dataset OpenStreetMap preparato offline (Lombardia): fonte ordinaria dei
+  // POI. Overpass resta solo per le aree fuori copertura o senza dataset.
+  const getPoiDataset = deps.getPoiDataset || createPoiDatasetLoader({
+    env,
+    log: (payload) => { try { log(JSON.stringify({ tag: "poi-search", runtime: "vercel", ...payload })); } catch { /* no-op */ } },
+  });
 
   // ── Rate limiting in-memory per IP (stessi default dell'Edge Function) ────
   const RATE_LIMIT_MAX = envInt(env, "POI_SEARCH_RATE_MAX", 40, 1, 300);
@@ -174,9 +182,34 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
     const endpoints = resolvePoiEndpoints(env.POI_OVERPASS_ENDPOINT || env.OVERPASS_ENDPOINT);
     const center = [round3(input.centerLat), round3(input.centerLng)];
 
+    let datasetMiss = "no_dataset";
+    try {
+      const dataset = await getPoiDataset();
+      if (dataset) {
+        const hit = queryPoiDataset(dataset, {
+          centerLat: input.centerLat,
+          centerLng: input.centerLng,
+          radiusKm: input.radiusKm,
+          tags,
+          cap: resultCap(input.serviceType),
+        });
+        // Confronto esplicito: senza strictNullChecks solo `=== false` restringe l'unione.
+        if (hit.covered === false) {
+          datasetMiss = hit.reason;
+        } else {
+          const { version, osmTimestamp } = dataset.manifest;
+          safeLog({ outcome: "dataset", version, serviceType: input.serviceType, center, radiusKm: input.radiusKm, targets: input.targetSelection, elapsedMs: Date.now() - t0, count: hit.elements.length });
+          // fetchedAt = data dei dati OSM dell'estratto, non l'ora della risposta.
+          return send(res, 200, { elements: hit.elements, cached: false, source: "osm_dataset", fetchedAt: osmTimestamp, datasetVersion: version });
+        }
+      }
+    } catch (err: any) {
+      datasetMiss = `dataset_error:${String(err?.message || err)}`;
+    }
+
     const cached = poiCache.get(cacheKey);
     if (cached) {
-      safeLog({ outcome: "cache_fresh", serviceType: input.serviceType, center, radiusKm: input.radiusKm, targets: input.targetSelection, count: cached.elements.length });
+      safeLog({ outcome: "cache_fresh", datasetMiss, serviceType: input.serviceType, center, radiusKm: input.radiusKm, targets: input.targetSelection, count: cached.elements.length });
       return send(res, 200, { elements: cached.elements, cached: true, source: "cache", fetchedAt: cached.fetchedAt });
     }
 
@@ -208,7 +241,7 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
         poiCache.set(cacheKey, entry);
         poiStaleCache.set(cacheKey, entry);
         // Lista vuota = esito valido ("zero attivita' reali"): 200, MAI errore.
-        safeLog({ outcome: "ok", serviceType: input.serviceType, center, radiusKm: input.radiusKm, targets: input.targetSelection, providers: endpoints.length, provider: endpoints[result.endpointIndex], elapsedMs: Date.now() - t0, count: result.elements.length, retried: attempt > 0 });
+        safeLog({ outcome: "ok", datasetMiss, serviceType: input.serviceType, center, radiusKm: input.radiusKm, targets: input.targetSelection, providers: endpoints.length, provider: endpoints[result.endpointIndex], elapsedMs: Date.now() - t0, count: result.elements.length, retried: attempt > 0 });
         return send(res, 200, { elements: result.elements, cached: false, source: "live", fetchedAt: entry.fetchedAt });
       } catch (err: any) {
         lastErr = err;
@@ -232,7 +265,7 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
 
     poiNegativeCache.set(cacheKey, { reason });
     const stale = poiStaleCache.get(cacheKey);
-    safeLog({ outcome: stale ? "degraded_stale" : "degraded_empty", reason, serviceType: input.serviceType, center, radiusKm: input.radiusKm, providers: endpoints.length, elapsedMs: Date.now() - t0, attempts, count: stale?.elements.length ?? 0, attemptsLog: lastErr?.attemptsLog });
+    safeLog({ outcome: stale ? "degraded_stale" : "degraded_empty", reason, datasetMiss, serviceType: input.serviceType, center, radiusKm: input.radiusKm, providers: endpoints.length, elapsedMs: Date.now() - t0, attempts, count: stale?.elements.length ?? 0, attemptsLog: lastErr?.attemptsLog });
     return send(res, 200, degradedBody(reason, stale, lastErr));
   };
 }

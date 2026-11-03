@@ -1,0 +1,200 @@
+{
+  "pairs": [
+    {
+      "key": "amenity",
+      "val": "bar"
+    },
+    {
+      "key": "amenity",
+      "val": "cafe"
+    },
+    {
+      "key": "amenity",
+      "val": "cinema"
+    },
+    {
+      "key": "amenity",
+      "val": "clinic"
+    },
+    {
+      "key": "amenity",
+      "val": "dentist"
+    },
+    {
+      "key": "amenity",
+      "val": "doctors"
+    },
+    {
+      "key": "amenity",
+      "val": "hospital"
+    },
+    {
+      "key": "amenity",
+      "val": "library"
+    },
+    {
+      "key": "amenity",
+      "val": "marketplace"
+    },
+    {
+      "key": "amenity",
+      "val": "pharmacy"
+    },
+    {
+      "key": "amenity",
+      "val": "place_of_worship"
+    },
+    {
+      "key": "amenity",
+      "val": "post_office"
+    },
+    {
+      "key": "amenity",
+      "val": "pub"
+    },
+    {
+      "key": "amenity",
+      "val": "restaurant"
+    },
+    {
+      "key": "amenity",
+      "val": "school"
+    },
+    {
+      "key": "amenity",
+      "val": "theatre"
+    },
+    {
+      "key": "amenity",
+      "val": "university"
+    },
+    {
+      "key": "building",
+      "val": "warehouse"
+    },
+    {
+      "key": "club",
+      "val": "sport"
+    },
+    {
+      "key": "industrial",
+      "val": "warehouse"
+    },
+    {
+      "key": "leisure",
+      "val": "fitness_centre"
+    },
+    {
+      "key": "leisure",
+      "val": "health_club"
+    },
+    {
+      "key": "leisure",
+      "val": "park"
+    },
+    {
+      "key": "leisure",
+      "val": "sports_centre"
+    },
+    {
+      "key": "office",
+      "val": "accountant"
+    },
+    {
+      "key": "office",
+      "val": "company"
+    },
+    {
+      "key": "office",
+      "val": "consulting"
+    },
+    {
+      "key": "office",
+      "val": "estate_agent"
+    },
+    {
+      "key": "office",
+      "val": "financial"
+    },
+    {
+      "key": "office",
+      "val": "insurance"
+    },
+    {
+      "key": "office",
+      "val": "lawyer"
+    },
+    {
+      "key": "railway",
+      "val": "station"
+    },
+    {
+      "key": "railway",
+      "val": "subway_entrance"
+    },
+    {
+      "key": "shop",
+      "val": "beauty"
+    },
+    {
+      "key": "shop",
+      "val": "car"
+    },
+    {
+      "key": "shop",
+      "val": "car_repair"
+    },
+    {
+      "key": "shop",
+      "val": "clothes"
+    },
+    {
+      "key": "shop",
+      "val": "convenience"
+    },
+    {
+      "key": "shop",
+      "val": "fitness"
+    },
+    {
+      "key": "shop",
+      "val": "hairdresser"
+    },
+    {
+      "key": "shop",
+      "val": "mall"
+    },
+    {
+      "key": "shop",
+      "val": "supermarket"
+    },
+    {
+      "key": "shop",
+      "val": "tobacco"
+    },
+    {
+      "key": "sport",
+      "val": "bodybuilding"
+    },
+    {
+      "key": "sport",
+      "val": "fitness"
+    },
+    {
+      "key": "sport",
+      "val": "gymnastics"
+    },
+    {
+      "key": "tourism",
+      "val": "attraction"
+    },
+    {
+      "key": "tourism",
+      "val": "guest_house"
+    },
+    {
+      "key": "tourism",
+      "val": "hotel"
+    }
+  ]
+}
