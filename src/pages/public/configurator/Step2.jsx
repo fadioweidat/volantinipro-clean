@@ -83,6 +83,14 @@ function zoneBudget(svc, qty, data) {
   return svc === "h2h" ? handToHandBaseCost(handToHandOperatorHours(data)) : qty * ((QUOTE_PRICES[svc] || 18.5) / 1000);
 }
 
+// Numero della riga di allocazione: null se assente (mai 0 inventato).
+function allocationRowNumber(value, { positive = false } = {}) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return positive && n <= 0 ? null : n;
+}
+
 export function Step2({
   data,
   setData,
@@ -3476,6 +3484,14 @@ export function Step2({
       radius_m: zRadiusM,
       isNil: isNilZone,
       nilCode: z.nilCode || z.nil_code || null,
+      // Dati del backend per le famiglie uniche multi-PV (uniqueHouseholds.js):
+      // valori della riga cosi' come calcolati da analysis-istat, mai stimati qui.
+      municipality_code: z.municipality_code || null,
+      families: allocationRowNumber(z.families),
+      familiesTotal: allocationRowNumber(z.familiesTotal, { positive: true }),
+      population: allocationRowNumber(z.pop ?? z.population),
+      populationTotal: allocationRowNumber(z.populationTotal, { positive: true }),
+      coveragePct: allocationRowNumber(z.coverage),
       territory_type: zType,
       parent_municipality: z.parent_municipality || city?.name || (typeof data.comune === "string" ? data.comune : null) || null,
       address_label: z.address_label || selectedSearchPoint?.label || null,
@@ -5746,7 +5762,9 @@ export function Step2({
           const a = campaignZonesOverview.zones.find(z => z.id === o.zoneAId);
           const b = campaignZonesOverview.zones.find(z => z.id === o.zoneBId);
           return `${a?.name || "Punto vendita"} e ${b?.name || "Punto vendita"}${o.certainty === "certain" ? " si sovrappongono" : " condividono parte del territorio"}`;
-        }).join("; ")}. Famiglie e capacità dei punti vendita vengono sommate senza deduplica: nell'area comune il conteggio può essere doppio.
+        }).join("; ")}. {campaignZonesOverview.totalFamilies == null
+          ? "Famiglie uniche non determinabili: nell'area comune le famiglie non possono essere contate una sola volta con i dati disponibili. Quantità e fabbisogno restano per punto vendita."
+          : `Famiglie uniche della campagna: ${formatIntegerIT(campaignZonesOverview.totalFamilies)} (l'area comune è contata una sola volta). Quantità e fabbisogno restano per punto vendita.`}
         </div>}
 
       {/* ========================================================= */}

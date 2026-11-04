@@ -469,7 +469,7 @@ function renderPdf(model) {
     { label: "Superficie coperta", value: formatAreaKm2(model.area.coveredAreaKm2) },
     { label: "Comuni selezionati", value: (model.area.selectedMunicipalities || []).join(" - ") },
     { label: "Modalit\u00e0 selezione", value: model.area.selectionMode },
-    { label: "Famiglie stimate", value: formatNumberIT(model.outputs.estimatedFamilies) },
+    { label: "Famiglie stimate", value: formatNumberIT(model.outputs.estimatedFamilies) ?? model.outputs.estimatedFamiliesNote ?? null },
     { label: "Popolazione stimata", value: formatNumberIT(model.outputs.estimatedPopulation) },
     { label: "Copertura potenziale area", value: formatPercentIT(model.outputs.estimatedCoverage) },
     { label: "Copertura con quantit\u00e0 inserita", value: formatPercentIT(coverageInserted) },

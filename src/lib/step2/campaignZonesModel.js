@@ -12,8 +12,11 @@
 //  - lo snapshot KPI/capacita' canonico di una zona (salvato da Step2 sulla
 //    zona attiva, cosi' le zone non attive restano quotabili);
 //  - il riepilogo multi-zona (quantita' totale, fabbisogno, famiglie);
-//  - il rilevamento delle sovrapposizioni tra zone (NESSUN dedup: la
-//    capacita' sommata di zone sovrapposte e' dichiarata NON deduplicata);
+//  - il rilevamento delle sovrapposizioni tra zone;
+//  - le famiglie UNICHE (uniqueHouseholds.js): deduplicate con la metodologia
+//    del backend quando i dati lo consentono, altrimenti "non determinabili"
+//    (totalFamilies null): la somma dei PV non e' mai presentata come famiglie
+//    uniche. Fabbisogno e volantini restano somme per PV (dato operativo);
 //  - le righe {territory, quantity} per il motore prezzi, zona per zona;
 //  - il payload campaignZones per submit-campaign-request, con ogni riga
 //    attribuibile alla propria zona padre.
@@ -24,6 +27,7 @@
 import { resolveConfiguratorDistributionZones } from "../pricing/resolveConfiguratorDistributionZones.js";
 import { calculateMultiZoneDistributionPrice, roundMoney } from "../pricing/distributionPricing.js";
 import { normalizeCoverageDecision } from "./addressIntent.js";
+import { computeCampaignUniqueHouseholds, UNIQUE_HOUSEHOLDS_STATUS } from "./uniqueHouseholds.js";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -466,6 +470,8 @@ export function summarizeCampaignZones(campaignZones) {
   const overlaps = detectCampaignZoneOverlaps(raw);
   const incompleteZones = zones.filter(z => z.issues.length > 0);
   const hasOverlap = overlaps.length > 0;
+  const households = computeCampaignUniqueHouseholds(raw);
+  const deduplicated = households.status === UNIQUE_HOUSEHOLDS_STATUS.DEDUPLICATED;
   return {
     isMultiZone: zones.length > 1,
     zoneCount: zones.length,
@@ -473,14 +479,21 @@ export function summarizeCampaignZones(campaignZones) {
     incompleteZones,
     allZonesReady: zones.length > 0 && incompleteZones.length === 0,
     totalQuantity: zones.reduce((a, z) => a + z.quantity, 0),
+    // Fabbisogno operativo: somma dei PV (ogni PV ha il proprio piano).
     totalRequiredFlyers: sumOrNull(zones.map(z => z.requiredFlyers)),
-    totalFamilies: sumOrNull(zones.map(z => z.families)),
-    totalPopulation: sumOrNull(zones.map(z => z.population)),
+    // Famiglie/persone UNICHE: null se non determinabili (mai la somma).
+    totalFamilies: households.uniqueFamilies,
+    totalPopulation: households.uniquePopulation,
+    // Somma dei PV, non deduplicata: solo come dato di confronto.
+    summedFamilies: sumOrNull(zones.map(z => z.families)),
+    summedPopulation: sumOrNull(zones.map(z => z.population)),
+    uniqueHouseholds: households,
+    uniqueFamiliesStatus: households.status,
     overlaps,
     hasOverlap,
-    // Mai dedup in Fase 1: la somma e' esatta solo se le zone sono disgiunte.
-    capacityDeduplicated: false,
-    capacityStatus: hasOverlap ? "overlap_not_deduplicated" : "disjoint_sum",
+    capacityDeduplicated: deduplicated,
+    capacityStatus: households.status === UNIQUE_HOUSEHOLDS_STATUS.NOT_DETERMINABLE ? "overlap_not_deduplicated"
+      : deduplicated ? "overlap_deduplicated" : "disjoint_sum",
   };
 }
 
@@ -581,8 +594,14 @@ export function buildMultiZoneMetadata(summary) {
     zone_count: summary.zoneCount,
     total_quantity: summary.totalQuantity,
     total_required_flyers: summary.totalRequiredFlyers,
+    // Famiglie uniche (null = non determinabili) e somma non deduplicata separate.
     total_families: summary.totalFamilies,
-    capacity_deduplicated: false,
+    unique_families: summary.totalFamilies,
+    unique_families_status: summary.uniqueFamiliesStatus,
+    unique_families_method: summary.uniqueHouseholds?.method || null,
+    unique_families_estimated: Boolean(summary.uniqueHouseholds?.estimated),
+    summed_families_not_deduplicated: summary.summedFamilies,
+    capacity_deduplicated: summary.capacityDeduplicated,
     capacity_status: summary.capacityStatus,
     overlaps: summary.overlaps,
     zones: summary.zones.map(z => ({

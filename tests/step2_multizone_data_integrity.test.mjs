@@ -281,8 +281,11 @@ test("G. overlapping radii are detected and capacity is never claimed deduplicat
   assert.equal(s.hasOverlap, true);
   assert.equal(s.capacityDeduplicated, false);
   assert.equal(s.capacityStatus, "overlap_not_deduplicated");
-  // somma esplicita, mai spacciata per unione
-  assert.equal(s.totalFamilies, 43000 + 30000);
+  // somma esplicita, mai spacciata per unione: le righe di queste zone non
+  // portano i dati per deduplicare -> famiglie uniche non determinabili.
+  assert.equal(s.summedFamilies, 43000 + 30000);
+  assert.equal(s.totalFamilies, null);
+  assert.equal(s.uniqueFamiliesStatus, "not_determinable");
   assert.equal(buildMultiZoneMetadata(s).capacity_status, "overlap_not_deduplicated");
 });
 

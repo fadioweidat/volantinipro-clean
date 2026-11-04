@@ -116,6 +116,8 @@ export function apiToZones(apiData, city) {
       familiesInRadius: fam,
       // Total families of the territory (whole comune / NIL), for families-weighted coverage.
       familiesTotal: c.households_total > 0 ? Math.round(c.households_total) : null,
+      // Persone totali del territorio: servono a deduplicare i PV sovrapposti.
+      populationTotal: c.population_total > 0 ? Math.round(c.population_total) : null,
       flyersMin: Math.round(vol),
       flyersMax: Math.round(vol * 1.1),
       operDays: Math.max(1, Math.ceil(vol / 4000)),
