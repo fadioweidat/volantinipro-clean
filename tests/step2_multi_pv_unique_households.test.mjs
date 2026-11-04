@@ -276,6 +276,8 @@ test("Step 4 e Step 2: nessun ripiego sulla somma o sul PV attivo", () => {
   assert.match(step4, /const kpisPopulation = isMultiZoneQuote \? kpis\.population \?\? null :/);
   assert.match(step4, /estimatedFamiliesNote: uniqueFamiliesUndetermined \? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : null/);
   assert.doesNotMatch(step4, /somma non deduplicata, zone sovrapposte/);
+  // frase iniziale: mai "comprende circa famiglie uniche non determinabili"
+  assert.match(step4, /\{uniqueFamiliesUndetermined \? <>Territori dei punti vendita sovrapposti:/);
   assert.match(summaryUi, /summary\.totalFamilies == null \?/);
   // Step 2 salva i dati del backend sulla riga (mai uno 0 inventato)
   assert.match(step2, /families: allocationRowNumber\(z\.families\),/);

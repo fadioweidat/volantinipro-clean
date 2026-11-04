@@ -1848,10 +1848,13 @@ export function Step4({
         lineHeight: 1.65,
         maxWidth: 680
       }}>
-            L’area selezionata comprende circa{" "}
+            {uniqueFamiliesUndetermined ? <>Territori dei punti vendita sovrapposti:{" "}
             <strong style={{
           color: C.green
-        }}>{uniqueFamiliesUndetermined ? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL.toLowerCase() : `${familiesDisplay} famiglie${isMultiZoneQuote && multiZoneSummary.capacityDeduplicated ? " uniche (aree sovrapposte contate una volta)" : ""}`}</strong>
+        }}>{UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL.toLowerCase()}</strong></> : <>L’area selezionata comprende circa{" "}
+            <strong style={{
+          color: C.green
+        }}>{`${familiesDisplay} famiglie${isMultiZoneQuote && multiZoneSummary.capacityDeduplicated ? " uniche (aree sovrapposte contate una volta)" : ""}`}</strong></>}
             {selectedZoneNames.length > 1 && <>{" "}nelle aree di <strong style={{
             color: col
           }}>{selectedZoneNames.length} {isMultiZoneQuote ? "punti vendita" : "comuni"}</strong></>}
