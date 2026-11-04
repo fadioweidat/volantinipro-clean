@@ -3491,7 +3491,6 @@ export function Step2({
       familiesTotal: allocationRowNumber(z.familiesTotal, { positive: true }),
       population: allocationRowNumber(z.pop ?? z.population),
       populationTotal: allocationRowNumber(z.populationTotal, { positive: true }),
-      coveragePct: allocationRowNumber(z.coverage),
       territory_type: zType,
       parent_municipality: z.parent_municipality || city?.name || (typeof data.comune === "string" ? data.comune : null) || null,
       address_label: z.address_label || selectedSearchPoint?.label || null,

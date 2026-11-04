@@ -113,6 +113,20 @@ test("raggi parzialmente sovrapposti: inclusione-esclusione verificata = area an
   assert.ok(Math.abs(r.uniquePopulation - expectedPop) <= expectedPop * 0.005);
 });
 
+test("regressione runtime: 'coverage' 100 sulla riga del PV attivo non rende intero il territorio", () => {
+  // Preview 2026-11-04: dopo "Adatta" le righe del PV attivo portavano
+  // coverage 100 anche con famiglie < totale (BRUZZANO 6049/6840): il
+  // territorio veniva preso per intero e le famiglie uniche crollavano.
+  const a = radiusPv("a", at(-0.5, 0), 1, [backendNilRow(1)]);
+  const b = radiusPv("b", at(0.5, 0), 1, [backendNilRow(1, { coveragePct: 100, coverage: 100 })]);
+  const r = computeCampaignUniqueHouseholds([a, b]);
+  const expected = T * (2 * BUFFER_AREA(1) - lensArea(1, 1) * POLY_SCALE) / AREA;
+  assert.equal(r.details[0].method, "stima_area_verificata");
+  assert.ok(Math.abs(r.uniqueFamilies - expected) <= expected * 0.005, `${r.uniqueFamilies} vs ${expected}`);
+  const step2 = readFileSync(new URL("../src/pages/public/configurator/Step2.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(step2, /coveragePct: allocationRowNumber\(z\.coverage\)/, "Step 2 non salva la copertura inaffidabile");
+});
+
 test("raggi disgiunti: somma esatta, nessuna geometria necessaria", () => {
   const a = radiusPv("a", at(-1.5, 0), 0.5, [backendNilRow(0.5, { geometry: null })]);
   const b = radiusPv("b", at(1.5, 0), 0.5, [backendNilRow(0.5, { geometry: null })]);

@@ -123,7 +123,6 @@ function rowUnit(row, zone) {
     familiesTotal: finite(row?.familiesTotal),
     population: finite(row?.population),
     populationTotal: finite(row?.populationTotal),
-    coveragePct: finite(row?.coveragePct),
     geometry: row?.geometry || row?.polygon_geojson || row?.geometry_geojson || null,
   };
 }
@@ -308,10 +307,14 @@ function zoneRowsConsistent(info, metric) {
   return Math.abs(sum - info[f.zone]) <= Math.max(2, info.rows.length);
 }
 
+// Territorio coperto per intero SOLO se il valore del backend per il PV
+// raggiunge il totale del territorio (tolleranza 1 per l'arrotondamento).
+// Mai da una percentuale di copertura: nello Step 2 il campo "coverage" della
+// riga del PV attivo puo' essere la copertura dell'allocazione, non la quota
+// di territorio nel raggio (verificato a runtime il 2026-11-04).
 function isFullContribution(c, f) {
-  if (c.coveragePct !== null && c.coveragePct >= 99.995) return true;
   const total = c.row[f.total];
-  return total !== null && total > 0 && c.row[f.value] >= total;
+  return total !== null && total > 0 && c.row[f.value] >= total - 1;
 }
 
 /** Famiglie (o persone) uniche di un territorio coperto da piu' PV. */
@@ -394,7 +397,7 @@ function computeComponent(infos, metric, reasons, details) {
   for (const info of infos) {
     for (const row of info.rows) {
       if (!units.has(row.key)) units.set(row.key, []);
-      units.get(row.key).push({ zoneId: info.id, row, circle: info.circle, coveragePct: row.coveragePct });
+      units.get(row.key).push({ zoneId: info.id, row, circle: info.circle });
     }
   }
   // Milano come comune in un PV e come NIL in un altro: livelli diversi.
