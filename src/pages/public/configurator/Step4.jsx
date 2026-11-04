@@ -1894,7 +1894,7 @@ export function Step4({
           </div>}
         <div style={{
         display: "grid",
-        gridTemplateColumns: `repeat(${isMobile ? 2 : Math.min(5, 2 + (svcType === "d2d" ? 2 : 1))}, 1fr)`,
+        gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : `repeat(${Math.min(5, 2 + (svcType === "d2d" ? 2 : 1))}, 1fr)`,
         gap: 12,
         marginBottom: 20
       }}>
@@ -1926,8 +1926,9 @@ export function Step4({
               overflowWrap: "anywhere"
             } : {
               fontFamily: F.serif,
-              fontSize: 34,
+              fontSize: isMobile ? 26 : 34,
               fontWeight: 900,
+              overflowWrap: "anywhere",
               color: C.green,
               letterSpacing: "-1px",
               lineHeight: 1
@@ -1951,8 +1952,9 @@ export function Step4({
             }}>Copertura</div>
               <div style={{
               fontFamily: F.serif,
-              fontSize: 34,
+              fontSize: isMobile ? 26 : 34,
               fontWeight: 900,
+              overflowWrap: "anywhere",
               color: col,
               letterSpacing: "-1px",
               lineHeight: 1
