@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - fix/step2-multi-pv-unique-households-20261104
+  pull_request:
+    branches:
+      - fix/step2-poi-overpass-20261103
   workflow_dispatch:
 
 permissions:
