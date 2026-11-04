@@ -309,3 +309,10 @@ test('Step 2: ripristino della bozza in modalita raggio ripristina anche il comu
   const fn = src.slice(src.indexOf('const switchToRadiusMode = () => {'), src.indexOf('const switchToComuneMode = () => {'));
   assert.match(fn, /if \(!city && restoredPoint\) \{\n\s+const parentCity = resolveStep2City\(restoredPoint\.parentComune \|\| restoredPoint\.city\);\n\s+if \(parentCity\) \{\n\s+setCity\(parentCity\);/);
 });
+
+test('workflow: nessun `run:` su una riga con ": " (YAML lo leggerebbe come chiave e GitHub non esegue il file)', () => {
+  const wf = readFileSync(new URL('../.github/workflows/poi-dataset.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const bad = wf.split('\n').filter((line) => /^\s*-?\s*run: (?![|>])/.test(line) && /: /.test(line.replace(/^\s*-?\s*run: /, '')));
+  assert.deepEqual(bad, []);
+  assert.match(wf, /run: \|\n\s+python -m pip install --only-binary=:all:/);
+});
