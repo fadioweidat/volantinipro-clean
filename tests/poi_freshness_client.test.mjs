@@ -34,14 +34,14 @@ beforeEach(() => globalThis.localStorage.clear());
 test('aggiornati: live con fetchedAt, salvati come copia locale', async () => {
   globalThis.fetch = reply({ elements: [el(1)], source: 'live', fetchedAt: '2026-11-03T10:00:00.000Z' });
   const r = await fetchPoiSearch(PARAMS);
-  assert.deepEqual(r, { elements: [el(1)], stale: false, fetchedAt: '2026-11-03T10:00:00.000Z' });
+  assert.deepEqual(r, { elements: [el(1)], stale: false, fetchedAt: '2026-11-03T10:00:00.000Z', source: 'live' });
   assert.equal(globalThis.localStorage.length, 1);
 });
 
 test('dalla cache del server: stale:true con la data della lettura originale', async () => {
   globalThis.fetch = reply({ elements: [el(2)], degraded: true, stale: true, source: 'cache', fetchedAt: '2026-11-03T07:00:00.000Z' });
   const r = await fetchPoiSearch(PARAMS);
-  assert.deepEqual(r, { elements: [el(2)], stale: true, fetchedAt: '2026-11-03T07:00:00.000Z' });
+  assert.deepEqual(r, { elements: [el(2)], stale: true, fetchedAt: '2026-11-03T07:00:00.000Z', source: 'cache' });
   assert.equal(globalThis.localStorage.length, 0, 'un dato in cache non rinnova la copia locale');
 });
 
@@ -51,7 +51,7 @@ test('server indisponibile ma copia locale recente: stale:true, mai presentato c
   await fetchPoiSearch(PARAMS);
   globalThis.fetch = reply({ elements: [], temporaryUnavailable: true, source: 'none' });
   const r = await fetchPoiSearch(PARAMS);
-  assert.deepEqual(r, { elements: [el(3)], stale: true, fetchedAt });
+  assert.deepEqual(r, { elements: [el(3)], stale: true, fetchedAt, source: 'live' }, 'la copia locale ricorda la fonte originale, ma e\x27 stale');
 });
 
 test('server indisponibile, copia locale oltre 7 giorni: non disponibile', async () => {
@@ -71,7 +71,7 @@ test('non disponibili senza copia: errore, non zero confermato', async () => {
 
 test('zero attivita\' reali: elements [] aggiornati, nessun errore', async () => {
   globalThis.fetch = reply({ elements: [], source: 'live', fetchedAt: '2026-11-03T10:00:00.000Z' });
-  assert.deepEqual(await fetchPoiSearch(PARAMS), { elements: [], stale: false, fetchedAt: '2026-11-03T10:00:00.000Z' });
+  assert.deepEqual(await fetchPoiSearch(PARAMS), { elements: [], stale: false, fetchedAt: '2026-11-03T10:00:00.000Z', source: 'live' });
 });
 
 test('contratto storico: fetchPoiSearchElements restituisce ancora solo gli elementi', async () => {

@@ -49,7 +49,7 @@ function browserStorage() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }
 }
 
-function saveBrowserCopy(params, elements, fetchedAt) {
+function saveBrowserCopy(params, elements, fetchedAt, source) {
   const store = browserStorage();
   if (!store) return;
   try {
@@ -63,7 +63,7 @@ function saveBrowserCopy(params, elements, fetchedAt) {
       .map((k) => { try { return [k, Date.parse(JSON.parse(store.getItem(k)).fetchedAt) || 0]; } catch { return [k, 0]; } })
       .sort((a, b) => a[1] - b[1]);
     while (others.length >= BROWSER_CACHE_MAX_ENTRIES) store.removeItem(others.shift()[0]);
-    store.setItem(key, JSON.stringify({ fetchedAt, elements }));
+    store.setItem(key, JSON.stringify({ fetchedAt, elements, source }));
   } catch {
     /* quota piena o storage bloccato: la copia locale e' facoltativa */
   }
@@ -76,7 +76,7 @@ function readBrowserCopy(params, now = Date.now()) {
     const hit = JSON.parse(store.getItem(browserCacheKey(params)) || 'null');
     const at = Date.parse(hit?.fetchedAt);
     if (!Array.isArray(hit?.elements) || !Number.isFinite(at) || now - at > BROWSER_CACHE_MAX_AGE_MS) return null;
-    return { elements: hit.elements, fetchedAt: hit.fetchedAt };
+    return { elements: hit.elements, fetchedAt: hit.fetchedAt, source: typeof hit.source === 'string' ? hit.source : null };
   } catch {
     return null;
   }
@@ -102,7 +102,7 @@ export async function fetchPoiSearchElements(params) {
 export async function fetchPoiSearch(params) {
   try {
     const result = await fetchPoiSearchFromServer(params);
-    if (!result.stale && result.fetchedAt) saveBrowserCopy(params, result.elements, result.fetchedAt);
+    if (!result.stale && result.fetchedAt) saveBrowserCopy(params, result.elements, result.fetchedAt, result.source);
     return result;
   } catch (err) {
     const copy = readBrowserCopy(params);
@@ -171,5 +171,6 @@ async function fetchPoiSearchFromServer({ centerLat, centerLng, radiusKm, servic
   // Degrado con stale (elements popolati): si servono comunque, la mappa mostra
   // l'ultimo dato buono invece di svuotarsi, dichiarandone la data.
   const fetchedAt = typeof data.fetchedAt === 'string' ? data.fetchedAt : null;
-  return { elements: data.elements, stale: data.stale === true, fetchedAt };
+  const source = typeof data.source === 'string' ? data.source : null;
+  return { elements: data.elements, stale: data.stale === true, fetchedAt, source };
 }

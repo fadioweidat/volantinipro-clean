@@ -188,6 +188,7 @@ tests/poi_search_budget.test.mjs
 tests/poi_search_provider_budget.test.mjs
 tests/poi_freshness_client.test.mjs
 tests/poi_dataset_offline.test.mjs
+tests/poi_source_label.test.mjs
 tests/step2_bundled_rpc.test.mjs
 tests/step2_campaign_map_overlays.test.mjs
 tests/step2_poi_screen_clustering.test.mjs

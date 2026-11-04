@@ -1555,7 +1555,8 @@ export function Step2({
     error: poiError,
     retry: retryPoi,
     stale: poiStale,
-    fetchedAt: poiFetchedAt
+    fetchedAt: poiFetchedAt,
+    sourceLabel: poiSourceLabel
   } = usePoi(displayPoiLat, displayPoiLng, displayPoiRadius, svcType, distributionTargetSelection);
   // POI mostrati dall'ultimo dato verificato (Overpass non ha risposto): la
   // mappa lo dichiara con l'eta' del dato, non li presenta come aggiornati.
@@ -5018,7 +5019,7 @@ export function Step2({
     connected: canonicalOmiRows.length > 0
   }, {
     name: "POI",
-    source: "OpenStreetMap / Overpass",
+    source: poiSourceLabel,
     level: "Raggio/area interrogata",
     year: "Non restituito",
     kind: "Community data",
@@ -5038,7 +5039,7 @@ export function Step2({
     connected: isMovementStep2 && Boolean(transportState?.available)
   }, {
     name: "Attività e aree produttive",
-    source: isBusinessStep2 && pois.length > 0 ? "OpenStreetMap / Overpass (tag POI)" : "Nessun censimento imprese/ATECO collegato",
+    source: isBusinessStep2 && pois.length > 0 ? `${poiSourceLabel} (tag POI)` : "Nessun censimento imprese/ATECO collegato",
     level: "Raggio/area interrogata",
     year: "Non restituito",
     kind: isBusinessStep2 && pois.length > 0 ? "Stima da POI" : "Non disponibile",
