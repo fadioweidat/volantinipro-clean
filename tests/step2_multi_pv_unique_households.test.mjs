@@ -279,6 +279,10 @@ test("Step 4 e Step 2: nessun ripiego sulla somma o sul PV attivo", () => {
   // frase iniziale: mai "comprende circa famiglie uniche non determinabili"
   assert.match(step4, /\{uniqueFamiliesUndetermined \? <>Territori dei punti vendita sovrapposti:/);
   assert.match(summaryUi, /summary\.totalFamilies == null \?/);
+  // riquadro FAMIGLIE in alto: lo stato testuale non usa il corpo 34 px (mobile 360-412 px)
+  assert.match(step4, /data-testid="step4-hero-families" style=\{uniqueFamiliesUndetermined \? \{/);
+  // "Punto vendita 2. Le famiglie": spazio esplicito dopo l'elenco dei PV sovrapposti
+  assert.match(summaryUi, /\.join\("; "\)\}\.\{" "\}/);
   // Step 2 salva i dati del backend sulla riga (mai uno 0 inventato)
   assert.match(step2, /families: allocationRowNumber\(z\.families\),/);
   assert.match(step2, /familiesTotal: allocationRowNumber\(z\.familiesTotal, \{ positive: true \}\),/);

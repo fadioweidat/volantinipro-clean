@@ -1915,7 +1915,16 @@ export function Step4({
               textTransform: "uppercase",
               letterSpacing: ".06em"
             }}>Famiglie</div>
-              <div style={{
+              <div data-testid="step4-hero-families" style={uniqueFamiliesUndetermined ? {
+              // Stato testuale: corpo ridotto, va a capo dentro il riquadro
+              // (a 34 px "determinabili" allargava la colonna su mobile).
+              fontFamily: F.sans,
+              fontSize: 15,
+              fontWeight: 800,
+              color: C.green,
+              lineHeight: 1.25,
+              overflowWrap: "anywhere"
+            } : {
               fontFamily: F.serif,
               fontSize: 34,
               fontWeight: 900,

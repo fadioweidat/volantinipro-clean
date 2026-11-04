@@ -44,7 +44,7 @@ export function Step4MultiZoneSummary({ summary, posPricing = null, campaignTota
         </span>
       </div>
       {summary.hasOverlap && <div role="status" data-testid="step4-multizone-overlap-warning" style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(251,191,36,.45)", background: "rgba(251,191,36,.08)", color: "#FDE68A", fontSize: 11.5, lineHeight: 1.45 }}>
-          <strong>Territori sovrapposti:</strong> {summary.overlaps.map(o => `${zoneById.get(o.zoneAId)?.name || "Punto vendita"} / ${zoneById.get(o.zoneBId)?.name || "Punto vendita"}`).join("; ")}.
+          <strong>Territori sovrapposti:</strong> {summary.overlaps.map(o => `${zoneById.get(o.zoneAId)?.name || "Punto vendita"} / ${zoneById.get(o.zoneBId)?.name || "Punto vendita"}`).join("; ")}.{" "}
           {summary.totalFamilies == null
             ? <>{UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL}: i dati disponibili non consentono di contare una sola volta le famiglie dell'area comune, quindi la somma dei punti vendita ({formatNumber(summary.summedFamilies, "—")}) non è mostrata come famiglie: le famiglie dei singoli punti vendita non sono deduplicate.{summary.uniqueHouseholds?.reasons?.some(r => r.code === "zone_rows_without_households") ? " Riapri ciascun punto vendita nello Step 2 per aggiornare i dati territoriali." : ""}</>
             : <>Le famiglie dell'area comune sono contate una sola volta ({formatNumber(summary.totalFamilies, "—")} uniche su {formatNumber(summary.summedFamilies, "—")} sommate per punto vendita){summary.uniqueHouseholds?.estimated ? ", con la stessa ripartizione per area usata per ogni punto vendita" : ""}.</>}
