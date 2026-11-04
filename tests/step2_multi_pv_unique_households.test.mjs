@@ -279,6 +279,9 @@ test("Step 4 e Step 2: nessun ripiego sulla somma o sul PV attivo", () => {
   // frase iniziale: mai "comprende circa famiglie uniche non determinabili"
   assert.match(step4, /\{uniqueFamiliesUndetermined \? <>Territori dei punti vendita sovrapposti:/);
   assert.match(summaryUi, /summary\.totalFamilies == null \?/);
+  // La griglia hero mobile ammette lo shrink sotto il min-content dei KPI a sei cifre.
+  assert.match(step4, /gridTemplateColumns: isMobile \? "repeat\(2, minmax\(0, 1fr\)\)"/);
+  assert.match(step4, /fontSize: isMobile \? 26 : 34,[\s\S]{0,120}overflowWrap: "anywhere",[\s\S]{0,60}color: C\.green/);
   // riquadro FAMIGLIE in alto: lo stato testuale non usa il corpo 34 px (mobile 360-412 px)
   assert.match(step4, /data-testid="step4-hero-families" style=\{uniqueFamiliesUndetermined \? \{/);
   // "Punto vendita 2. Le famiglie": spazio esplicito dopo l'elenco dei PV sovrapposti
