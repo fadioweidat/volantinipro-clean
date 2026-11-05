@@ -2117,13 +2117,15 @@ export function Step4({
             textTransform: "uppercase",
             letterSpacing: ".06em"
           }}>Prezzo finale</div>
-            <div style={{
+            <div data-testid="step4-hero-price" style={{
             fontFamily: F.serif,
-            fontSize: isMobile ? 28 : 38,
+            // 360 px: a 28 px "€2797,24" usciva dal riquadro (colonna ~125 px)
+            fontSize: isMobile ? 21 : 38,
             fontWeight: 900,
             color: col,
-            letterSpacing: "-1.5px",
-            lineHeight: 1
+            letterSpacing: isMobile ? "-0.5px" : "-1.5px",
+            lineHeight: 1.05,
+            overflowWrap: "anywhere"
           }}>{eur(grandTotal)}</div>
             {printingSelected && printPriceKnown && <div style={{
             fontFamily: F.sans,
