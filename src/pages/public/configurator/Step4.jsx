@@ -15,6 +15,8 @@ import { formatCoverageProportion } from "../../../lib/step2/buildStep2ViewModel
 import { Step4MultiZoneSummary } from "./step4/Step4MultiZoneSummary.jsx";
 import { buildMultiZoneCampaignZonesPayload, buildMultiZoneDistributionZones, buildMultiZoneMetadata, buildPointOfSalePricing, flattenMultiZoneAllocation, summarizeCampaignZones, getCampaignMunicipalityNames } from "../../../lib/step2/campaignZonesModel.js";
 import { UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL } from "../../../lib/step2/uniqueHouseholds.js";
+import { countTerritories, isNilTerritoryRow, territoryTypeLabel } from "../../../lib/step2/territoryCounts.js";
+import { averageUnitPrice, resolveQuoteStatus } from "../../../lib/quoteStatus.js";
 import { getServiceAccent } from "../../../lib/services/service-config.js";
 import { getZoneFullCoverageFlyers } from "../../../lib/doorToDoorCoverage.js";
 import { MONTHS_SHORT, QUOTE_PRICES } from "../../../lib/appConstants.js";
@@ -117,7 +119,6 @@ export function Step4({
     searchedLocation: singlePointOfSale.source.addressLabel || null
   } : null;
   const pricePerThousand = QUOTE_PRICES[svcType] || 18.5;
-  const unitPricePerFlyer = pricePerThousand / 1000;
   // Hand to Hand: tariffa oraria per operatore (handToHandPricing.js), niente
   // Smart Pairing; fuori da Milano citta' "spostamento calcolato nel preventivo".
   const isHandToHandQuote = svcType === "h2h";
@@ -751,9 +752,20 @@ export function Step4({
     src: "Analisi interna"
   }];
   const kpisPopulation = isMultiZoneQuote ? kpis.population ?? null : kpis.population ?? kpis.pop ?? (totP || null);
-  const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
+  // Conteggi territoriali con la stessa definizione di Step 2 (territoryCounts.js):
+  // comuni distinti (i NIL valgono Milano), NIL di Milano e righe sono tre
+  // unita' diverse e non si sommano. Solo per raggio/multi-PV con righe reali.
+  const territoryCounts = isMultiZoneQuote
+    ? (() => {
+      const rows = flattenMultiZoneAllocation(multiZoneSummary);
+      const nilKeys = new Set(rows.filter(isNilTerritoryRow).map(r => String(r.nilCode ?? r.nil_code ?? r.name)));
+      const names = getCampaignMunicipalityNames(data.campaignZones);
+      return { municipalityNames: names, municipalityCount: names.length, nilCount: nilKeys.size, territoryCount: null };
+    })()
+    : !isMunicipalityMode && data.areaMode !== "cap" && zoneAllocs.length > 0 ? countTerritories(zoneAllocs) : null;
+  const summaryMunicipalityNames = territoryCounts ? territoryCounts.municipalityNames : selectedZoneNames;
   const summaryMunicipalityCount = summaryMunicipalityNames.length || null;
-  const kpisComuniCount = kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
+  const kpisComuniCount = territoryCounts ? territoryCounts.municipalityCount || null : kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
   const d2dAreaKm2 = kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null);
   const d2dAvgDensity = d2dAreaKm2 && kpisPopulation ? Math.round(kpisPopulation / d2dAreaKm2) : null;
   const d2dSummarySources = data.sources?.length ? data.sources : [];
@@ -1018,11 +1030,23 @@ export function Step4({
       l: "Densità media",
       v: d2dAvgDensity ? `${formatNumber(d2dAvgDensity)} ab./km²` : null,
       src: "ISTAT"
+    }, ...(territoryCounts ? [{
+      l: "Comuni coinvolti",
+      v: territoryCounts.municipalityCount ? formatNumber(territoryCounts.municipalityCount) : null,
+      src: "Dati geografici / PostGIS"
     }, {
+      l: "NIL di Milano nel raggio",
+      v: territoryCounts.nilCount ? formatNumber(territoryCounts.nilCount) : null,
+      src: "Comune di Milano - NIL"
+    }, {
+      l: "Territori nel raggio (NIL + comuni)",
+      v: territoryCounts.territoryCount ? formatNumber(territoryCounts.territoryCount) : null,
+      src: "Dati geografici / PostGIS"
+    }] : [{
       l: `${step4TerritoryPluralLabel} nel raggio`,
       v: kpisComuniCount != null ? formatNumber(kpisComuniCount) : null,
       src: "Dati geografici / PostGIS"
-    }];
+    }])];
     serviceSummaryConfig.sources = d2dSummarySources;
   }
   const fieldCard = ({
@@ -1075,6 +1099,7 @@ export function Step4({
         const totalReq = zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0);
         return zoneAllocs.map(alloc => ({
           name: alloc.name,
+          type: territoryTypeLabel(alloc),
           status: alloc.allocationStatus === "full" ? "Selezionato – copertura completa" : alloc.allocationStatus === "partial" ? "Selezionato – copertura parziale" : "Non coperto dal budget attuale",
           estimatedFlyers: alloc.assignedFlyers,
           coveragePct: alloc.coveragePercent,
@@ -1097,6 +1122,7 @@ export function Step4({
     }
     return breakdownRows.map(row => ({
       name: row.name,
+      type: territoryTypeLabel(row.alloc || row),
       status: row.selectedRow ? row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Selezionato – copertura completa" : "Selezionato – copertura parziale" : "Non coperto dal budget attuale",
       estimatedFlyers: row.estimatedFlyers,
       coveragePct: row.coveragePercent,
@@ -1111,10 +1137,16 @@ export function Step4({
       pair: p
     };
   });
+  // Stato reale (quoteStatus.js): stimato -> confermato dal cliente (pending_review) -> campagna confermata.
+  const quoteStatus = resolveQuoteStatus({ isQuick, sent, campaignStatus: savedCampaign?.status || null });
+  // Prezzo medio = totale distribuzione / quantita' (tariffe per zona): riconciliabile con il totale.
+  const distributionAverageUnitPrice = averageUnitPrice(baseCost, flyerQty);
   const quotePdfData = {
     quoteId: data.quoteId || data.id,
     generatedAt: new Date().toISOString(),
-    status: sent ? "Preventivo confermato" : isQuick ? "Stima indicativa" : "Preventivo stimato",
+    status: quoteStatus.label,
+    statusKey: quoteStatus.key,
+    statusDisclaimer: quoteStatus.disclaimer,
     service: tLabel,
     // Dati aziendali: SOLO quelli realmente configurati (nessun dato inventato).
     // P.IVA / ragione sociale / sede non sono disponibili nel progetto -> omessi.
@@ -1173,7 +1205,14 @@ export function Step4({
       capAnalysis: data.capAnalysis || [],
       radiusKm: isMunicipalityMode || data.areaMode === "cap" ? null : data.radius,
       coveredAreaKm2: kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null),
-      selectedMunicipalities: selectedZoneNames,
+      // Raggio/multi-PV: comuni coinvolti (i NIL valgono Milano), non solo il comune di partenza.
+      selectedMunicipalities: territoryCounts ? summaryMunicipalityNames : selectedZoneNames,
+      territoryCounts: territoryCounts ? {
+        municipalityCount: territoryCounts.municipalityCount,
+        nilCount: territoryCounts.nilCount,
+        territoryCount: territoryCounts.territoryCount,
+        summary: territoryCounts.summary || null
+      } : null,
       selectionMode: data.allocationMode === "manual" ? "Manuale" : "Auto"
     },
     outputs: {
@@ -1247,12 +1286,13 @@ export function Step4({
         label: `Distribuzione ${tLabel}`,
         detail: `${flyerQty.toLocaleString("it-IT", {
           useGrouping: true
-        })} ${isB2B ? "materiali" : "volantini"}  - ${eur4(unitPricePerFlyer)}`,
+        })} ${isB2B ? "materiali" : "volantini"} - prezzo medio ${distributionAverageUnitPrice != null ? eur4(distributionAverageUnitPrice) : "n.d."}`,
         quantity: flyerQty,
-        unitPrice: unitPricePerFlyer,
+        unitPrice: distributionAverageUnitPrice,
+        unitPriceLabel: distributionAverageUnitPrice != null ? `${eur4(distributionAverageUnitPrice)} medio` : null,
         total: baseCost
       }],
-      notes: h2hQuoteDetail ? [`Volantini stimati: circa ${formatFlyersRange(h2hQuoteDetail.flyersRange)} (${H2H_FLYERS_ESTIMATE_NOTE}).`, ...(h2hQuoteDetail.travelNote ? [`${h2hQuoteDetail.travelNote}: il totale non lo comprende.`] : [])] : [],
+      notes: !h2hQuoteDetail && distributionAverageUnitPrice != null ? [`Prezzo unitario medio: ${eur4(distributionAverageUnitPrice)} = totale distribuzione ${eur(baseCost)} / ${flyerQty.toLocaleString("it-IT", { useGrouping: true })} ${isB2B ? "materiali" : "volantini"}. Le tariffe dipendono dalla zona: il prezzo per volantino è una media, non una tariffa unica.`] : h2hQuoteDetail ? [`Volantini stimati: circa ${formatFlyersRange(h2hQuoteDetail.flyersRange)} (${H2H_FLYERS_ESTIMATE_NOTE}).`, ...(h2hQuoteDetail.travelNote ? [`${h2hQuoteDetail.travelNote}: il totale non lo comprende.`] : [])] : [],
       subtotal: baseCost,
       extras: distributionExtras.map(e => ({
         label: e.label,
@@ -1368,7 +1408,9 @@ export function Step4({
     else window.location.href = "/" + u;
   }
   async function handleConfirmCampaign() {
-    if (!canConfirm || campaignSaveInFlightRef.current) return;
+    // Una sola campagna per preventivo: niente secondo invio in corso o dopo il salvataggio
+    // (il server deduplica solo richieste identiche entro 10 minuti).
+    if (!canConfirm || campaignSaveInFlightRef.current || sent || savedCampaign?.id) return;
     
     // Validazione form
     if (!clientForm.nome || !clientForm.email) {
@@ -1821,7 +1863,7 @@ export function Step4({
           fontSize: 10,
           fontWeight: 800,
           color: C.green
-        }}>✓ Campagna confermata</div>}
+        }}>{quoteStatus.badge}</div>}
         </div>
         <div style={{
         fontFamily: F.sans,
@@ -2875,6 +2917,7 @@ export function Step4({
           />
 
           <Step4PlanningPanel
+            quoteStatus={quoteStatus}
             box={box}
             secHead={secHead}
             isQuick={isQuick}
@@ -2952,7 +2995,7 @@ export function Step4({
               fontWeight: 700,
               color: sent ? C.green : "rgba(255,255,255,.52)"
             }}>
-                {sent ? "✓ Confermata" : <><Step1Icon name="hourglass" size={11} color="rgba(255,255,255,.52)" /> In attesa conferma</>}
+                {sent ? quoteStatus.badge : <><Step1Icon name="hourglass" size={11} color="rgba(255,255,255,.52)" /> {quoteStatus.label} · da confermare</>}
               </div>
               {isQuick && <div style={{
               padding: "4px 10px",
@@ -3104,6 +3147,7 @@ export function Step4({
             })()}
 
             <Step4CampaignActionsPanel
+              quoteStatus={quoteStatus}
               sent={sent}
               savedCampaign={savedCampaign}
               onHome={onHome}

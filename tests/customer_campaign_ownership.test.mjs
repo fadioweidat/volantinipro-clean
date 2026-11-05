@@ -22,7 +22,8 @@ test('SDK session is bridged before submit-campaign-request invocation', () => {
 });
 
 test('campaign confirmation has a synchronous in-flight guard against duplicate inserts', () => {
-  assert.match(step4, /if \(!canConfirm \|\| campaignSaveInFlightRef\.current\) return/);
+  // guardia sincrona; dal 2026-11-05 blocca anche il reinvio dopo il salvataggio
+  assert.match(step4, /if \(!canConfirm \|\| campaignSaveInFlightRef\.current \|\| sent \|\| savedCampaign\?\.id\) return/);
   assert.match(step4, /campaignSaveInFlightRef\.current = true/);
   assert.match(step4, /finally \{[\s\S]*campaignSaveInFlightRef\.current = false/);
 });

@@ -28,6 +28,7 @@ import { resolveConfiguratorDistributionZones } from "../pricing/resolveConfigur
 import { calculateMultiZoneDistributionPrice, roundMoney } from "../pricing/distributionPricing.js";
 import { normalizeCoverageDecision } from "./addressIntent.js";
 import { computeCampaignUniqueHouseholds, UNIQUE_HOUSEHOLDS_STATUS } from "./uniqueHouseholds.js";
+import { countTerritories } from "./territoryCounts.js";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -128,8 +129,10 @@ function municipalityNames(zone) {
 export function getCampaignMunicipalityNames(zones = []) {
   const names = new Map();
   for (const zone of zones) {
-    const municipalRows = zone.searchMode === 'address' && zone.kpiSnapshot?.analysisLevel === 'comune'
-      ? getCampaignZoneAllocation(zone) : [];
+    // Raggio: comuni distinti delle righe territoriali (i NIL valgono Milano),
+    // a qualunque livello di analisi (stessa definizione di Step 2).
+    const municipalRows = zone.searchMode === 'address'
+      ? countTerritories(getCampaignZoneAllocation(zone)).municipalityNames : [];
     const explicit = Array.isArray(zone.selectedMunicipalities) && zone.selectedMunicipalities.length
       ? zone.selectedMunicipalities : zone.selectedComuni || [];
     const candidates = municipalRows.length ? municipalRows : explicit.length ? explicit : [zone.city || zone.cityName];

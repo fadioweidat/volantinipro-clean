@@ -5,7 +5,7 @@ import { NavButton } from "../../../../components/NavButton.jsx";
 import { C, F } from "../../../../lib/constants.js";
 import { Step4SendQuoteEmail } from "./Step4SendQuoteEmail.jsx";
 
-export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, returnFromLogin, setReturnFromLogin, showLoginRequired, handleLoginRequiredNavigation, campaignSaveError, isQuick, handleDownloadPdf, pdfBusy, col, quotePdfData, canConfirm, savingCampaign, handleConfirmCampaign, confirmSyncStatus, saveSlowNotice = null, clientForm, setClientForm, confirmProblem, pdfError, onBack, data, handleOpenSavedCampaign }) {
+export function Step4CampaignActionsPanel({ quoteStatus = null, sent, savedCampaign, onHome, onNav, returnFromLogin, setReturnFromLogin, showLoginRequired, handleLoginRequiredNavigation, campaignSaveError, isQuick, handleDownloadPdf, pdfBusy, col, quotePdfData, canConfirm, savingCampaign, handleConfirmCampaign, confirmSyncStatus, saveSlowNotice = null, clientForm, setClientForm, confirmProblem, pdfError, onBack, data, handleOpenSavedCampaign }) {
   return (
     <>
       {/* Dashboard ed esecuzione / Modificabile badge */}
@@ -295,7 +295,7 @@ export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, 
                   </button>
                 </div>
                 <Step4SendQuoteEmail quotePdfData={quotePdfData} clientForm={clientForm} setClientForm={setClientForm} handleDownloadPdf={handleDownloadPdf} pdfBusy={pdfBusy} col={col} compact={false} />
-              </div> : <button className="btn s4-btn-green" disabled={!canConfirm || savingCampaign} onClick={handleConfirmCampaign} style={{
+              </div> : <button className="btn s4-btn-green" data-testid="step4-confirm-campaign" disabled={!canConfirm || savingCampaign || sent} onClick={handleConfirmCampaign} style={{
             width: "100%",
             padding: "16px",
             borderRadius: 12,
@@ -305,12 +305,12 @@ export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, 
             fontFamily: F.sans,
             fontSize: 15,
             fontWeight: 800,
-            cursor: canConfirm && !savingCampaign ? "pointer" : "not-allowed",
+            cursor: canConfirm && !savingCampaign && !sent ? "pointer" : "not-allowed",
             marginBottom: 10,
             boxShadow: canConfirm && !sent ? "0 8px 24px rgba(232,87,26,0.4)" : "none",
             transition: "all .2s"
           }}>
-                {savingCampaign ? "Salvataggio in corso..." : sent ? "✓ Campagna confermata" : "Conferma e avvia la campagna →"}
+                {savingCampaign ? "Salvataggio in corso..." : sent ? quoteStatus?.badge || "✓ Preventivo confermato" : "Conferma e avvia la campagna →"}
               </button>}
 
             {savingCampaign && saveSlowNotice && <div role="status" aria-live="polite" style={{
@@ -338,7 +338,7 @@ export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, 
           }}>
                 <b style={{
               color: C.green
-            }}>Campagna confermata.</b> Riceverai una email entro 1h con i dettagli operativi.
+            }}>{quoteStatus?.actionHint || "Preventivo confermato"}.</b> Riceverai una email entro 1h con i dettagli operativi.
                 {confirmSyncStatus && <><br /><span style={{
                 color: "rgba(255,255,255,.4)"
               }}>{confirmSyncStatus}</span></>}

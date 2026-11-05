@@ -172,6 +172,7 @@ tests/gps_admin_customer_coherence.test.mjs
 tests/step2_multizone_data_integrity.test.mjs
 tests/step2_multi_point_of_sale.test.mjs
 tests/step2_multi_pv_unique_households.test.mjs
+tests/step4_quote_qa_pr26.test.mjs
 tests/step2_pv_state_isolation.test.mjs
 tests/homepage_pricing_real_engine.test.mjs
 tests/homepage_quote_calculator.test.mjs
