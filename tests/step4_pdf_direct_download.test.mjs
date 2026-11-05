@@ -85,3 +85,42 @@ test('download triggers native file save with .pdf filename, without print', () 
     globalThis.setTimeout = timerBefore;
   }
 });
+
+test('without printing service, PDF omits residual technical printing choices', () => {
+  const bytes = generateQuotePdfBytes({
+    ...demo,
+    campaign: {
+      ...demo.campaign,
+      printingSelected: false,
+      paperType: 'patinata_opaca',
+      sides: 'fronte_retro',
+      color: 'cmyk',
+      grammage: '130',
+      format: 'A5',
+    },
+  });
+  const pdf = Buffer.from(bytes).toString('latin1');
+  assert.match(pdf, /Formato/);
+  assert.match(pdf, /Materiale/);
+  assert.doesNotMatch(pdf, /Tipo carta/);
+  assert.doesNotMatch(pdf, /Grammatura/);
+  assert.doesNotMatch(pdf, /patinata_opaca|fronte_retro|cmyk/);
+});
+
+test('when printing service is selected, PDF translates technical choices for customers', () => {
+  const bytes = generateQuotePdfBytes({
+    ...demo,
+    campaign: {
+      ...demo.campaign,
+      printingSelected: true,
+      paperType: 'patinata_opaca',
+      sides: 'fronte_retro',
+      color: 'cmyk',
+    },
+  });
+  const pdf = Buffer.from(bytes).toString('latin1');
+  assert.match(pdf, /Patinata opaca/);
+  assert.match(pdf, /Fronte e retro/);
+  assert.match(pdf, /A colori \(CMYK\)/);
+  assert.doesNotMatch(pdf, /patinata_opaca|fronte_retro/);
+});
