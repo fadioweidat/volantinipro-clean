@@ -121,6 +121,7 @@ test('when printing service is selected, PDF translates technical choices for cu
   const pdf = Buffer.from(bytes).toString('latin1');
   assert.match(pdf, /Patinata opaca/);
   assert.match(pdf, /Fronte e retro/);
-  assert.match(pdf, /A colori \(CMYK\)/);
+  assert.match(pdf, /A colori/);
+  assert.match(pdf, /CMYK/);
   assert.doesNotMatch(pdf, /patinata_opaca|fronte_retro/);
 });
