@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - fix/step2-multi-pv-unique-households-20261104
+      - integration/rc2-full-site
   pull_request:
     branches:
       - fix/step2-poi-overpass-20261103
@@ -40,7 +41,6 @@ jobs:
         run: node --import tsx --test tests/step2_multi_pv_unique_households.test.mjs tests/step4_pdf_direct_download.test.mjs
       - name: Complete official test suite
         id: full_suite
-        continue-on-error: true
         run: npm test
       - name: Production build verification (no deploy)
         run: npm run build
