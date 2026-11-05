@@ -1,3 +1,5 @@
+import { textWidth, wrapToWidth } from "./pdfTextMetrics.js";
+
 const PAGE = { w: 595.28, h: 841.89, margin: 42 };
 const COLORS = {
   ink: "0.11 0.15 0.27",
@@ -67,6 +69,29 @@ function formatGrammage(value) {
   return `${numeric.replace(".", ",")} g/m\u00b2`;
 }
 
+// Etichette leggibili per opzioni tecniche del servizio stampa.
+function printOptionLabel(value, labels) {
+  if (value == null || value === "") return null;
+  const key = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return labels[key] || String(value).replace(/_/g, " ");
+}
+
+const PAPER_LABELS = {
+  patinata_opaca: "Patinata opaca",
+  patinata_lucida: "Patinata lucida",
+  uso_mano: "Uso mano",
+};
+const SIDES_LABELS = {
+  fronte_retro: "Fronte e retro",
+  fronte: "Solo fronte",
+  solo_fronte: "Solo fronte",
+};
+const COLOR_LABELS = {
+  cmyk: "A colori (CMYK)",
+  colori: "A colori",
+  bianco_nero: "Bianco e nero",
+};
+
 function displayValue(value) {
   return typeof value === "number" ? formatNumberIT(value) : safe(value);
 }
@@ -86,6 +111,12 @@ function wrap(text, maxChars) {
   });
   if (line) lines.push(line);
   return lines.length ? lines : [""];
+}
+
+const AREA_MODE_LABELS = { radius: "Raggio", address: "Raggio", comune: "Comune", municipality: "Comune", cap: "CAP", custom_zone: "NIL / quartieri", nil: "NIL / quartieri" };
+function areaModeLabel(value) {
+  if (value == null || value === "") return null;
+  return AREA_MODE_LABELS[String(value).toLowerCase()] || String(value);
 }
 
 function truncate(str, maxChars) {
@@ -117,6 +148,8 @@ export function mapQuoteDataToPdfModel(input) {
     quoteId: data.quoteId,
     generatedAt: data.generatedAt || new Date().toISOString(),
     status: data.status || "Preventivo stimato",
+    statusKey: data.statusKey || null,
+    statusDisclaimer: data.statusDisclaimer || null,
     service: data.service || "Servizio",
     client: data.client || {},
     contact: data.contact || {},
@@ -323,23 +356,43 @@ function createWriter() {
   return { pages, add, ensure, text, textAt, rect, line, move, get y() { return y; }, set y(v) { y = v; } };
 }
 
+// Righe di testo che stanno in `width` punti; oltre maxLines l'ultima riga
+// termina con "..." (solo per testi molto lunghi, mai per nomi o importi brevi).
+function fitLines(text, width, size, font, maxLines) {
+  const lines = wrapToWidth(safe(text) || "", width, size, font);
+  if (lines.length <= maxLines) return lines;
+  const kept = lines.slice(0, maxLines);
+  let last = kept[maxLines - 1];
+  while (last && textWidth(`${last}...`, size, font) > width) last = last.slice(0, -1);
+  kept[maxLines - 1] = `${last.trimEnd()}...`;
+  return kept;
+}
+
 function kvGrid(w, items, columns = 2) {
   const clean = items.filter(i => safe(i?.value));
   if (!clean.length) return;
   const colW = (PAGE.w - PAGE.margin * 2 - 12 * (columns - 1)) / columns;
-  const maxValChars = Math.max(8, Math.floor((colW - 20) / 6.1));
-  const maxLblChars = Math.max(8, Math.floor((colW - 20) / 5.2));
-  const rowH = 42;
-  clean.forEach((item, idx) => {
-    if (idx % columns === 0) w.ensure(rowH + 8);
-    const col = idx % columns;
-    const rowY = w.y - rowH;
-    const x = PAGE.margin + col * (colW + 12);
-    w.rect(x, rowY, colW, rowH, COLORS.soft, COLORS.line);
-    w.textAt(truncate(item.label, maxLblChars), x + 9, rowY + 25, 7.5, COLORS.muted);
-    w.textAt(truncate(displayValue(item.value), maxValChars), x + 9, rowY + 11, 10.5, item.color || COLORS.ink, "F2");
-    if (col === columns - 1 || idx === clean.length - 1) w.y = rowY - 8;
-  });
+  const innerW = colW - 18;
+  const LBL = 7.5, VAL = 10.5, LBL_H = 9, VAL_H = 12.5, PAD = 9;
+  for (let start = 0; start < clean.length; start += columns) {
+    const cells = clean.slice(start, start + columns).map(item => ({
+      item,
+      labels: fitLines(item.label, innerW, LBL, "F1", 2),
+      values: fitLines(displayValue(item.value), innerW, VAL, "F2", 4),
+    }));
+    const rowH = Math.max(42, ...cells.map(c => PAD * 2 + c.labels.length * LBL_H + 3 + c.values.length * VAL_H));
+    w.ensure(rowH + 8);
+    const top = w.y;
+    cells.forEach((c, col) => {
+      const x = PAGE.margin + col * (colW + 12);
+      w.rect(x, top - rowH, colW, rowH, COLORS.soft, COLORS.line);
+      let ty = top - PAD - LBL;
+      c.labels.forEach(l => { w.textAt(l, x + 9, ty, LBL, COLORS.muted); ty -= LBL_H; });
+      ty -= 3 + (VAL - LBL) + 1;
+      c.values.forEach(v => { w.textAt(v, x + 9, ty, VAL, c.item.color || COLORS.ink, "F2"); ty -= VAL_H; });
+    });
+    w.y = top - rowH - 8;
+  }
 }
 
 function section(w, title, subtitle) {
@@ -386,26 +439,50 @@ function bulletList(w, items) {
   w.move(4);
 }
 
-function table(w, headers, rows, widths = [150, 150, 90, 65, 55]) {
+// Tabella con colonne a larghezza fissa (somma = larghezza utile): ogni
+// cella va a capo dentro la propria colonna, quindi le colonne non si
+// sovrappongono mai; l'intestazione si ripete a ogni nuova pagina.
+const TABLE_PAD_X = 6;
+function tableColumnWidths(count, widths) {
+  const total = PAGE.w - PAGE.margin * 2;
+  const given = (widths || []).slice(0, count);
+  while (given.length < count) given.push(total / count);
+  const sum = given.reduce((a, v) => a + v, 0);
+  return given.map(v => (v * total) / sum);
+}
+
+function table(w, headers, rows, widths) {
   if (!rows.length) return;
   const x0 = PAGE.margin;
-  const headerH = 22;
-  w.ensure(headerH + 24);
-  w.rect(x0, w.y - headerH, PAGE.w - PAGE.margin * 2, headerH, "0.94 0.96 1", COLORS.line);
-  let x = x0 + 8;
-  headers.forEach((h, i) => {
-    w.textAt(h, x, w.y - 14, 8, COLORS.ink, "F2");
-    x += widths[i] || 80;
-  });
-  w.move(headerH);
-  rows.forEach(row => {
-    const h = 28;
-    w.ensure(h + 8);
-    w.rect(x0, w.y - h, PAGE.w - PAGE.margin * 2, h, null, COLORS.line);
-    x = x0 + 8;
-    row.forEach((cell, i) => {
-      w.textAt(safe(cell) || "-", x, w.y - 17, 8.5, COLORS.ink);
-      x += widths[i] || 80;
+  const total = PAGE.w - PAGE.margin * 2;
+  const cols = tableColumnWidths(headers.length, widths);
+  const HEAD = 8, BODY = 8.5, HEAD_LH = 10, BODY_LH = 11, PAD_Y = 7;
+  const headLines = headers.map((h, i) => wrapToWidth(safe(h) || "", cols[i] - TABLE_PAD_X * 2, HEAD, "F2"));
+  const headerH = PAD_Y * 2 + Math.max(...headLines.map(l => l.length)) * HEAD_LH;
+  const drawHeader = () => {
+    w.rect(x0, w.y - headerH, total, headerH, "0.94 0.96 1", COLORS.line);
+    let x = x0;
+    headLines.forEach((lines, i) => {
+      lines.forEach((l, k) => w.textAt(l, x + TABLE_PAD_X, w.y - PAD_Y - HEAD - k * HEAD_LH + 2, HEAD, COLORS.ink, "F2"));
+      x += cols[i];
+    });
+    w.move(headerH);
+  };
+  const bodyLines = rows.map(row => row.map((cell, i) => wrapToWidth(safe(cell) || "-", cols[i] - TABLE_PAD_X * 2, BODY, "F1")));
+  const rowHeight = lines => Math.max(24, PAD_Y * 2 + Math.max(...lines.map(l => l.length)) * BODY_LH);
+  w.ensure(headerH + rowHeight(bodyLines[0]) + 8);
+  drawHeader();
+  bodyLines.forEach(lines => {
+    const h = rowHeight(lines);
+    if (w.y - h < PAGE.margin + 36) {
+      w.ensure(PAGE.h); // nuova pagina
+      drawHeader();
+    }
+    w.rect(x0, w.y - h, total, h, null, COLORS.line);
+    let x = x0;
+    lines.forEach((cellLines, i) => {
+      cellLines.forEach((l, k) => w.textAt(l, x + TABLE_PAD_X, w.y - PAD_Y - BODY - k * BODY_LH + 2, BODY, COLORS.ink));
+      x += cols[i];
     });
     w.move(h);
   });
@@ -418,7 +495,7 @@ function renderPdf(model) {
   const coverageInserted = coverageWithInserted(model.outputs);
 
   w.text("VolantiniPro", PAGE.margin, 18, COLORS.orange, "F2");
-  w.textAt(model.status, PAGE.w - PAGE.margin - 120, w.y + 2, 9, COLORS.muted);
+  w.textAt(model.status, PAGE.w - PAGE.margin - textWidth(safe(model.status) || "", 9, "F1"), w.y + 2, 9, COLORS.muted);
   w.move(26);
   w.text(`Preventivo campagna ${model.service}`, PAGE.margin, 22, COLORS.ink, "F2");
   w.move(20);
@@ -448,17 +525,21 @@ function renderPdf(model) {
     { label: "Zona / comune", value: model.area.mainArea },
     { label: "Quantit\u00e0 volantini", value: formatNumberIT(model.campaign.quantity) },
     { label: "Formato", value: model.campaign.format },
-    { label: "Grammatura", value: formatGrammage(model.campaign.grammage) },
-    { label: "Tipo carta", value: model.campaign.paperType },
-    { label: "Orientamento", value: model.campaign.orientation },
-    { label: "Lati", value: model.campaign.sides },
-    { label: "Colore", value: model.campaign.color },
+    // Senza servizio di stampa, non mostrare specifiche tipografiche residuali
+    // nel form. Il formato del volantino e lo stato del materiale restano utili.
+    ...(model.campaign.printingSelected === false ? [] : [
+      { label: "Grammatura", value: formatGrammage(model.campaign.grammage) },
+      { label: "Tipo carta", value: printOptionLabel(model.campaign.paperType, PAPER_LABELS) },
+      { label: "Orientamento", value: printOptionLabel(model.campaign.orientation, {}) },
+      { label: "Lati", value: printOptionLabel(model.campaign.sides, SIDES_LABELS) },
+      { label: "Colore", value: printOptionLabel(model.campaign.color, COLOR_LABELS) },
+    ]),
     { label: "Materiale", value: model.campaign.materialStatus },
     { label: "Grafica", value: model.campaign.graphicStatus },
     { label: "Piano", value: model.campaign.plan },
     { label: "Campagne/mese", value: formatNumberIT(model.campaign.campaignsPerMonth) },
     { label: "Durata", value: model.campaign.duration },
-    { label: "Modalita area", value: model.area.areaMode || model.campaign.areaMode },
+    { label: "Modalit\u00e0 area", value: areaModeLabel(model.area.areaMode || model.campaign.areaMode) },
   ]);
 
   section(w, "2. Analisi zona e output servizio", "Dati territoriali e operativi generati in Step 2");
@@ -467,9 +548,9 @@ function renderPdf(model) {
     { label: "CAP selezionati", value: (model.area.selectedCaps || []).join(" - ") },
     { label: "Raggio analisi", value: model.area.radiusKm ? `${formatNumberIT(model.area.radiusKm, 1)} km` : null },
     { label: "Superficie coperta", value: formatAreaKm2(model.area.coveredAreaKm2) },
-    { label: "Comuni selezionati", value: (model.area.selectedMunicipalities || []).join(" - ") },
+    { label: model.area.territoryCounts ? "Comuni coinvolti" : "Comuni selezionati", value: (model.area.selectedMunicipalities || []).join(" - ") },
     { label: "Modalit\u00e0 selezione", value: model.area.selectionMode },
-    { label: "Famiglie stimate", value: formatNumberIT(model.outputs.estimatedFamilies) },
+    { label: "Famiglie stimate", value: formatNumberIT(model.outputs.estimatedFamilies) ?? model.outputs.estimatedFamiliesNote ?? null },
     { label: "Popolazione stimata", value: formatNumberIT(model.outputs.estimatedPopulation) },
     { label: "Copertura potenziale area", value: formatPercentIT(model.outputs.estimatedCoverage) },
     { label: "Copertura con quantit\u00e0 inserita", value: formatPercentIT(coverageInserted) },
@@ -484,18 +565,25 @@ function renderPdf(model) {
   if (model.outputs.coverageStatus === "partial") paragraph(w, "Hai scelto di continuare con copertura parziale.");
 
   w.ensure(190);
-  section(w, "3. Comuni nel raggio / distribuzione", "Selezione e copertura territoriale");
+  const counts = model.area.territoryCounts;
+  const hasTypes = model.municipalities.some(m => m.type);
+  section(w, hasTypes ? "3. Territori nel raggio / distribuzione" : "3. Comuni nel raggio / distribuzione",
+    counts?.summary
+      ? `${counts.summary}${counts.territoryCount ? ` \u00b7 ${counts.territoryCount} territori in tabella (NIL e comuni sono unit\u00e0 distinte)` : ""}`
+      : "Selezione e copertura territoriale");
   if (model.municipalities.length) {
-    table(w, ["Comune", "Stato", "Volantini allocati", "Copertura con quantit\u00e0 inserita", "Contributo selezione"], model.municipalities.map(m => {
+    const headers = [hasTypes ? "Territorio" : "Comune", ...(hasTypes ? ["Tipo"] : []), "Stato", "Volantini allocati", "Copertura con quantit\u00e0 inserita", "Contributo selezione"];
+    table(w, headers, model.municipalities.map(m => {
       const notSelected = String(m.status || "").toLowerCase().includes("non selezionato");
       return [
         m.name,
+        ...(hasTypes ? [m.type || "-"] : []),
         m.status,
         !notSelected && m.estimatedFlyers != null ? formatNumberIT(m.estimatedFlyers) : "-",
         !notSelected && m.coveragePct != null ? formatPercentIT(m.coveragePct) : "-",
         !notSelected && m.contributionPct != null ? formatPercentIT(m.contributionPct) : "-",
       ];
-    }), [108, 132, 84, 106, 81]);
+    }), hasTypes ? [138, 54, 132, 58, 66, 63] : [150, 150, 80, 70, 61]);
   } else {
     paragraph(w, "Dettaglio comuni non disponibile.");
   }
@@ -520,7 +608,7 @@ function renderPdf(model) {
     paragraph(w, "Smart Pairing non disponibile per questa configurazione.");
   }
 
-  section(w, "7. Preventivo e costo", "Calcolo economico stimato");
+  section(w, "7. Preventivo e costo", model.statusKey === "submitted" || model.statusKey === "confirmed" ? "Calcolo economico del preventivo confermato" : "Calcolo economico stimato");
   table(w, ["Voce", "Quantit\u00e0", "Prezzo unitario", "Totale"], [...model.pricing.lines.map(l => [
       l.label,
       l.quantityLabel || (l.quantity ? `${formatNumberIT(l.quantity)} volantini` : "-"),
@@ -554,19 +642,20 @@ function renderPdf(model) {
   if (model.pricing.graphicLine && !model.pricing.graphicLine.inTotal) {
     paragraph(w, model.pricing.graphicLine.note ? `Grafica: ${model.pricing.graphicLine.note}.` : "Grafica non inclusa nel totale.");
   }
-  paragraph(w, "IVA esclusa. Il preventivo e soggetto a conferma operativa; nessun pagamento anticipato.");
+  paragraph(w, "IVA esclusa. Il preventivo \u00e8 soggetto a conferma operativa; nessun pagamento anticipato.");
 
   section(w, "8. Fonti dati", "Origine dei dati utilizzati");
   paragraph(w, model.sources.join(" - ") || "Fonti non disponibili");
 
-  const disclaimer = "Il presente documento \u00e8 una stima operativa generata da VolantiniPro sulla base dei dati inseriti e delle analisi territoriali disponibili. Il preventivo pu\u00f2 essere soggetto a conferma operativa.";
+  const disclaimer = model.statusDisclaimer || "Il presente documento \u00e8 una stima operativa generata da VolantiniPro sulla base dei dati inseriti e delle analisi territoriali disponibili. Il preventivo pu\u00f2 essere soggetto a conferma operativa.";
   w.pages.forEach((commands, idx) => {
-    const pageLabel = `VolantiniPro \u00b7 Preventivo stimato \u00b7 Pagina ${idx + 1}/${w.pages.length}`;
+    const pageLabel = `VolantiniPro \u00b7 ${model.status} \u00b7 Pagina ${idx + 1}/${w.pages.length}`;
     if (idx === w.pages.length - 1) {
       wrap(disclaimer, 112).forEach((line, lineIdx) => {
         commands.push(`BT /F1 7 Tf ${COLORS.muted} rg ${PAGE.margin} ${28 - lineIdx * 9} Td ${pdfText(line)} Tj ET`);
       });
-      commands.push(`BT /F1 7 Tf ${COLORS.muted} rg ${PAGE.w - PAGE.margin - 72} 18 Td ${pdfText(`${idx + 1}/${w.pages.length}`)} Tj ET`);
+      const lastLabel = `${model.status} · ${idx + 1}/${w.pages.length}`;
+      commands.push(`BT /F1 7 Tf ${COLORS.muted} rg ${PAGE.w - PAGE.margin - textWidth(safe(lastLabel) || "", 7, "F1")} 18 Td ${pdfText(lastLabel)} Tj ET`);
     } else {
       commands.push(`BT /F1 7 Tf ${COLORS.muted} rg ${PAGE.margin} 22 Td ${pdfText(pageLabel)} Tj ET`);
     }

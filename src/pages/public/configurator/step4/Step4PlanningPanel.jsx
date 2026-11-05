@@ -3,7 +3,7 @@ import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { C, F } from "../../../../lib/constants.js";
 import { MONTHS_SHORT } from "../../../../lib/appConstants.js";
 
-export function Step4PlanningPanel({ box, secHead, isQuick, sectionAccent, data, isMobile, nonEmpty, selDays, selectedDatesLabel, urgencySurchargePctLabel, sent, disc, col, pairsData }) {
+export function Step4PlanningPanel({ quoteStatus = null, box, secHead, isQuick, sectionAccent, data, isMobile, nonEmpty, selDays, selectedDatesLabel, urgencySurchargePctLabel, sent, disc, col, pairsData }) {
   return (
     <>
       {!isQuick && <div style={{
@@ -52,7 +52,7 @@ export function Step4PlanningPanel({ box, secHead, isQuick, sectionAccent, data,
               }, {
                 icon: "package",
                 l: "Stato",
-                v: sent ? "CONFERMATA" : "PRONTA PER ATTIVAZIONE",
+                v: quoteStatus?.planning ?? (sent ? "CONFERMATA" : "PRONTA PER ATTIVAZIONE"),
                 c: sent ? C.green : "#E8571A",
                 highlight: true
               }, {
