@@ -68,7 +68,7 @@ test("BUG 2 - Radius mode radial sorting prioritizes polygon containing search p
   assert.strictEqual(filtered[0].id, "bruzzano", "Bruzzano containing the point must be #1 priority");
   assert.strictEqual(filtered[1].id, "affori", "Affori must be #2 (nearest Milano NIL)");
   assert.ok(filtered.findIndex(z => z.id === "cormano") >= 3, "Cormano must come after Milano NILs as secondary external comune");
-  assert.ok(step2Src.includes("filtered = [...nilRows, ...comuneRows.slice(0, maxComuni)];"), "Step2.jsx must place nilRows before comuneRows in radius mode");
+  assert.ok(step2Src.includes("filtered = [...nilRows, ...comuneRows];"), "Step2.jsx must place nilRows before comuneRows in radius mode");
 });
 
 test("BUG 3 - Step2Map renders outer Milano boundary with strong contrast and internal 88 NILs with visible thin boundaries", () => {

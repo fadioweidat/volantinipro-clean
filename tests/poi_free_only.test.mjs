@@ -39,7 +39,7 @@ test("paid providers are off in code and the site no longer calls them", () => {
   assert.match(fn, /PAID_POI_PROVIDERS_ENABLED \? await googlePlacesProvider/);
   assert.match(fn, /PAID_POI_PROVIDERS_ENABLED \? await foursquareProvider/);
   const hook = read("src/hooks/useServiceAnalysis.js");
-  assert.ok(hook.indexOf("fetchPoiAnalysis({") < hook.indexOf("response = await fetch(url"));
+  assert.ok(hook.indexOf("fetchPoiAnalysis({") < hook.indexOf("fetchWithAttemptTimeout(url"));
   const walk = (dir) => readdirSync(dir).flatMap((name) => { const path = join(dir, name); return statSync(path).isDirectory() ? walk(path) : [path]; });
   const code = walk(fileURLToPath(new URL("../src", import.meta.url))).filter((file) => /\.(js|jsx)$/.test(file));
   for (const file of code) assert.doesNotMatch(readFileSync(file, "utf8"), /places.googleapis|maps.googleapis|api.foursquare/, file);

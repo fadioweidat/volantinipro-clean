@@ -45,10 +45,12 @@ export function resolveZoneAutoSelection({
 
   const validPrev = prevArr.filter((id) => availableSet.has(id));
 
+  // Conta la lista precedente per intero: se la selezione la copriva era
+  // automatica, anche quando la lista corrente e' piu' corta o diversa
+  // (Tutto Milano -> Raggio: 88 NIL selezionati, 27 ancora nel raggio).
   const coveredAllPrevious =
     prevAvail.length > 0 &&
-    validPrev.length === prevAvail.length &&
-    prevAvail.every((id) => availableSet.has(id));
+    prevAvail.every((id) => prevArr.includes(id));
 
   const isManualSubset =
     validPrev.length > 0 &&

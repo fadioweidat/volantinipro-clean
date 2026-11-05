@@ -5,6 +5,8 @@ public/data/*
 public/data/territories/*
 !public/data/territories/milano-municipi-ds379.geojson
 !public/data/territories/milano-civic-cap-index.json
+!public/data/territories/lombardia-comuni.json
+!public/data/territories/milano-nil.json
 !public/data/territories/README.md
 # supabase/ resta escluso dal deploy Vercel, tranne i DUE moduli puri condivisi
 # con api/poi-search.ts (stesso motore dell'Edge Function, nessuna copia).

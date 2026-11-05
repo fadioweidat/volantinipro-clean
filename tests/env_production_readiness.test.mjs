@@ -101,13 +101,16 @@ test(".env.example: VITE_PUBLIC_APP_URL punta al dominio di produzione", () => {
 
 // --- vercel.json: SPA rewrite copre i deep link ------------------------
 
-test("vercel.json: rewrite SPA catch-all verso /index.html (deep link Admin/Driver/Cliente)", () => {
+test("vercel.json: rewrite SPA catch-all verso /app-shell.html (deep link Admin/Driver/Cliente)", () => {
   const cfg = JSON.parse(VERCEL_JSON);
   assert.ok(Array.isArray(cfg.rewrites) && cfg.rewrites.length >= 1, "manca 'rewrites'");
   const catchAll = cfg.rewrites.find(
-    (r) => /^\/\(\.\*\)$|^\/:path\*$|^\/\(\.\+\)$/.test(r.source) && /\/index\.html$/.test(r.destination),
+    // index.html e' la homepage prerenderizzata per la SEO: le rotte applicative usano app-shell.html.
+    (r) => /^\/\(\.\*\)$|^\/:path\*$|^\/\(\.\+\)$/.test(r.source) && r.destination === "/app-shell.html",
   );
-  assert.ok(catchAll, "manca un rewrite catch-all verso /index.html");
+  assert.ok(catchAll, "manca un rewrite catch-all verso /app-shell.html");
+  assert.equal(cfg.rewrites.at(-1), catchAll, "il catch-all deve restare l'ultimo rewrite");
+  assert.match(readFileSync("scripts/prerender-seo.mjs", "utf8"), /'app-shell\.html'/, "il build deve generare app-shell.html");
 
   // I path SPA reali devono combaciare con la source del catch-all.
   const re = new RegExp(catchAll.source.replace(/^\//, "^/").replace("(.*)", ".*") + "$");

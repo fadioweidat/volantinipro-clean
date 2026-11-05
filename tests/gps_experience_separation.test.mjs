@@ -113,7 +113,7 @@ test('E — GpsMonitor: canonicalOperators + conteggi assegnati preservati', () 
   assert.match(MONITOR, /const assignedOperatorCount = canonicalOperators\.filter\(\(o\) => o\.assigned\)\.length;/);
   assert.match(MONITOR, /const operatorsWithGpsCount = canonicalOperators\.filter\(\(o\) => o\.hasGps\)\.length;/);
   assert.match(MONITOR, /export function shortOperatorId\(value\) \{/);
-  assert.match(MONITOR, /displayName: o\.name \|\| `Operatore \$\{shortOperatorId\(key\)\}`/);
+  assert.match(MONITOR, /displayName: isPrimaryAssignment\s+\? 'Caposquadra'\s+: \(o\.name \|\| slot \|\| `Operatore \$\{shortOperatorId\(key\)\}`\)/);
   assert.match(MONITOR, /color: getOperatorColor\(key\)/);
   assert.match(MONITOR, /OPERATORI CAMPAGNA/);
   assert.match(MONITOR, /<GpsMonitorOperatorsPanel/);
