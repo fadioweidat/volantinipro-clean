@@ -69,6 +69,29 @@ function formatGrammage(value) {
   return `${numeric.replace(".", ",")} g/m\u00b2`;
 }
 
+// Etichette leggibili per opzioni tecniche del servizio stampa.
+function printOptionLabel(value, labels) {
+  if (value == null || value === "") return null;
+  const key = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return labels[key] || String(value).replace(/_/g, " ");
+}
+
+const PAPER_LABELS = {
+  patinata_opaca: "Patinata opaca",
+  patinata_lucida: "Patinata lucida",
+  uso_mano: "Uso mano",
+};
+const SIDES_LABELS = {
+  fronte_retro: "Fronte e retro",
+  fronte: "Solo fronte",
+  solo_fronte: "Solo fronte",
+};
+const COLOR_LABELS = {
+  cmyk: "A colori (CMYK)",
+  colori: "A colori",
+  bianco_nero: "Bianco e nero",
+};
+
 function displayValue(value) {
   return typeof value === "number" ? formatNumberIT(value) : safe(value);
 }
@@ -502,11 +525,15 @@ function renderPdf(model) {
     { label: "Zona / comune", value: model.area.mainArea },
     { label: "Quantit\u00e0 volantini", value: formatNumberIT(model.campaign.quantity) },
     { label: "Formato", value: model.campaign.format },
-    { label: "Grammatura", value: formatGrammage(model.campaign.grammage) },
-    { label: "Tipo carta", value: model.campaign.paperType },
-    { label: "Orientamento", value: model.campaign.orientation },
-    { label: "Lati", value: model.campaign.sides },
-    { label: "Colore", value: model.campaign.color },
+    // Senza servizio di stampa, non mostrare specifiche tipografiche residuali
+    // nel form. Il formato del volantino e lo stato del materiale restano utili.
+    ...(model.campaign.printingSelected === false ? [] : [
+      { label: "Grammatura", value: formatGrammage(model.campaign.grammage) },
+      { label: "Tipo carta", value: printOptionLabel(model.campaign.paperType, PAPER_LABELS) },
+      { label: "Orientamento", value: printOptionLabel(model.campaign.orientation, {}) },
+      { label: "Lati", value: printOptionLabel(model.campaign.sides, SIDES_LABELS) },
+      { label: "Colore", value: printOptionLabel(model.campaign.color, COLOR_LABELS) },
+    ]),
     { label: "Materiale", value: model.campaign.materialStatus },
     { label: "Grafica", value: model.campaign.graphicStatus },
     { label: "Piano", value: model.campaign.plan },
