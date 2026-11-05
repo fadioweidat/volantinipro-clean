@@ -1165,6 +1165,7 @@ export function Step4({
     campaign: {
       variant: svcType === "d2d" ? data.distributionVariant || data.residentialType || data.coverageType || "Copertura residenziale" : null,
       quantity: flyerQty,
+      printingSelected,
       format: (data.flyerFormat || data.format || "").toUpperCase(),
       grammage: flyW !== "-" ? flyW : null,
       paperType: data.printing?.paperType || null,
