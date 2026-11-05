@@ -246,4 +246,7 @@ test("salvataggio: doppio invio identico = una sola campagna (pending_review), i
 test("mobile: griglia KPI in alto con colonne minmax(0, 1fr) e valori che vanno a capo", () => {
   assert.match(step4, /gridTemplateColumns: isMobile \? "repeat\(2, minmax\(0, 1fr\)\)"/);
   assert.match(step4, /fontSize: isMobile \? 26 : 34,/);
+  // PREZZO FINALE a 360 px: a 28 px usciva dal riquadro (misurato 120 px su 96)
+  assert.match(step4, /data-testid="step4-hero-price" style=\{\{[\s\S]{0,200}fontSize: isMobile \? 21 : 38,/);
+  assert.match(step4, /overflowWrap: "anywhere"\r?\n\s+\}\}>\{eur\(grandTotal\)\}/);
 });
