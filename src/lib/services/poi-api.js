@@ -10,7 +10,7 @@
 // elemento -> POI, il dedup e il sort. Vedi src/api/poiSearch.js. Gemello di
 // src/api/roadNetwork.js.
 
-import { fetchPoiSearchElements } from '../../api/poiSearch.js';
+import { fetchPoiSearch } from '../../api/poiSearch.js';
 
 // ── Per-service POI tag definitions ─────────────────────────────────────────
 // Each entry: Overpass key/value pair + display metadata + priority (1–10).
@@ -251,12 +251,21 @@ function dedup(pois) {
  * - proxy non disponibile / tutti i provider Overpass falliti -> lancia
  *   Error('POI_SEARCH_UNAVAILABLE'), che usePoi mappa su `error`.
  */
-export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceType, targetSelection = [] }) {
+export async function fetchPois(params) {
+  return (await fetchPoisWithFreshness(params)).pois;
+}
+
+/**
+ * Come fetchPois, ma dice anche se i POI sono aggiornati o un dato in cache:
+ * { pois, stale, fetchedAt }. stale:true = Overpass non ha risposto e si
+ * mostra l'ultimo dato verificato letto a `fetchedAt`.
+ */
+export async function fetchPoisWithFreshness({ centerLat, centerLng, radiusKm = 5, serviceType, targetSelection = [] }) {
   // `tags` serve solo a toPoi (colore/priorita'/categoria + filtro per
   // target). La QL Overpass e' costruita lato server dal proxy.
   const tags = getPoiTagsForTargets(serviceType, targetSelection);
 
-  const elements = await fetchPoiSearchElements({
+  const { elements, stale, fetchedAt, source } = await fetchPoiSearch({
     centerLat,
     centerLng,
     radiusKm,
@@ -264,8 +273,37 @@ export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceTyp
     targetSelection,
   });
 
-  const raw = (elements || []).map(el => toPoi(el, tags)).filter(Boolean);
-  return dedup(raw).sort((a, b) => b.priority - a.priority);
+  const sourceLabel = poiSourceLabel({ source, fetchedAt });
+  const raw = (elements || []).map(el => toPoi(el, tags)).filter(Boolean).map(poi => ({ ...poi, source: sourceLabel }));
+  return { pois: dedup(raw).sort((a, b) => b.priority - a.priority), stale: Boolean(stale), fetchedAt: fetchedAt || null, source: source || null, sourceLabel };
+}
+
+export const OVERPASS_SOURCE_LABEL = 'OpenStreetMap / Overpass';
+
+/**
+ * Etichetta della fonte POI mostrata (popup, fonti di Step 2, PDF).
+ * Dataset offline: "OpenStreetMap — aggiornamento 02/11/2026" (data dei dati
+ * OSM, ora italiana). Ogni altro caso: l'etichetta di sempre.
+ */
+export function poiSourceLabel({ source, fetchedAt } = {}) {
+  if (source !== 'osm_dataset') return OVERPASS_SOURCE_LABEL;
+  const at = new Date(fetchedAt);
+  if (!Number.isFinite(at.getTime())) return 'OpenStreetMap';
+  const day = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric' }).format(at);
+  return `OpenStreetMap — aggiornamento ${day}`;
+}
+
+/** Eta' leggibile di un dato POI in cache ("12 minuti fa", "3 ore fa", "2 giorni fa"). */
+export function describePoiAge(fetchedAt, now = Date.now()) {
+  const at = Date.parse(fetchedAt);
+  if (!Number.isFinite(at)) return null;
+  const minutes = Math.max(0, Math.round((now - at) / 60000));
+  if (minutes < 2) return 'pochi istanti fa';
+  if (minutes < 60) return `${minutes} minuti fa`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return hours === 1 ? "un'ora fa" : `${hours} ore fa`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? 'un giorno fa' : `${days} giorni fa`;
 }
 
 /**

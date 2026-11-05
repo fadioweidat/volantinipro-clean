@@ -57,6 +57,7 @@ import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
 import { useAddressPoints } from "../../../hooks/useAddressPoints.js";
 import { useDemographicIndicators } from "../../../hooks/useDemographicIndicators.js";
 import { usePoi } from "../../../hooks/usePoi.js";
+import { describePoiAge } from "../../../lib/services/poi-api.js";
 import { useSectors } from "../../../hooks/useSectors.js";
 import { useServiceAnalysis } from "../../../hooks/useServiceAnalysis.js";
 import { applyConfiguratorServiceChange } from "../../../lib/configuratorServiceTransition.js";
@@ -948,6 +949,17 @@ export function Step2({
       setSearch("");
       setGeocodeSuggestions([]);
     }
+    // Bozza ripristinata con il solo contesto indirizzo (es. cambio servizio
+    // dallo Step 1): senza `city` i KPI partono dal punto ma la mappa resta
+    // sull'Italia. Si ripristina anche il comune del punto, come
+    // selectOperationalPoint.
+    if (!city && restoredPoint) {
+      const parentCity = resolveStep2City(restoredPoint.parentComune || restoredPoint.city);
+      if (parentCity) {
+        setCity(parentCity);
+        setSelectedComuni(prev => prev && prev.length > 0 ? prev : [parentCity]);
+      }
+    }
     const nextRad = radius || 3;
     const centerPoint = restoredPoint || selectedSearchPoint || city;
     const shouldConfirmRadius = Boolean(centerPoint && Number.isFinite(Number(centerPoint.lat)) && Number.isFinite(Number(centerPoint.lng)) && Number(nextRad) > 0);
@@ -1541,8 +1553,14 @@ export function Step2({
     pois: fetchedPois,
     loading: poiLoading,
     error: poiError,
-    retry: retryPoi
+    retry: retryPoi,
+    stale: poiStale,
+    fetchedAt: poiFetchedAt,
+    sourceLabel: poiSourceLabel
   } = usePoi(displayPoiLat, displayPoiLng, displayPoiRadius, svcType, distributionTargetSelection);
+  // POI mostrati dall'ultimo dato verificato (Overpass non ha risposto): la
+  // mappa lo dichiara con l'eta' del dato, non li presenta come aggiornati.
+  const poiStaleAge = !poiLoading && !poiError && poiStale ? describePoiAge(poiFetchedAt) || "data non nota" : null;
   const backendPois = useMemo(() => {
     if (!['d2d', 'h2h', 'b2b'].includes(svcType)) return [];
     const arr = apiData?.metadata?.nearby_activities;
@@ -5001,7 +5019,7 @@ export function Step2({
     connected: canonicalOmiRows.length > 0
   }, {
     name: "POI",
-    source: "OpenStreetMap / Overpass",
+    source: poiSourceLabel,
     level: "Raggio/area interrogata",
     year: "Non restituito",
     kind: "Community data",
@@ -5021,7 +5039,7 @@ export function Step2({
     connected: isMovementStep2 && Boolean(transportState?.available)
   }, {
     name: "Attività e aree produttive",
-    source: isBusinessStep2 && pois.length > 0 ? "OpenStreetMap / Overpass (tag POI)" : "Nessun censimento imprese/ATECO collegato",
+    source: isBusinessStep2 && pois.length > 0 ? `${poiSourceLabel} (tag POI)` : "Nessun censimento imprese/ATECO collegato",
     level: "Raggio/area interrogata",
     year: "Non restituito",
     kind: isBusinessStep2 && pois.length > 0 ? "Stima da POI" : "Non disponibile",
@@ -5831,6 +5849,7 @@ export function Step2({
         pois={pois}
         poiEmptySectorLabel={poiEmptySectorLabel}
         poiFetchFailed={poiFetchFailed}
+        poiStaleAge={poiStaleAge}
         poiLoading={poiLoading}
         poiAssignments={poiAssignments}
         radius={radius}

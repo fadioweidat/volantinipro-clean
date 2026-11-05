@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchPois } from '../lib/services/poi-api.js';
+import { fetchPoisWithFreshness, OVERPASS_SOURCE_LABEL } from '../lib/services/poi-api.js';
 
 // In-module cache: keyed by "lat,lng,radiusKm,svcType".
 // Survives re-renders within the session; cleared on page reload.
@@ -18,11 +18,17 @@ const _cache = {};
  *             in entrambi i casi, solo `error` li distingue.
  *   retry   — () => void — ritenta la stessa query (stesso lat/lng/radius/
  *             serviceType/target), utile dopo un errore.
+ *   stale   — bool — i POI sono l'ultimo dato verificato in cache, non una
+ *             lettura aggiornata (Overpass non ha risposto).
+ *   fetchedAt — string | null — quando quei POI sono stati letti da Overpass.
+ *   sourceLabel — string — etichetta della fonte (es. "OpenStreetMap —
+ *             aggiornamento 02/11/2026" per il dataset offline).
  */
 export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
   const [pois,    setPois]    = useState([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
+  const [freshness, setFreshness] = useState({ stale: false, fetchedAt: null, sourceLabel: OVERPASS_SOURCE_LABEL });
   // Incrementato da retry(): forza un nuovo tentativo della stessa query.
   // Non serve invalidare la cache esplicitamente — un fallimento precedente
   // non viene mai scritto in _cache (solo il ramo di successo lo fa), quindi
@@ -44,13 +50,15 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
       setPois([]);
       setLoading(false);
       setError(null);
+      setFreshness({ stale: false, fetchedAt: null, sourceLabel: OVERPASS_SOURCE_LABEL });
       return undefined;
     }
 
     const cacheKey = `${latR},${lngR},${radR},${serviceType},${targetKey}`;
 
     if (_cache[cacheKey]) {
-      setPois(_cache[cacheKey]);
+      setPois(_cache[cacheKey].pois);
+      setFreshness({ stale: false, fetchedAt: _cache[cacheKey].fetchedAt, sourceLabel: _cache[cacheKey].sourceLabel });
       setLoading(false);
       setError(null);
       return;
@@ -63,13 +71,14 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
     // intervallo non deve sembrare che i risultati provvisori siano definitivi.
     setLoading(true);
     setError(null);
+    setFreshness({ stale: false, fetchedAt: null, sourceLabel: OVERPASS_SOURCE_LABEL });
 
     timerId = setTimeout(async () => {
       if (cancelled) return;
       setPois([]);
 
       try {
-        const result = await fetchPois({
+        const { pois: result, stale, fetchedAt, sourceLabel } = await fetchPoisWithFreshness({
           centerLat:   latR,
           centerLng:   lngR,
           radiusKm:    radR ?? 5,
@@ -77,8 +86,11 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
           targetSelection: targetKey ? targetKey.split('|') : [],
         });
         if (!cancelled) {
-          _cache[cacheKey] = result;
+          // Un dato in cache (stale) non entra nella cache di sessione: al
+          // prossimo passaggio o al Riprova si chiede di nuovo il dato aggiornato.
+          if (!stale) _cache[cacheKey] = { pois: result, fetchedAt, sourceLabel };
           setPois(result);
+          setFreshness({ stale, fetchedAt, sourceLabel });
           try {
             if (import.meta.env?.DEV) {
               console.debug('[usePoi] fetched POIs:', {
@@ -114,5 +126,5 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
     };
   }, [latR, lngR, radR, serviceType, targetKey, retryNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { pois, loading, error, retry };
+  return { pois, loading, error, retry, stale: freshness.stale, fetchedAt: freshness.fetchedAt, sourceLabel: freshness.sourceLabel };
 }

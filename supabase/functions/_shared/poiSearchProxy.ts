@@ -39,6 +39,16 @@ export const POI_OVERPASS_ENDPOINTS = [
 ];
 
 /**
+ * Gruppo di carico di un provider: lz4/z.overpass-api.de sono istanze dello
+ * stesso servizio di overpass-api.de e rispondono "at capacity" insieme
+ * (misure 2026-11-03: 502 in 0.1-0.4s su tutti e tre, oppure appesi 30s).
+ */
+export function poiProviderGroup(url: string): string {
+  const host = String(url).replace(/^https?:\/\//i, '').split('/')[0].toLowerCase();
+  return host.endsWith('overpass-api.de') ? 'overpass-api.de' : host;
+}
+
+/**
  * Come resolveEndpoints di roadNetworkProxy, ma sull'ordine POI: eventuale
  * POI_OVERPASS_ENDPOINT (env server) prima, poi POI_OVERPASS_ENDPOINTS. Solo
  * https://, nessun duplicato, esclude endpoint noti come non funzionanti.

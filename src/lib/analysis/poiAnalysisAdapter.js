@@ -1,7 +1,7 @@
 // Analisi POI Hand to Hand e Business calcolata dai dati gratuiti di /api/poi-search.
 // Produce gli stessi campi della risposta di analysis-poi-search: nessun provider a
 // pagamento, nessun numero senza un POI reale dietro.
-import { fetchPois } from "../services/poi-api.js";
+import { fetchPoisWithFreshness } from "../services/poi-api.js";
 
 const SOURCE = "OpenStreetMap";
 const MAX_RADIUS_KM = 50;
@@ -31,7 +31,7 @@ function topCategories(pois, limit = 6) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([category, count]) => ({ category, count }));
 }
 
-export function buildPoiAnalysis({ pois, lat, lng, radiusKm, service }) {
+export function buildPoiAnalysis({ pois, lat, lng, radiusKm, service, sourceLabel = SOURCE }) {
   if (!pois.length) {
     return { values: {}, metadata: { isEstimated: false, warnings: [] }, sources: [], error: "POI_DATA_NOT_AVAILABLE" };
   }
@@ -80,19 +80,21 @@ export function buildPoiAnalysis({ pois, lat, lng, radiusKm, service }) {
     metadata: {
       isEstimated: false,
       warnings: [],
-      nearby_activities: pois.slice(0, 24).map((poi) => ({ name: poi.name, category: poi.category, provider: SOURCE, lat: poi.lat, lng: poi.lng })),
+      nearby_activities: pois.slice(0, 24).map((poi) => ({ name: poi.name, category: poi.category, provider: sourceLabel, lat: poi.lat, lng: poi.lng })),
       hotspots,
       suggested_points: hotspots,
       transport_stops: [],
       top_categories: top,
     },
     confidenceReduced: false,
-    sources: [SOURCE],
+    sources: [sourceLabel],
   };
 }
 
 export async function fetchPoiAnalysis({ lat, lng, radiusKm, service, targetSelection = [] }) {
   const radius = Math.min(MAX_RADIUS_KM, radiusKm);
-  const pois = await fetchPois({ centerLat: lat, centerLng: lng, radiusKm: radius, serviceType: service, targetSelection: Array.isArray(targetSelection) ? targetSelection : [] });
-  return buildPoiAnalysis({ pois, lat, lng, radiusKm: radius, service });
+  const { pois, source, sourceLabel } = await fetchPoisWithFreshness({ centerLat: lat, centerLng: lng, radiusKm: radius, serviceType: service, targetSelection: Array.isArray(targetSelection) ? targetSelection : [] });
+  // Dataset offline: etichetta datata. Altrimenti "OpenStreetMap", come prima
+  // (normalizeDataSourceLabel la mostra come "OpenStreetMap / Overpass").
+  return buildPoiAnalysis({ pois, lat, lng, radiusKm: radius, service, sourceLabel: source === 'osm_dataset' ? sourceLabel : SOURCE });
 }
