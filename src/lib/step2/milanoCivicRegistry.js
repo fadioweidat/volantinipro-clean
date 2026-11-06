@@ -10,8 +10,9 @@
 // civico registrato dal Comune, mai il centro della via, del quartiere o del
 // comune. Se la via esiste ma il numero no, lo si dichiara (con l'intervallo
 // dei civici presenti) invece di accettare un punto stimato da un geocoder.
-// Esempio verificato: Viale Certosa ha i civici 1-316; il "330" di Mapbox
-// cade a 27 m dal civico 282, quindi non e' la posizione del 330.
+// Esempio: nel dataset consultato Viale Certosa arriva al 316; l'assenza
+// di 330 nel registro non dimostra da sola che il civico non esista.
+// Una coordinata proposta da un geocoder non e' una verifica comunale.
 
 export const MILANO_CIVIC_REGISTRY = Object.freeze({
   endpoint: "https://dati.comune.milano.it/api/3/action/datastore_search_sql",
@@ -183,7 +184,7 @@ export function describeRegistryOutcome(outcome, requested) {
   if (!outcome) return null;
   if (outcome.status === CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY) {
     const r = outcome.range;
-    return `${outcome.street} ${outcome.requested || requested || ""} non risulta nello stradario ufficiale del Comune di Milano${r ? ` (civici registrati: ${r.min}-${r.max})` : ""}. Scegli il punto esatto sulla mappa.`.replace(/\s+/g, " ");
+    return `${outcome.street} ${outcome.requested || requested || ""} non è presente nel dataset dei civici del Comune di Milano${r ? ` (numero massimo registrato su questa via: ${r.max}, non un limite dei civici di Milano)` : ""}. Questo non dimostra che il numero non esista. Verifica sulla mappa l’eventuale proposta del geocoder oppure scegli un punto manualmente.`.replace(/\s+/g, " ");
   }
   if (outcome.status === CIVIC_REGISTRY_STATUS.AMBIGUOUS_STREET) {
     return `Più vie corrispondono al nome cercato (${(outcome.streets || []).slice(0, 3).join(", ")}). Scrivi il nome completo della via.`;
@@ -200,9 +201,9 @@ function isProviderCivicFor(query, suggestion, matches) {
  * Combina i suggerimenti dei geocoder con l'esito dello stradario ufficiale:
  *  - VERIFIED: il civico ufficiale va in testa; i punti dei provider per lo
  *    stesso civico vengono tolti (le coordinate valide sono quelle del Comune);
- *  - NOT_IN_REGISTRY: i punti dei provider che dichiarano quel civico vengono
- *    tolti (es. Mapbox "Viale Certosa 330" a 27 m dal 282): restano solo le
- *    alternative esplicite (comune, quartiere) e la scelta manuale;
+ *  - NOT_IN_REGISTRY: i provider possono restituire un candidato, ma NON e'
+ *    verificato: si mostra solo come punto indicativo per la scelta manuale.
+ *    Non viene mai selezionato automaticamente come civico ufficiale;
  *  - altri esiti (via non trovata, ambigua, servizio non raggiungibile):
  *    suggerimenti invariati, con la regola civico dei provider.
  * `matches` = matchesRequestedCivic (iniettata per tenere il modulo senza dipendenze).
@@ -214,7 +215,9 @@ export function applyRegistryOutcome(suggestions, outcome, query, matches) {
     return [outcome.result, ...list.filter(s => !isProviderCivicFor(query, s, matches))];
   }
   if (outcome.status === CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY) {
-    return list.filter(s => !isProviderCivicFor(query, s, matches));
+    return list.map(s => isProviderCivicFor(query, s, matches)
+      ? { ...s, verification: "provider_civic", needsMapConfirmation: true }
+      : s);
   }
   return list;
 }
