@@ -2108,6 +2108,16 @@ export function Step2({
           message: describeRegistryOutcome(outcome, civicRequest?.number)
         } : null);
         setGeocodeSuggestions(rankLocationResults(applyRegistryOutcome(list, outcome, search, matchesRequestedCivic), search));
+        // Anche senza selezione il cliente deve vedere sulla mappa la via
+        // cercata, non l'Italia intera. I civici ufficiali servono solo a
+        // inquadrare la via: NON vengono usati come coordinate del civico mancante.
+        if (outcome?.status === CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY && outcome.streetPath) {
+          setFocusedNil({
+            id: `street-search:${outcome.street || civicRequest?.street || search}`,
+            geometry: outcome.streetPath,
+            nonce: Date.now()
+          });
+        }
       };
       const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
       if (mapboxToken) {
