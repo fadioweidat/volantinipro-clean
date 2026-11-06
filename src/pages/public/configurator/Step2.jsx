@@ -2089,8 +2089,8 @@ export function Step2({
       const pointSearchIntent = searchMode === "address" && isMovementStep2;
       // Civico a Milano: lo stradario ufficiale del Comune (ds634) e' la fonte
       // di verifica, interrogato in parallelo ai geocoder. Le coordinate di un
-      // civico verificato sono quelle del Comune; un civico assente dal
-      // registro non viene accettato da nessun geocoder (es. Viale Certosa 330).
+      // civico verificato sono quelle del Comune; un candidato di un geocoder
+      // senza riscontro nel registro richiede sempre conferma manuale.
       const requestZoneId = data.activeZoneId || null;
       const registryCheck = shouldCheckMilanoRegistry(civicRequest, searchIntent.parentComune)
         ? lookupMilanoCivic(civicRequest).catch(() => ({ status: CIVIC_REGISTRY_STATUS.UNAVAILABLE }))
@@ -3222,12 +3222,25 @@ export function Step2({
   // Indirizzo/punto dentro Milano ("Milano via Como", "Piazza Duomo Milano"):
   // il comune resta Milano (comune completo), ma il punto cercato diventa il
   // centro preferito della modalità Raggio (radiusCenterSource = "address").
-  function startManualPinSelection() {
+  function startManualPinSelection(focusCandidate = null) {
     setManualPinMode(true);
     setAddressSearchError("");
     setDropOpen(false);
-    // Civico assente dallo stradario ma via esistente: inquadra la via (dai
-    // civici ufficiali) per scegliere il punto; non e' la posizione del civico.
+    // Un geocoder puo' proporre un punto ma non certificarne il civico:
+    // inquadra la zona, senza salvare il punto finche' l'utente non clicca
+    // sulla mappa. Gli eventi onClick senza coordinate non sono candidati.
+    const lat = Number(focusCandidate?.lat);
+    const lng = Number(focusCandidate?.lng);
+    if (focusCandidate?.needsMapConfirmation && Number.isFinite(lat) && Number.isFinite(lng)) {
+      setFocusedNil({
+        id: `candidate:${focusCandidate.id || search}`,
+        geometry: { type: "LineString", coordinates: [[lng - 0.0004, lat - 0.0003], [lng + 0.0004, lat + 0.0003]] },
+        nonce: Date.now()
+      });
+      return;
+    }
+    // In assenza di proposta, inquadra la via dai civici ufficiali: non
+    // e' la posizione del civico richiesto.
     const check = civicRegistryCheck && civicRegistryCheck.search === search && civicRegistryCheck.zoneId === (data.activeZoneId || null) ? civicRegistryCheck : null;
     if (check?.streetPath) setFocusedNil({ id: `street:${check.street}`, geometry: check.streetPath, nonce: Date.now() });
   }
