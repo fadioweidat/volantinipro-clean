@@ -20,10 +20,11 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
         <small>{isNilManualMode ? "Clicca un quartiere per aggiungerlo o rimuoverlo." : "I confini sono un riferimento: non selezionano una zona."}</small>
       </div>}
       {/* MAPPA GRANDE — solo Vista Cliente. */}
-          <div style={{
+          <div id="step2-map-target" style={{
             borderRadius: 14,
             overflow: "hidden",
             position: "relative",
+            scrollMarginTop: 20,
             background: "linear-gradient(135deg,#081610 0%,#080f1e 60%,#100819 100%)",
             border: "1px solid rgba(255,255,255,.08)"
           }}>
