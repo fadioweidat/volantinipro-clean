@@ -294,7 +294,7 @@ test("Step 2: nessun contatto o assistente fisso sopra la mappa", () => {
 test("banner selezione punto: non copre il centro della mappa su Samsung", () => {
   const mapPanel = read("../src/pages/public/configurator/step2/Step2MapPanel.jsx");
   const start = mapPanel.indexOf("manualPinMode && <div");
-  const end = mapPanel.indexOf("setManualPinMode(false)", start);
+  const end = mapPanel.indexOf("</button>", start);
   const banner = mapPanel.slice(start, end);
   assert.ok(start >= 0 && end > start, "banner manuale presente");
   assert.ok(banner.includes('left: 12') && banner.includes('right: 12'), "banner esteso nella fascia superiore");
