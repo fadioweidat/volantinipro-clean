@@ -680,7 +680,7 @@ export function Step2({
   // è stato selezionato proprio il comune Milano, tratta comunque come
   // indirizzo non confermato — anche se selectedSearchPoint non fosse stato
   // valorizzato per qualche motivo lato geocoder.
-  const searchLooksLikeMilanoAddress = ADDRESS_INTENT_RE.test(search) && /\bmilano\b/i.test(search) && normalizeMunicipalityName(city?.label || city?.name) === "milano";
+  const searchLooksLikeMilanoAddress = ADDRESS_INTENT_RE.test(search) && normalizeMunicipalityName(city?.label || city?.name) === "milano";
   // A typed Milano street query is still unconfirmed if the geocoder could not
   // resolve a civic. Never present the 744,299-family full-comune fallback as
   // though the user had selected the entire municipality.
