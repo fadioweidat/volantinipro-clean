@@ -8,6 +8,7 @@ import { getServiceAccent } from "../../../../lib/services/service-config.js";
 import { detectSearchIntent, ADDRESS_INTENT_RE, isGeocoderResultInMilanoComune, looksLikeAddressResult, logAddressVsMunicipalityDebug, normalizeMunicipalityName, isNilLikePlaceType } from "../../../../lib/step2/addressIntent.js";
 import { S2_RADII } from "../../../../lib/step2/s2Constants.js";
 import { STORE_NAME_MAX_LENGTH } from "../../../../lib/step2/campaignZonesModel.js";
+import { matchesRequestedCivic, parseRequestedCivic } from "../../../../lib/step2/civicAddressMatch.js";
 
 export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAreaTab, activeZoneId, addressFullCoverageConfirmed, addressIntentInMilano, addressSearchError, apiLoading, appendMunicipalityToActiveZone, campaignZones, capSearchLoading, capSuggestions, city, col, data, dropOpen, duplicateComuneNotice, geocodeSuggestions, getCampaignZoneLabel, handleAddZone, renamePointOfSale, deletePointOfSale, handleCapSelect, hasSearchPoint, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isMobile, isMovementStep2, isNilAnalysis, isRadiusMode, municipalityBoundary, nilManualMode, onBack, pendingAddMunicipality, pill, radiusAdvisoryData, radiusKm, recommendedRadiusForSlider, removeMunicipalityFromActiveZone, resetActiveZone, resolveMilanoCity, search, searchedLocation, searchMode, selectAddressPointInMilano, selectCampaignZone, selectMilanoAsNil, selectMunicipalityAsRadiusCenter, selectOperationalPoint, selectPrimaryMunicipality, selectedCaps, selectedComuni, selectedSearchPoint, setAddressFullCoverageConfirmed, setAddressSearchError, setCapDataMap, setCity, setCoverageDecision, setCoverageStrategy, setData, setDismissedAdvisoryRadius, setDropOpen, setHiddenBoundaries, setPartialCoverageConfirmed, setPendingAddMunicipality, setSearch, setSelected, setSelectedCaps, setSelectedComuni, setSelectedSearchPoint, sharedCoveragePctText, startManualPinSelection, svcType, switchToCapMode, switchToComuneMode, switchToRadiusMode, updateActiveRadius, zonesInRadius }) {
   return (
@@ -211,12 +212,12 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                               const textLooksLikeAddr = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
                               const inMil = isGeocoderResultInMilanoComune(c);
                               const hasCoords = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
-                              return (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords;
+                              return (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords && matchesRequestedCivic(search, c);
                             });
                             if (topValid) {
                               selectAddressPointInMilano(topValid.name, topValid);
                             } else {
-                              setAddressSearchError("Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
+                              setAddressSearchError(parseRequestedCivic(search) ? "Numero civico non verificato. Scegli il punto esatto sulla mappa." : "Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
                               setSelectedSearchPoint(null);
                               setDropOpen(false);
                               logAddressVsMunicipalityDebug(search, city, city, null, true, "invalid_milano_address_blocked_auto_select", search, "unknown", null);
@@ -290,15 +291,14 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                 }}>
                     {searchMode !== "cap" ? (() => {
                     if (geocodeSuggestions.length === 0 && search.length >= 2) {
-                      return <div style={{
-                        padding: "9px 14px",
-                        fontFamily: F.sans,
-                        fontSize: 12,
-                        color: "rgba(255,255,255,.35)"
-                      }}>Nessun risultato...</div>;
+                      return <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "#FBBF24" }}>
+                        {parseRequestedCivic(search) ? "Civico non verificato: non è possibile usare la posizione generica della via." : "Nessun risultato..."}
+                        {parseRequestedCivic(search) && <button type="button" onClick={startManualPinSelection} style={{ display: "block", marginTop: 8, minHeight: 36, borderRadius: 7, border: "1px solid #60A5FA", color: "#93C5FD", background: "rgba(59,130,246,.12)", padding: "6px 10px", cursor: "pointer" }}>Scegli punto esatto sulla mappa</button>}
+                      </div>;
                     }
                     const searchIntent = detectSearchIntent(search);
                     const addressIntentInMilano = searchIntent.intent === "address" && searchIntent.parentComune === "Milano";
+                    const civicRequest = parseRequestedCivic(search);
                     // Ordine (§ticket): indirizzi/punti → Milano → altri comuni
                     // (solo come alternativa esplicita, mai scelta principale).
                     const rankSuggestion = s => {
@@ -311,7 +311,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                       const textLooksLikeAddr = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
                       const inMil = isGeocoderResultInMilanoComune(c);
                       const hasCoords = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
-                      return (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords;
+                      return (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords && matchesRequestedCivic(search, c);
                     });
                     const hasValidMilanoAddress = validMilanoAddresses.length > 0;
                     const orderedSuggestions = addressIntentInMilano ? [...geocodeSuggestions].sort((a, b) => rankSuggestion(a) - rankSuggestion(b)) : geocodeSuggestions;
@@ -328,7 +328,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                           color: "#FBBF24",
                           marginBottom: 8
                         }}>
-                            Indirizzo non trovato a Milano. Controlla il nome della via.
+                            {civicRequest ? "Numero civico non verificato: usa il punto esatto sulla mappa." : "Indirizzo non trovato a Milano. Controlla il nome della via."}
                           </div>
                           <div style={{
                           display: "flex",
@@ -412,6 +412,8 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                             }}>punto operativo</span>
                             </div>;
                         }
+                        // A road/POI hit without an exact house number is not a verified civic.
+                        if (addressIntentInMilano && civicRequest && (looksLikeAddressResult(c) || textLooksLikeAddress) && !matchesRequestedCivic(search, c)) return null;
                         if (addressIntentInMilano && (looksLikeAddressResult(c) || textLooksLikeAddress)) {
                           const inMilano = isGeocoderResultInMilanoComune(c);
                           if (!inMilano) return null;
