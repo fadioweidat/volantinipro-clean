@@ -3236,6 +3236,12 @@ export function Step2({
     setManualPinMode(true);
     setAddressSearchError("");
     setDropOpen(false);
+    // Su telefono chiudi la tastiera e porta subito la mappa in vista.
+    // Il punto resta non selezionato finche' non viene toccata la mappa.
+    if (typeof document !== "undefined") {
+      document.activeElement?.blur?.();
+      requestAnimationFrame(() => document.getElementById("step2-map-target")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
     // Un geocoder puo' proporre un punto ma non certificarne il civico:
     // inquadra la zona, senza salvare il punto finche' l'utente non clicca
     // sulla mappa. Gli eventi onClick senza coordinate non sono candidati.
