@@ -681,7 +681,10 @@ export function Step2({
   // indirizzo non confermato — anche se selectedSearchPoint non fosse stato
   // valorizzato per qualche motivo lato geocoder.
   const searchLooksLikeMilanoAddress = ADDRESS_INTENT_RE.test(search) && /\bmilano\b/i.test(search) && normalizeMunicipalityName(city?.label || city?.name) === "milano";
-  const hasUnconfirmedAddressPoint = isComuneMode && !addressFullCoverageConfirmed && !nilManualMode && !addressSearchError && Boolean(selectedSearchPoint?.type === "address" && Number.isFinite(Number(selectedSearchPoint?.lat)) && Number.isFinite(Number(selectedSearchPoint?.lng)));
+  // A typed Milano street query is still unconfirmed if the geocoder could not
+  // resolve a civic. Never present the 744,299-family full-comune fallback as
+  // though the user had selected the entire municipality.
+  const hasUnconfirmedAddressPoint = isComuneMode && !addressFullCoverageConfirmed && !nilManualMode && Boolean(searchLooksLikeMilanoAddress || selectedSearchPoint?.type === "address" && Number.isFinite(Number(selectedSearchPoint?.lat)) && Number.isFinite(Number(selectedSearchPoint?.lng)));
   const usingMunicipalityFullCoverage = isComuneMode && !hasUnconfirmedAddressPoint;
   const selectedComune = city || selectedComuni && selectedComuni[0] || null;
   // Centro del raggio, con priorità: punto/indirizzo/NIL cercato → centroide
@@ -2162,7 +2165,8 @@ export function Step2({
       }
       try {
         const isAddressQuery = searchIntent.intent === "address" || pointSearchIntent;
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=10`);
+        const canonicalNominatimQuery = civicRequest ? `${civicRequest.number} ${civicRequest.street}, Milano, Italia` : search;
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(canonicalNominatimQuery)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=10`);
         const d = await r.json();
         if (cancelled) return;
         const suggestions = d.map(f => {
@@ -3325,8 +3329,10 @@ export function Step2({
     }
   }
   async function selectMilanoAsNil(nilName, nilPoint = null) {
+    const ownerZoneId = activeZoneIdRef.current;
     try {
       const milano = await resolveMilanoCity();
+      if (activeZoneIdRef.current !== ownerZoneId) return;
       if (!milano) {
         debugStep2Warn("[NIL_SUGGESTION_MILANO_RESOLVE_FAILED]", {
           nilName
