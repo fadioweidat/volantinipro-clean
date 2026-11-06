@@ -267,6 +267,14 @@ test("KPI multi-PV: mai zero né somma se un PV non è pronto; quantità non dup
   assert.equal(s.totalQuantity, 98046 + 50000, "ogni PV contato una sola volta");
 });
 
+test("digitare una via non equivale a selezionare un punto geografico", () => {
+  const gate = step2.match(/const hasUnconfirmedAddressPoint = ([^;]+);/);
+  assert.ok(gate, "gate di conferma indirizzo presente");
+  assert.ok(gate[1].includes('selectedSearchPoint?.type === "address"'));
+  assert.ok(gate[1].includes('Number.isFinite(Number(selectedSearchPoint?.lat))'));
+  assert.ok(!gate[1].includes("searchLooksLikeMilanoAddress ||"), "solo testo digitato non blocca la selezione");
+});
+
 test("nuovo PV: la ricerca parte vuota e non eredita i suggerimenti del precedente", () => {
   const start = step2.indexOf("const handleAddZone = () =>");
   const end = step2.indexOf("const updateZoneField =", start);
