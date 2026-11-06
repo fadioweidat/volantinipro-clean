@@ -267,6 +267,18 @@ test("KPI multi-PV: mai zero né somma se un PV non è pronto; quantità non dup
   assert.equal(s.totalQuantity, 98046 + 50000, "ogni PV contato una sola volta");
 });
 
+test("banner selezione punto: non copre il centro della mappa su Samsung", () => {
+  const mapPanel = read("../src/pages/public/configurator/step2/Step2MapPanel.jsx");
+  const start = mapPanel.indexOf("manualPinMode && <div");
+  const end = mapPanel.indexOf("setManualPinMode(false)", start);
+  const banner = mapPanel.slice(start, end);
+  assert.ok(start >= 0 && end > start, "banner manuale presente");
+  assert.ok(banner.includes('left: 12') && banner.includes('right: 12'), "banner esteso nella fascia superiore");
+  assert.ok(!banner.includes('transform: "translateX(-50%)"'), "nessun popup centrale");
+  assert.ok(banner.includes("Tocca la mappa per scegliere il punto"), "istruzione breve");
+  assert.ok(banner.includes('flexShrink: 0'), "Annulla resta visibile");
+});
+
 test("scelta manuale: inquadra la via automaticamente e apre la mappa su mobile", () => {
   assert.ok(step2.includes("outcome?.status === CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY && outcome.streetPath"));
   assert.ok(step2.includes("if (check?.streetPath) setFocusedNil({ id: `street:${check.street}`, geometry: check.streetPath, nonce: Date.now() });"));
