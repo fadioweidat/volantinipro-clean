@@ -1323,6 +1323,13 @@ export function Step2({
     if (data.activeZoneId) searchDraftByZoneRef.current.set(data.activeZoneId, search);
     const newId = "zone_" + Date.now();
     activeZoneIdRef.current = newId;
+    // PV nuovo: il testo e i suggerimenti del PV precedente non devono
+    // apparire nel campo indirizzo, neppure prima del render del nuovo PV.
+    searchDraftByZoneRef.current.set(newId, "");
+    setSearch("");
+    setDropOpen(false);
+    setGeocodeSuggestions([]);
+    setAddressSearchError("");
     const nextSvc = svcType || data.type || "d2d";
     const startQty = resolveNewZoneStartingQuantity(data);
     const newZone = {
