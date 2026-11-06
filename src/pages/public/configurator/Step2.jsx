@@ -649,14 +649,14 @@ export function Step2({
       });
       // A late effect originating from a previous PV must not write into the
       // currently selected point of sale.
-      if (prev.activeZoneId !== data.activeZoneId || localZoneId !== data.activeZoneId) return prev;
+      if (prev.activeZoneId !== data.activeZoneId) return prev;
       const nextTop = merge(prev.coverage?.address);
       const zones = (prev.campaignZones || []).map(z => z.id === prev.activeZoneId
         ? { ...z, coverage: { ...(z.coverage || {}), address: merge(z.coverage?.address) } }
         : z);
       return { ...prev, coverage: { ...(prev.coverage || {}), address: nextTop }, campaignZones: zones };
     });
-  }, [setData]);
+  }, [setData, data.activeZoneId]);
   const activeAreaTab = searchMode === "municipality" ? "comune" : searchMode === "address" ? "raggio" : "cap";
   const selectionMode = activeAreaTab;
   const territoryMode = searchMode === "municipality" ? "full_municipality" : searchMode === "address" ? "radius" : "cap";
