@@ -335,7 +335,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                           gap: 8,
                           flexWrap: "wrap"
                         }}>
-                            <button onClick={() => {
+                            {!civicRequest && <button onClick={() => {
                             resolveMilanoCity().then(milano => {
                               if (milano) {
                                 setCity(milano);
@@ -363,7 +363,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                             cursor: "pointer"
                           }}>
                               Usa Milano comune completo
-                            </button>
+                            </button>}
                             <button onClick={() => {
                             startManualPinSelection();
                           }} style={{
@@ -409,6 +409,9 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                             </button>
                           </div>;
                         }
+                        // Un numero richiesto non va sostituito da un
+                        // Municipio/NIL/comune solo perche' il geocoder lo propone.
+                        if (civicRequest && !matchesRequestedCivic(search, c)) return null;
                         if (isOperationalPointResult) {
                           return <div key={c.id} onClick={() => selectOperationalPoint(c.label || c.name, c)} style={{
                             padding: "9px 14px",
