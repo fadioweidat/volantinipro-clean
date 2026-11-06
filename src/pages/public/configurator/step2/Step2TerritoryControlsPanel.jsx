@@ -212,7 +212,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                               const textLooksLikeAddr = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
                               const inMil = isGeocoderResultInMilanoComune(c);
                               const hasCoords = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
-                              return (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords && matchesRequestedCivic(search, c);
+                              return !c?.needsMapConfirmation && (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords && matchesRequestedCivic(search, c);
                             });
                             if (topValid) {
                               selectAddressPointInMilano(topValid.name, topValid);
@@ -244,7 +244,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                         }
                       }}
                       aria-label={searchMode === "address" ? "Indirizzo o comune del punto vendita attivo" : "Cerca comune o CAP"}
-                      placeholder={simplifiedMilano ? "Cerca un indirizzo o un altro comune" : searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : searchMode === "municipality" ? pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune" : "Cerca indirizzo o comune (es. Viale Certosa 333, Milano)"} style={{
+                      placeholder={simplifiedMilano ? "Cerca un indirizzo o un altro comune" : searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : searchMode === "municipality" ? pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune" : "Cerca indirizzo o comune (es. Via Antonio Oroboni 10, Milano)"} style={{
                       flex: 1,
                       background: "transparent",
                       border: "none",
@@ -311,7 +311,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                       const textLooksLikeAddr = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
                       const inMil = isGeocoderResultInMilanoComune(c);
                       const hasCoords = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
-                      return (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords && matchesRequestedCivic(search, c);
+                      return !c?.needsMapConfirmation && (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords && matchesRequestedCivic(search, c);
                     });
                     const hasValidMilanoAddress = validMilanoAddresses.length > 0;
                     const orderedSuggestions = addressIntentInMilano ? [...geocodeSuggestions].sort((a, b) => rankSuggestion(a) - rankSuggestion(b)) : geocodeSuggestions;
@@ -393,6 +393,22 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                         const textLooksLikeAddress = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
                         const hasPointCoordinates = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
                         const isOperationalPointResult = searchMode === "address" && isMovementStep2 && hasPointCoordinates && c?.placeType !== "place";
+                        // Un civico proposto dal geocoder ma assente dal registro
+                        // NON si seleziona con un tap: va verificato con un clic
+                        // sulla mappa. Nessun punto interpolato diventa civico verificato.
+                        if (c?.needsMapConfirmation && civicRequest && hasPointCoordinates) {
+                          return <div key={c.id} style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,.1)" }}>
+                            <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, overflowWrap: "anywhere" }}>
+                              {c.name || c.label}
+                            </div>
+                            <div style={{ fontFamily: F.sans, fontSize: 11, color: "#FBBF24", marginTop: 4 }}>
+                              Posizione indicativa da {c.source === "mapbox" ? "Mapbox" : "OpenStreetMap"}, civico non verificato dal Comune.
+                            </div>
+                            <button type="button" onClick={() => startManualPinSelection(c)} style={{ marginTop: 8, padding: "8px 12px", minHeight: 42, borderRadius: 8, border: "1px solid #60A5FA", background: "rgba(59,130,246,.16)", color: "#93C5FD", fontWeight: 700, cursor: "pointer" }}>
+                              Apri mappa e conferma il punto
+                            </button>
+                          </div>;
+                        }
                         if (isOperationalPointResult) {
                           return <div key={c.id} onClick={() => selectOperationalPoint(c.label || c.name, c)} style={{
                             padding: "9px 14px",
