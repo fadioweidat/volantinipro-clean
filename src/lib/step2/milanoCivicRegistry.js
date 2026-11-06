@@ -184,7 +184,7 @@ export function describeRegistryOutcome(outcome, requested) {
   if (!outcome) return null;
   if (outcome.status === CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY) {
     const r = outcome.range;
-    return `${outcome.street} ${outcome.requested || requested || ""} non è presente nel dataset dei civici del Comune di Milano${r ? ` (numero massimo registrato su questa via: ${r.max}, non un limite dei civici di Milano)` : ""}. Questo non dimostra che il numero non esista. Verifica sulla mappa l’eventuale proposta del geocoder oppure scegli un punto manualmente.`.replace(/\s+/g, " ");
+    return `${outcome.street} ${outcome.requested || requested || ""}: numero civico non verificato nel dataset del Comune di Milano.${r ? ` Su questa via il numero più alto registrato è ${r.max}.` : ""} Questo non prova che il civico non esista. Seleziona il punto sulla mappa.`.replace(/\s+/g, " ");
   }
   if (outcome.status === CIVIC_REGISTRY_STATUS.AMBIGUOUS_STREET) {
     return `Più vie corrispondono al nome cercato (${(outcome.streets || []).slice(0, 3).join(", ")}). Scrivi il nome completo della via.`;
