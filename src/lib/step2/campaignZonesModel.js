@@ -470,17 +470,35 @@ export function summarizeCampaignZones(campaignZones) {
       source: zone,
     };
   });
-  const overlaps = detectCampaignZoneOverlaps(raw);
   const incompleteZones = zones.filter(z => z.issues.length > 0);
+  const allZonesReady = zones.length > 0 && incompleteZones.length === 0;
+  // An unconfigured PV can still carry a stale municipality snapshot.
+  // Do not calculate overlap or unique reach until ALL PVs have passed Step2.
+  const overlaps = allZonesReady ? detectCampaignZoneOverlaps(raw) : [];
   const hasOverlap = overlaps.length > 0;
-  const households = computeCampaignUniqueHouseholds(raw);
-  const deduplicated = households.status === UNIQUE_HOUSEHOLDS_STATUS.DEDUPLICATED;
+  const households = allZonesReady ? computeCampaignUniqueHouseholds(raw) : {
+    status: UNIQUE_HOUSEHOLDS_STATUS.NOT_DETERMINABLE,
+    determinable: false,
+    uniqueFamilies: null,
+    uniquePopulation: null,
+    summedFamilies: sumOrNull(zones.map(z => z.families)),
+    summedPopulation: sumOrNull(zones.map(z => z.population)),
+    lowerBound: null,
+    upperBound: null,
+    method: null,
+    estimated: false,
+    overlappingPairs: [],
+    reasons: ["punto_vendita_incompleto"],
+    details: [],
+    populationReasons: ["punto_vendita_incompleto"],
+  };
+  const deduplicated = allZonesReady && households.status === UNIQUE_HOUSEHOLDS_STATUS.DEDUPLICATED;
   return {
     isMultiZone: zones.length > 1,
     zoneCount: zones.length,
     zones,
     incompleteZones,
-    allZonesReady: zones.length > 0 && incompleteZones.length === 0,
+    allZonesReady,
     totalQuantity: zones.reduce((a, z) => a + z.quantity, 0),
     // Fabbisogno operativo: somma dei PV (ogni PV ha il proprio piano).
     totalRequiredFlyers: sumOrNull(zones.map(z => z.requiredFlyers)),
@@ -495,7 +513,8 @@ export function summarizeCampaignZones(campaignZones) {
     overlaps,
     hasOverlap,
     capacityDeduplicated: deduplicated,
-    capacityStatus: households.status === UNIQUE_HOUSEHOLDS_STATUS.NOT_DETERMINABLE ? "overlap_not_deduplicated"
+    capacityStatus: !allZonesReady ? "configuration_incomplete"
+      : households.status === UNIQUE_HOUSEHOLDS_STATUS.NOT_DETERMINABLE ? "overlap_not_deduplicated"
       : deduplicated ? "overlap_deduplicated" : "disjoint_sum",
   };
 }
