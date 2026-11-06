@@ -647,6 +647,9 @@ export function Step2({
         nearestNilId: patch.nearestNilId ?? existing?.nearestNilId ?? null,
         nearestNilName: patch.nearestNilName ?? existing?.nearestNilName ?? null,
       });
+      // A late effect originating from a previous PV must not write into the
+      // currently selected point of sale.
+      if (prev.activeZoneId !== data.activeZoneId || localZoneId !== data.activeZoneId) return prev;
       const nextTop = merge(prev.coverage?.address);
       const zones = (prev.campaignZones || []).map(z => z.id === prev.activeZoneId
         ? { ...z, coverage: { ...(z.coverage || {}), address: merge(z.coverage?.address) } }
@@ -865,10 +868,10 @@ export function Step2({
 
       // Stato top-level di lavoro = SOLO il PV attivo (stesso percorso di
       // switch / elimina / aggiungi: activatePointOfSale).
-      setData(prev => ({
+      setData(prev => prev.activeZoneId === activeZone.id ? ({
         ...activatePointOfSale(prev, activeZone.id, { resolveCity: () => resolvedCity }),
         radiusSelectionConfirmed: inferredRadiusConfirmed
-      }));
+      }) : prev);
     }
   }, [data.activeZoneId, data.campaignZones]);
 
@@ -876,9 +879,12 @@ export function Step2({
   useEffect(() => {
     if (!data.activeZoneId || !data.campaignZones || data.campaignZones.length === 0) return;
     if (localZoneId !== data.activeZoneId) return;
+    const zoneOwnerId = data.activeZoneId;
     setData(prev => {
-      if (!prev.campaignZones || !prev.activeZoneId) return prev;
-      const zoneIndex = prev.campaignZones.findIndex(z => z.id === prev.activeZoneId);
+      // Stale queued writes must never transplant PV1's local city/NIL/radius
+      // into PV2 if the active point of sale changed after this effect ran.
+      if (!prev.campaignZones || prev.activeZoneId !== zoneOwnerId) return prev;
+      const zoneIndex = prev.campaignZones.findIndex(z => z.id === zoneOwnerId);
       if (zoneIndex === -1) return prev;
       const currentZone = prev.campaignZones[zoneIndex];
       const confirmedCityName = searchMode === "municipality" && selectedMunicipalityDisplayLabel ? selectedMunicipalityDisplayLabel : city?.label || city?.name || currentZone.cityName || "";
