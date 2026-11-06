@@ -269,3 +269,12 @@ test("provenienza del punto: verificato, provider, manuale, solo via", () => {
   assert.equal(describePointProvenance(null), null);
   assert.ok(step2.includes("pointProvenance={describePointProvenance(selectedSearchPoint)}"));
 });
+
+test("punto manuale in un PV nuovo: raggio confermato sul punto, indirizzo salvato, comune Milano solo per lo stesso PV", () => {
+  const fn = step2.slice(step2.indexOf("async function handleManualMapClick"), step2.indexOf("async function selectAddressPointInMilano"));
+  assert.ok(fn.length > 0);
+  assert.match(fn, /const ownerZoneId = activeZoneIdRef\.current;/);
+  assert.match(fn, /switchToRadiusMode\(\);[\s\S]*setRadiusSelectionConfirmed\(Number\(radius \|\| 3\) > 0\);/);
+  assert.match(fn, /persistCoverageAddress\(\{ label: point\.label, lat: point\.lat, lng: point\.lng, municipality: point\.parentComune \}\);/);
+  assert.match(fn, /if \(activeZoneIdRef\.current !== ownerZoneId \|\| !milano\) return;/);
+});

@@ -3231,10 +3231,11 @@ export function Step2({
     const check = civicRegistryCheck && civicRegistryCheck.search === search && civicRegistryCheck.zoneId === (data.activeZoneId || null) ? civicRegistryCheck : null;
     if (check?.streetPath) setFocusedNil({ id: `street:${check.street}`, geometry: check.streetPath, nonce: Date.now() });
   }
-  function handleManualMapClick(coords) {
+  async function handleManualMapClick(coords) {
     if (!coords || !Number.isFinite(Number(coords?.lat)) || !Number.isFinite(Number(coords?.lng))) return;
+    const ownerZoneId = activeZoneIdRef.current;
     setManualPinMode(false);
-    setSelectedSearchPoint({
+    const point = {
       type: "manual_point",
       label: "Punto selezionato sulla mappa",
       // Scelto dall'utente: non e' un civico verificato.
@@ -3242,9 +3243,23 @@ export function Step2({
       lat: Number(coords.lat),
       lng: Number(coords.lng),
       parentComune: normalizeMunicipalityName(city?.label || city?.name) === "milano" ? "Milano" : city?.label || city?.name || "Milano"
-    });
+    };
+    setSelectedSearchPoint(point);
     setAddressSearchError("");
     switchToRadiusMode();
+    // switchToRadiusMode legge il punto precedente (stato non ancora
+    // aggiornato): in un PV nuovo, senza comune ne' indirizzo salvato, il
+    // raggio restava "non confermato" e i KPI "Dato non disponibile" anche con
+    // l'analisi arrivata. Il centro e' il punto appena scelto.
+    setRadiusSelectionConfirmed(Number(radius || 3) > 0);
+    persistCoverageAddress({ label: point.label, lat: point.lat, lng: point.lng, municipality: point.parentComune });
+    if (!city && point.parentComune === "Milano") {
+      const milano = await resolveMilanoCity();
+      // Il PV puo' essere cambiato durante l'attesa: mai applicare Milano a un altro PV.
+      if (activeZoneIdRef.current !== ownerZoneId || !milano) return;
+      setCity(milano);
+      setSelectedComuni(prev => prev && prev.length > 0 ? prev : [milano]);
+    }
   }
   async function selectAddressPointInMilano(pointLabel, point) {
     const ownerZoneId = activeZoneIdRef.current;
