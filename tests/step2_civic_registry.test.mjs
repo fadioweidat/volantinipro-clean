@@ -14,7 +14,7 @@ import {
   applyRegistryOutcome, CIVIC_REGISTRY_STATUS, describeRegistryOutcome, formatCivicNumber,
   lookupMilanoCivic, parseCivicNumber, shouldCheckMilanoRegistry, splitStreet,
 } from "../src/lib/step2/milanoCivicRegistry.js";
-import { matchesRequestedCivic, normalizeItalianStreetNumber, parseRequestedCivic } from "../src/lib/step2/civicAddressMatch.js";
+import { describePointProvenance, matchesRequestedCivic, normalizeItalianStreetNumber, parseRequestedCivic } from "../src/lib/step2/civicAddressMatch.js";
 import { activatePointOfSale, summarizeCampaignZones } from "../src/lib/step2/campaignZonesModel.js";
 
 const read = rel => fs.readFileSync(new URL(rel, import.meta.url), "utf8");
@@ -70,7 +70,7 @@ function fakeRegistry({ streets = [], civics = [], status = 200, hang = false, b
     const sql = decodeURIComponent(String(url).split("sql=")[1] || "");
     calls.push(sql);
     if (hang) return new Promise((_, reject) => signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))));
-    const records = /GROUP BY/.test(sql) ? streets : civics.filter(c => sql.includes(`"NUMERO"=${c.NUMERO}`));
+    const records = /GROUP BY/.test(sql) ? streets : /ORDER BY "NUMERO"/.test(sql) ? civics : civics.filter(c => sql.includes(`"NUMERO"=${c.NUMERO}`));
     return Promise.resolve({ ok: status === 200, status, json: async () => (bad ? { success: false } : { success: true, result: { records } }) });
   };
   return { fetchImpl, calls };
@@ -101,11 +101,14 @@ test("stradario: civico con lettera trovato solo con la lettera giusta", async (
 });
 
 test("stradario: Viale Certosa 330 non esiste -> stato esplicito con l'intervallo reale", async () => {
-  const { fetchImpl } = fakeRegistry({ streets: [CERTOSA], civics: [C316] });
+  const { fetchImpl } = fakeRegistry({ streets: [CERTOSA], civics: [C282A, C316] });
   const r = await lookupMilanoCivic({ street: "Viale Certosa", number: "330" }, { fetchImpl });
   assert.equal(r.status, CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY);
   assert.deepEqual(r.range, { min: 1, max: 316, count: 219 });
   assert.equal(r.result, undefined, "nessuna coordinata inventata");
+  // percorso della via dai civici ufficiali, solo per inquadrare la scelta manuale
+  assert.equal(r.streetPath.type, "LineString");
+  assert.ok(r.streetPath.coordinates.length >= 2);
   assert.match(describeRegistryOutcome(r, "330"), /Viale Certosa 330 non risulta nello stradario ufficiale del Comune di Milano \(civici registrati: 1-316\)\. Scegli il punto esatto sulla mappa\./);
 });
 
@@ -251,4 +254,18 @@ test("KPI multi-PV: mai zero né somma se un PV non è pronto; quantità non dup
   assert.equal(s.totalFamilies, null, "famiglie non determinabili, mai 0 o somma parziale");
   assert.equal(s.capacityStatus, "configuration_incomplete");
   assert.equal(s.totalQuantity, 98046 + 50000, "ogni PV contato una sola volta");
+});
+
+test("scelta manuale: si apre inquadrando la via dello stradario, non l'Italia intera", () => {
+  assert.ok(step2.includes("if (check?.streetPath) setFocusedNil({ id: `street:${check.street}`, geometry: check.streetPath, nonce: Date.now() });"));
+  assert.ok(step2.includes("streetPath: outcome.streetPath || null,"));
+});
+
+test("provenienza del punto: verificato, provider, manuale, solo via", () => {
+  assert.equal(describePointProvenance({ verification: "official_registry" }), "Civico verificato · stradario Comune di Milano");
+  assert.equal(describePointProvenance({ type: "manual_point", verification: "manual" }), "Punto scelto sulla mappa · non è un civico verificato");
+  assert.equal(describePointProvenance({ verification: "provider_civic", source: "mapbox" }), "Civico trovato da Mapbox · non verificato nello stradario del Comune");
+  assert.equal(describePointProvenance({ verification: "provider_street" }), "Indirizzo senza numero civico");
+  assert.equal(describePointProvenance(null), null);
+  assert.ok(step2.includes("pointProvenance={describePointProvenance(selectedSearchPoint)}"));
 });

@@ -142,7 +142,18 @@ export async function lookupMilanoCivic({ street, number }, { fetchImpl = global
     const lat = Number(hit?.LAT_WGS84);
     const lng = Number(hit?.LONG_WGS84);
     if (!hit || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-      return { status: CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY, street: streetLabel, range, requested: formatCivicNumber(civic) };
+      // Percorso della via dai civici ufficiali (lato pari, poi tutti se troppo
+      // pochi): serve SOLO a inquadrare la mappa per la scelta manuale, mai
+      // come posizione del civico richiesto.
+      let streetPath = null;
+      try {
+        const pts = await runSql(`SELECT "NUMERO","LAT_WGS84","LONG_WGS84" FROM ${R} WHERE "CODICE_VIA"=${Number(via.CODICE_VIA)} ORDER BY "NUMERO"`, opts);
+        const valid = pts.map(p => ({ n: Number(p.NUMERO), lat: Number(p.LAT_WGS84), lng: Number(p.LONG_WGS84) })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+        const even = valid.filter(p => p.n % 2 === 0);
+        const line = (even.length >= 2 ? even : valid).map(p => [p.lng, p.lat]);
+        if (line.length >= 2) streetPath = { type: "LineString", coordinates: line };
+      } catch { /* inquadratura non indispensabile */ }
+      return { status: CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY, street: streetLabel, range, requested: formatCivicNumber(civic), streetPath };
     }
     const houseNumber = formatCivicNumber(civic);
     const label = `${streetLabel} ${houseNumber}, Milano`;

@@ -8,7 +8,7 @@ import { buildTerritorialAiSnapshot } from "../../../lib/step2/buildTerritorialA
 import { familiesShare, familiesShareOfTotal, familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
-import { matchesRequestedCivic, parseRequestedCivic } from "../../../lib/step2/civicAddressMatch.js";
+import { describePointProvenance, matchesRequestedCivic, parseRequestedCivic } from "../../../lib/step2/civicAddressMatch.js";
 import { applyRegistryOutcome, CIVIC_REGISTRY_STATUS, describeRegistryOutcome, lookupMilanoCivic, shouldCheckMilanoRegistry } from "../../../lib/step2/milanoCivicRegistry.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, canonicalZoneId, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
@@ -2104,6 +2104,7 @@ export function Step2({
           status: outcome.status,
           street: outcome.street || null,
           range: outcome.range || null,
+          streetPath: outcome.streetPath || null,
           message: describeRegistryOutcome(outcome, civicRequest?.number)
         } : null);
         setGeocodeSuggestions(rankLocationResults(applyRegistryOutcome(list, outcome, search, matchesRequestedCivic), search));
@@ -3225,6 +3226,10 @@ export function Step2({
     setManualPinMode(true);
     setAddressSearchError("");
     setDropOpen(false);
+    // Civico assente dallo stradario ma via esistente: inquadra la via (dai
+    // civici ufficiali) per scegliere il punto; non e' la posizione del civico.
+    const check = civicRegistryCheck && civicRegistryCheck.search === search && civicRegistryCheck.zoneId === (data.activeZoneId || null) ? civicRegistryCheck : null;
+    if (check?.streetPath) setFocusedNil({ id: `street:${check.street}`, geometry: check.streetPath, nonce: Date.now() });
   }
   function handleManualMapClick(coords) {
     if (!coords || !Number.isFinite(Number(coords?.lat)) || !Number.isFinite(Number(coords?.lng))) return;
@@ -5976,6 +5981,7 @@ export function Step2({
           {milanoClientView && <MilanoCoverageModeChooser
             mode={milanoClientMode}
             address={coverageAddress || selectedSearchPoint}
+            pointProvenance={describePointProvenance(selectedSearchPoint)}
             containingNil={containingNil || (coverageAddress?.nearestNilName ? { name: coverageAddress.nearestNilName } : null)}
             onChooseNil={() => { switchToComuneMode(); setPendingNilPreselectName(null); enterNilManualMode(); setActiveMapLayers(prev => ({ ...prev, nil: true })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
             radiusKm={radiusKm} onRadiusChange={updateActiveRadius} radiusDisabled={apiLoading}

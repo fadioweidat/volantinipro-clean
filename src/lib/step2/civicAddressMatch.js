@@ -56,3 +56,17 @@ export function matchesRequestedCivic(query, result) {
   const w = wanted.split(" ");
   return a[0] === w[0] && w.length >= 2 && w.slice(1).every(token => a.slice(1).includes(token));
 }
+
+/**
+ * Provenienza del punto di partenza del PV, mostrata accanto all'indirizzo:
+ * un punto manuale o un risultato di geocoder non e' mai presentato come
+ * civico verificato dal Comune.
+ */
+export function describePointProvenance(point) {
+  if (!point) return null;
+  if (point.verification === "official_registry") return "Civico verificato · stradario Comune di Milano";
+  if (point.verification === "manual" || point.type === "manual_point") return "Punto scelto sulla mappa · non è un civico verificato";
+  if (point.verification === "provider_civic") return `Civico trovato da ${point.source === "mapbox" ? "Mapbox" : "OpenStreetMap"} · non verificato nello stradario del Comune`;
+  if (point.verification === "provider_street") return "Indirizzo senza numero civico";
+  return null;
+}
