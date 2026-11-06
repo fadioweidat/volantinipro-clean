@@ -689,7 +689,7 @@ export function Step2({
   // A typed Milano street query is still unconfirmed if the geocoder could not
   // resolve a civic. Never present the 744,299-family full-comune fallback as
   // though the user had selected the entire municipality.
-  const hasUnconfirmedAddressPoint = isComuneMode && !addressFullCoverageConfirmed && !nilManualMode && Boolean(searchLooksLikeMilanoAddress || selectedSearchPoint?.type === "address" && Number.isFinite(Number(selectedSearchPoint?.lat)) && Number.isFinite(Number(selectedSearchPoint?.lng)));
+  const hasUnconfirmedAddressPoint = isComuneMode && !addressFullCoverageConfirmed && !nilManualMode && !addressSearchError && Boolean(selectedSearchPoint?.type === "address" && Number.isFinite(Number(selectedSearchPoint?.lat)) && Number.isFinite(Number(selectedSearchPoint?.lng)));
   const usingMunicipalityFullCoverage = isComuneMode && !hasUnconfirmedAddressPoint;
   const selectedComune = city || selectedComuni && selectedComuni[0] || null;
   // Centro del raggio, con priorità: punto/indirizzo/NIL cercato → centroide
