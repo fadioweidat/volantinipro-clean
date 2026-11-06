@@ -35,7 +35,8 @@
     "cap:android:init": "npm run build && npx cap add android && node scripts/configure-capacitor-android.mjs && npx cap sync android",
     "test:seo-html": "node --test tests/seo_initial_html.test.mjs",
     "test:pdf-download": "node --test tests/step4_pdf_direct_download.test.mjs",
-    "test:comms-campaign": "node --test tests/admin_comms_campaign_grouping.test.mjs"
+    "test:comms-campaign": "node --test tests/admin_comms_campaign_grouping.test.mjs",
+    "test:geocoding-live": "node --env-file-if-exists=.env.local --test tests/live/step2_civic_registry.live.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

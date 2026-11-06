@@ -5,7 +5,7 @@ import { S2_RADII } from "../../../../lib/step2/s2Constants.js";
 import { formatRadiusLabel } from "../../../../lib/utils/format.js";
 
 // Presentation only: all choices and radius updates use Step2's canonical handlers.
-export function MilanoCoverageModeChooser({ mode, address, containingNil, onChooseNil, onChooseRadius, onChooseComune, radiusKm, onRadiusChange, radiusDisabled, recommendedRadius, children }) {
+export function MilanoCoverageModeChooser({ mode, address, pointProvenance = null, containingNil, onChooseNil, onChooseRadius, onChooseComune, radiusKm, onRadiusChange, radiusDisabled, recommendedRadius, children }) {
   return <section className="vp-milano-mode" aria-labelledby="milano-mode-title" data-testid="milano-mode-chooser">
     <div className="vp-milano-eyebrow">02 · Modalità di distribuzione</div>
     <h2 id="milano-mode-title">Come vuoi distribuire a Milano?</h2>
@@ -31,6 +31,7 @@ export function MilanoCoverageModeChooser({ mode, address, containingNil, onChoo
     {mode === "radius" && <div className="vp-milano-mode-controls" data-testid="milano-radius-controls">
       <h3>Distanza dal punto di partenza</h3>
       <p>{address?.label || "Centro del Comune di Milano"} · <strong>{formatRadiusLabel(radiusKm)}</strong></p>
+      {pointProvenance && <p data-testid="milano-point-provenance" style={{ marginTop: 2, fontSize: 11, fontWeight: 600, color: /verificato · stradario/.test(pointProvenance) ? "#4ADE80" : "rgba(255,255,255,.6)" }}>{pointProvenance}</p>}
       <div className="vp-milano-radius-presets">{[0.5, 1, 2, 3].map(km => <button key={km} type="button" disabled={radiusDisabled} aria-pressed={Number(radiusKm) === km} onClick={() => onRadiusChange(km)}>{formatRadiusLabel(km)}</button>)}</div>
       <InteractiveRadiusSlider value={radiusKm} options={S2_RADII} disabled={radiusDisabled} onCommit={onRadiusChange} recommendedValue={recommendedRadius} accent="#38BDF8" />
     </div>}

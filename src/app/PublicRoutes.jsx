@@ -109,8 +109,11 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     <Suspense fallback={<RouteLoadingFallback />}>
       <div className={`configurator-assistant-layout${isConfiguratorStep && assistantOpen ? " configurator-assistant-layout--open" : ""}`}>{content}</div>
       {showFooter && <Footer onNav={goTo} onHowItWorks={() => { goTo("home"); setTimeout(() => document.getElementById("come-funziona")?.scrollIntoView({ behavior: "smooth" }), 150); }} />}
-      {isConfiguratorStep && !assistantAllowed && <PublicContactBox />}
-      {isConfiguratorStep && assistantAllowed && <InlineHelpCta expanded={assistantOpen} onAsk={() => setAssistantOpen(true)} />}
+      {/* Step 2 ha mappa e controlli a schermo intero su mobile: nessun widget
+          fisso deve coprire ricerca, selezione del punto o pulsante Continua.
+          I contatti restano raggiungibili nel Footer, senza overlay. */}
+      {isConfiguratorStep && page !== "step2" && !assistantAllowed && <PublicContactBox />}
+      {isConfiguratorStep && page !== "step2" && assistantAllowed && <InlineHelpCta expanded={assistantOpen} onAsk={() => setAssistantOpen(true)} />}
       {isConfiguratorStep && assistantAllowed && <QuoteAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} page={page} context={assistantContext} quickQuestions={quickQuestionsForPage(page, assistantContext)} />}
     </Suspense>
   );

@@ -149,7 +149,7 @@ test("HomePage: monta ContattiSection una sola volta, prima della FinalCtaSectio
 test("PublicRoutes: InlineHelpCta e pannello contestuale sono resi solo per Step1-4", () => {
   const src = read("src/app/PublicRoutes.jsx");
   assert.match(src, /import InlineHelpCta from "\.\.\/components\/common\/InlineHelpCta\.jsx"/);
-  assert.match(src, /isConfiguratorStep && assistantAllowed && <InlineHelpCta expanded=\{assistantOpen\}/);
+  assert.match(src, /isConfiguratorStep && page !== "step2" && assistantAllowed && <InlineHelpCta expanded=\{assistantOpen\}/);
   assert.match(src, /isConfiguratorStep && assistantAllowed && <QuoteAssistantPanel/);
   assert.doesNotMatch(src, /onAsk=\{\(\) => goTo\("step2"\)\}/);
   assert.match(src, /page === "step1" \|\| page === "step2" \|\| page === "step3" \|\| page === "step4"/);

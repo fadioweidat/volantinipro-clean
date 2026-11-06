@@ -8,6 +8,8 @@ import { buildTerritorialAiSnapshot } from "../../../lib/step2/buildTerritorialA
 import { familiesShare, familiesShareOfTotal, familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
+import { describePointProvenance, matchesRequestedCivic, parseRequestedCivic } from "../../../lib/step2/civicAddressMatch.js";
+import { applyRegistryOutcome, CIVIC_REGISTRY_STATUS, describeRegistryOutcome, lookupMilanoCivic, shouldCheckMilanoRegistry } from "../../../lib/step2/milanoCivicRegistry.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, canonicalZoneId, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
 import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
@@ -287,8 +289,15 @@ export function Step2({
   // "reduce_to_recommended" | "extra_frequency" | "expand_area". Independent of
   // coverageDecision, which handles the shortage (partial coverage) case.
   const [coverageStrategy, setCoverageStrategy] = useState(data.coverageStrategy || null);
+  const activeZoneIdRef = useRef(data.activeZoneId);
+  activeZoneIdRef.current = data.activeZoneId;
+  const searchDraftByZoneRef = useRef(new Map());
   const [geocodeSuggestions, setGeocodeSuggestions] = useState([]);
   const [addressSearchError, setAddressSearchError] = useState("");
+  // Esito dello stradario ufficiale del Comune di Milano per la ricerca civica
+  // corrente: { search, zoneId, status, message }. Legato a ricerca + PV, mai
+  // mostrato per un'altra ricerca o un altro punto vendita.
+  const [civicRegistryCheck, setCivicRegistryCheck] = useState(null);
   const [manualPinMode, setManualPinMode] = useState(false);
   const [allocationMode, setAllocationMode] = useState(data.allocationMode || "auto");
   const [manualAssignments, setManualAssignments] = useState(data.manualAssignments || {});
@@ -643,13 +652,16 @@ export function Step2({
         nearestNilId: patch.nearestNilId ?? existing?.nearestNilId ?? null,
         nearestNilName: patch.nearestNilName ?? existing?.nearestNilName ?? null,
       });
+      // A late effect originating from a previous PV must not write into the
+      // currently selected point of sale.
+      if (prev.activeZoneId !== data.activeZoneId) return prev;
       const nextTop = merge(prev.coverage?.address);
       const zones = (prev.campaignZones || []).map(z => z.id === prev.activeZoneId
         ? { ...z, coverage: { ...(z.coverage || {}), address: merge(z.coverage?.address) } }
         : z);
       return { ...prev, coverage: { ...(prev.coverage || {}), address: nextTop }, campaignZones: zones };
     });
-  }, [setData]);
+  }, [setData, data.activeZoneId]);
   const activeAreaTab = searchMode === "municipality" ? "comune" : searchMode === "address" ? "raggio" : "cap";
   const selectionMode = activeAreaTab;
   const territoryMode = searchMode === "municipality" ? "full_municipality" : searchMode === "address" ? "radius" : "cap";
@@ -673,7 +685,10 @@ export function Step2({
   // è stato selezionato proprio il comune Milano, tratta comunque come
   // indirizzo non confermato — anche se selectedSearchPoint non fosse stato
   // valorizzato per qualche motivo lato geocoder.
-  const searchLooksLikeMilanoAddress = ADDRESS_INTENT_RE.test(search) && /\bmilano\b/i.test(search) && normalizeMunicipalityName(city?.label || city?.name) === "milano";
+  const searchLooksLikeMilanoAddress = ADDRESS_INTENT_RE.test(search) && normalizeMunicipalityName(city?.label || city?.name) === "milano";
+  // A typed Milano street query is still unconfirmed if the geocoder could not
+  // resolve a civic. Never present the 744,299-family full-comune fallback as
+  // though the user had selected the entire municipality.
   const hasUnconfirmedAddressPoint = isComuneMode && !addressFullCoverageConfirmed && !nilManualMode && !addressSearchError && Boolean(selectedSearchPoint?.type === "address" && Number.isFinite(Number(selectedSearchPoint?.lat)) && Number.isFinite(Number(selectedSearchPoint?.lng)));
   const usingMunicipalityFullCoverage = isComuneMode && !hasUnconfirmedAddressPoint;
   const selectedComune = city || selectedComuni && selectedComuni[0] || null;
@@ -818,7 +833,7 @@ export function Step2({
 
       // Update local states
       if (isZoneSwitch) {
-        setSearch(activeZone.cityName || resolvedCity?.name || "");
+        setSearch(searchDraftByZoneRef.current.get(activeZone.id) ?? activeZone.selectedSearchPoint?.label ?? activeZone.cityName ?? resolvedCity?.name ?? "");
       }
       setCity(resolvedCity);
       setSelectedComuni(prev => isZoneSwitch ? activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []) : prev && prev.length > 0 ? prev : activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []));
@@ -861,10 +876,10 @@ export function Step2({
 
       // Stato top-level di lavoro = SOLO il PV attivo (stesso percorso di
       // switch / elimina / aggiungi: activatePointOfSale).
-      setData(prev => ({
+      setData(prev => prev.activeZoneId === activeZone.id ? ({
         ...activatePointOfSale(prev, activeZone.id, { resolveCity: () => resolvedCity }),
         radiusSelectionConfirmed: inferredRadiusConfirmed
-      }));
+      }) : prev);
     }
   }, [data.activeZoneId, data.campaignZones]);
 
@@ -872,9 +887,12 @@ export function Step2({
   useEffect(() => {
     if (!data.activeZoneId || !data.campaignZones || data.campaignZones.length === 0) return;
     if (localZoneId !== data.activeZoneId) return;
+    const zoneOwnerId = data.activeZoneId;
     setData(prev => {
-      if (!prev.campaignZones || !prev.activeZoneId) return prev;
-      const zoneIndex = prev.campaignZones.findIndex(z => z.id === prev.activeZoneId);
+      // Stale queued writes must never transplant PV1's local city/NIL/radius
+      // into PV2 if the active point of sale changed after this effect ran.
+      if (!prev.campaignZones || prev.activeZoneId !== zoneOwnerId) return prev;
+      const zoneIndex = prev.campaignZones.findIndex(z => z.id === zoneOwnerId);
       if (zoneIndex === -1) return prev;
       const currentZone = prev.campaignZones[zoneIndex];
       const confirmedCityName = searchMode === "municipality" && selectedMunicipalityDisplayLabel ? selectedMunicipalityDisplayLabel : city?.label || city?.name || currentZone.cityName || "";
@@ -1302,7 +1320,16 @@ export function Step2({
     });
   };
   const handleAddZone = () => {
+    if (data.activeZoneId) searchDraftByZoneRef.current.set(data.activeZoneId, search);
     const newId = "zone_" + Date.now();
+    activeZoneIdRef.current = newId;
+    // PV nuovo: il testo e i suggerimenti del PV precedente non devono
+    // apparire nel campo indirizzo, neppure prima del render del nuovo PV.
+    searchDraftByZoneRef.current.set(newId, "");
+    setSearch("");
+    setDropOpen(false);
+    setGeocodeSuggestions([]);
+    setAddressSearchError("");
     const nextSvc = svcType || data.type || "d2d";
     const startQty = resolveNewZoneStartingQuantity(data);
     const newZone = {
@@ -2065,7 +2092,40 @@ export function Step2({
       // indirizzi/POI, altrimenti Mapbox fuzzy-matcha solo nomi di comuni e
       // "via como" diventa Cormano/Como — la causa esatta del bug.
       const searchIntent = detectSearchIntent(search);
+      const civicRequest = parseRequestedCivic(search);
       const pointSearchIntent = searchMode === "address" && isMovementStep2;
+      // Civico a Milano: lo stradario ufficiale del Comune (ds634) e' la fonte
+      // di verifica, interrogato in parallelo ai geocoder. Le coordinate di un
+      // civico verificato sono quelle del Comune; un candidato di un geocoder
+      // senza riscontro nel registro richiede sempre conferma manuale.
+      const requestZoneId = data.activeZoneId || null;
+      const registryCheck = shouldCheckMilanoRegistry(civicRequest, searchIntent.parentComune)
+        ? lookupMilanoCivic(civicRequest).catch(() => ({ status: CIVIC_REGISTRY_STATUS.UNAVAILABLE }))
+        : null;
+      const publishSuggestions = async list => {
+        const outcome = registryCheck ? await registryCheck : null;
+        if (cancelled) return;
+        setCivicRegistryCheck(outcome ? {
+          search,
+          zoneId: requestZoneId,
+          status: outcome.status,
+          street: outcome.street || null,
+          range: outcome.range || null,
+          streetPath: outcome.streetPath || null,
+          message: describeRegistryOutcome(outcome, civicRequest?.number)
+        } : null);
+        setGeocodeSuggestions(rankLocationResults(applyRegistryOutcome(list, outcome, search, matchesRequestedCivic), search));
+        // Anche senza selezione il cliente deve vedere sulla mappa la via
+        // cercata, non l'Italia intera. I civici ufficiali servono solo a
+        // inquadrare la via: NON vengono usati come coordinate del civico mancante.
+        if (outcome?.status === CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY && outcome.streetPath) {
+          setFocusedNil({
+            id: `street-search:${outcome.street || civicRequest?.street || search}`,
+            geometry: outcome.streetPath,
+            nonce: Date.now()
+          });
+        }
+      };
       const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
       if (mapboxToken) {
         try {
@@ -2119,9 +2179,14 @@ export function Step2({
             // non ha restituito nessuna riga indirizzo, prova anche
             // Nominatim e unisci i risultati — Via Antonio Oroboni potrebbe
             // non essere nel dataset Mapbox ma Nominatim la trova.
-            if ((searchIntent.intent === "address" || pointSearchIntent) && !mapboxSuggestions.some(s => looksLikeAddressResult(s) || s.placeType === "poi")) {
+            // A road-level hit is NOT an answer to a numbered street address.
+            // Ask OSM too when Mapbox has no exact number + street match.
+            if ((searchIntent.intent === "address" || pointSearchIntent) && (civicRequest
+              ? !mapboxSuggestions.some(s => matchesRequestedCivic(search, s))
+              : !mapboxSuggestions.some(s => looksLikeAddressResult(s) || s.placeType === "poi"))) {
               try {
-                const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=4`);
+                const nominatimQuery = civicRequest ? `${civicRequest.number} ${civicRequest.street}, Milano, Italia` : search;
+                const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(nominatimQuery)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=4`);
                 const nd = await nr.json();
                 if (cancelled) return;
                 const nomAddresses = nd.filter(f => isAddressLikePlaceType(f.addresstype || f.type || f.class)).map(f => {
@@ -2129,21 +2194,23 @@ export function Step2({
                     addressLike: true
                   });
                 });
-                if (nomAddresses.length > 0) {
-                  setGeocodeSuggestions(rankLocationResults([...nomAddresses, ...mapboxSuggestions], search));
+                const verifiedNomAddresses = civicRequest ? nomAddresses.filter(s => matchesRequestedCivic(search, s)) : nomAddresses;
+                if (verifiedNomAddresses.length > 0) {
+                  await publishSuggestions([...verifiedNomAddresses, ...mapboxSuggestions]);
                   return;
                 }
               } catch {}
             }
             if (cancelled) return;
-            setGeocodeSuggestions(rankLocationResults(mapboxSuggestions, search));
+            await publishSuggestions(mapboxSuggestions);
             return;
           }
         } catch {}
       }
       try {
         const isAddressQuery = searchIntent.intent === "address" || pointSearchIntent;
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=10`);
+        const canonicalNominatimQuery = civicRequest ? `${civicRequest.number} ${civicRequest.street}, Milano, Italia` : search;
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(canonicalNominatimQuery)}&countrycodes=it&accept-language=it&format=json&addressdetails=1&limit=10`);
         const d = await r.json();
         if (cancelled) return;
         const suggestions = d.map(f => {
@@ -2155,9 +2222,11 @@ export function Step2({
           }
           return normalizeLocationResult(f, "nominatim");
         }).filter(Boolean);
-        setGeocodeSuggestions(rankLocationResults(suggestions, search));
+        await publishSuggestions(civicRequest ? suggestions.filter(s => matchesRequestedCivic(search, s) || !looksLikeAddressResult(s)) : suggestions);
       } catch {
-        if (!cancelled) setGeocodeSuggestions([]);
+        // Nominatim non raggiungibile: lo stradario ufficiale puo' comunque
+        // verificare il civico; altrimenti nessun suggerimento (mai un punto inventato).
+        if (!cancelled) await publishSuggestions([]);
       }
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
@@ -3170,27 +3239,71 @@ export function Step2({
   // Indirizzo/punto dentro Milano ("Milano via Como", "Piazza Duomo Milano"):
   // il comune resta Milano (comune completo), ma il punto cercato diventa il
   // centro preferito della modalità Raggio (radiusCenterSource = "address").
-  function startManualPinSelection() {
+  function startManualPinSelection(focusCandidate = null) {
     setManualPinMode(true);
     setAddressSearchError("");
     setDropOpen(false);
+    // Su telefono chiudi la tastiera e porta subito la mappa in vista.
+    // Il punto resta non selezionato finche' non viene toccata la mappa.
+    if (typeof document !== "undefined") {
+      document.activeElement?.blur?.();
+      requestAnimationFrame(() => document.getElementById("step2-map-target")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+    // Un geocoder puo' proporre un punto ma non certificarne il civico:
+    // inquadra la zona, senza salvare il punto finche' l'utente non clicca
+    // sulla mappa. Gli eventi onClick senza coordinate non sono candidati.
+    const lat = Number(focusCandidate?.lat);
+    const lng = Number(focusCandidate?.lng);
+    if (focusCandidate?.needsMapConfirmation && Number.isFinite(lat) && Number.isFinite(lng)) {
+      setFocusedNil({
+        id: `candidate:${focusCandidate.id || search}`,
+        geometry: { type: "LineString", coordinates: [[lng - 0.0004, lat - 0.0003], [lng + 0.0004, lat + 0.0003]] },
+        nonce: Date.now()
+      });
+      return;
+    }
+    // In assenza di proposta, inquadra la via dai civici ufficiali: non
+    // e' la posizione del civico richiesto.
+    const check = civicRegistryCheck && civicRegistryCheck.search === search && civicRegistryCheck.zoneId === (data.activeZoneId || null) ? civicRegistryCheck : null;
+    if (check?.streetPath) setFocusedNil({ id: `street:${check.street}`, geometry: check.streetPath, nonce: Date.now() });
   }
-  function handleManualMapClick(coords) {
+  async function handleManualMapClick(coords) {
     if (!coords || !Number.isFinite(Number(coords?.lat)) || !Number.isFinite(Number(coords?.lng))) return;
+    const ownerZoneId = activeZoneIdRef.current;
     setManualPinMode(false);
-    setSelectedSearchPoint({
+    const point = {
       type: "manual_point",
       label: "Punto selezionato sulla mappa",
+      // Scelto dall'utente: non e' un civico verificato.
+      verification: "manual",
       lat: Number(coords.lat),
       lng: Number(coords.lng),
       parentComune: normalizeMunicipalityName(city?.label || city?.name) === "milano" ? "Milano" : city?.label || city?.name || "Milano"
-    });
+    };
+    setSelectedSearchPoint(point);
     setAddressSearchError("");
     switchToRadiusMode();
+    // switchToRadiusMode legge il punto precedente (stato non ancora
+    // aggiornato): in un PV nuovo, senza comune ne' indirizzo salvato, il
+    // raggio restava "non confermato" e i KPI "Dato non disponibile" anche con
+    // l'analisi arrivata. Il centro e' il punto appena scelto.
+    setRadiusSelectionConfirmed(Number(radius || 3) > 0);
+    persistCoverageAddress({ label: point.label, lat: point.lat, lng: point.lng, municipality: point.parentComune });
+    if (!city && point.parentComune === "Milano") {
+      const milano = await resolveMilanoCity();
+      // Il PV puo' essere cambiato durante l'attesa: mai applicare Milano a un altro PV.
+      if (activeZoneIdRef.current !== ownerZoneId || !milano) return;
+      setCity(milano);
+      setSelectedComuni(prev => prev && prev.length > 0 ? prev : [milano]);
+    }
   }
   async function selectAddressPointInMilano(pointLabel, point) {
+    const ownerZoneId = activeZoneIdRef.current;
     try {
       const milano = await resolveMilanoCity();
+      // Resolving Milano is asynchronous. Never apply the result to a PV the
+      // operator switched to while the geocoder request was in flight.
+      if (activeZoneIdRef.current !== ownerZoneId) return;
       if (!milano) {
         debugStep2Warn("[ADDRESS_POINT_MILANO_RESOLVE_FAILED]", {
           pointLabel
@@ -3200,8 +3313,11 @@ export function Step2({
       const hasValidCoordinates = point && Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng));
       const isParentMilano = point?.parentComune === "Milano" || isGeocoderResultInMilanoComune(point);
       const isComuneDiverso = point?.placeType === "place" || point && normalizeMunicipalityName(point.city || point.comune || "") && normalizeMunicipalityName(point.city || point.comune || "") !== "milano";
-      if (!hasValidCoordinates || !isParentMilano || isComuneDiverso) {
-        setAddressSearchError("Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
+      const civicUnverified = Boolean(parseRequestedCivic(search) && !matchesRequestedCivic(search, point));
+      if (!hasValidCoordinates || !isParentMilano || isComuneDiverso || civicUnverified) {
+        setAddressSearchError(civicUnverified
+          ? "Numero civico non verificato. Seleziona il punto esatto sulla mappa."
+          : "Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
         setSelectedSearchPoint(null);
         logAddressVsMunicipalityDebug(pointLabel || search, city, null, null, true, !hasValidCoordinates ? "invalid_coordinates" : !isParentMilano ? "not_in_milano" : "different_municipality", pointLabel, "address", null);
         if (import.meta.env.DEV) {
@@ -3250,7 +3366,13 @@ export function Step2({
         city: "Milano",
         province: point.province || null,
         providerPlaceId: point.id || null,
-        precision: point.placeType || point.type || "address"
+        precision: point.placeType || point.type || "address",
+        // Provenienza del punto: civico dello stradario ufficiale del Comune,
+        // civico esatto di un geocoder, oppure indirizzo senza civico.
+        verification: point.verification || (point.houseNumber ? "provider_civic" : "provider_street"),
+        source: point.source || null,
+        sourceLabel: point.sourceLabel || null,
+        nil: point.nil || null
       };
       setSelectedSearchPoint(sp);
       // Il nuovo punto ha coordinate valide (verificate sopra via
@@ -3299,8 +3421,10 @@ export function Step2({
     }
   }
   async function selectMilanoAsNil(nilName, nilPoint = null) {
+    const ownerZoneId = activeZoneIdRef.current;
     try {
       const milano = await resolveMilanoCity();
+      if (activeZoneIdRef.current !== ownerZoneId) return;
       if (!milano) {
         debugStep2Warn("[NIL_SUGGESTION_MILANO_RESOLVE_FAILED]", {
           nilName
@@ -4953,8 +5077,11 @@ export function Step2({
   }, [data.campaignZones, resolveCampaignZoneCity, setData]);
   const selectCampaignZone = useCallback(zoneId => {
     if (!campaignZones.some(z => z.id === zoneId)) return;
+    if (data.activeZoneId && localZoneId === data.activeZoneId) searchDraftByZoneRef.current.set(data.activeZoneId, search);
+    // Lock the intended owner before any previous asynchronous geocode returns.
+    activeZoneIdRef.current = zoneId;
     setData(prev => activatePointOfSale(prev, zoneId, { resolveCity: resolveCampaignZoneCity }));
-  }, [campaignZones, resolveCampaignZoneCity, setData]);
+  }, [campaignZones, data.activeZoneId, localZoneId, search, resolveCampaignZoneCity, setData]);
   const gisSkeleton = (width = 54) => <span aria-hidden="true" style={{
     display: "inline-block",
     width,
@@ -5664,6 +5791,7 @@ export function Step2({
       )}
 
       {!isAdminView && <Step2TerritoryControlsPanel
+        civicRegistryMessage={civicRegistryCheck && civicRegistryCheck.search === search && civicRegistryCheck.zoneId === (data.activeZoneId || null) ? civicRegistryCheck.message : null}
           simplifiedMilano={milanoClientView}
           activeAreaTab={activeAreaTab}
           activeZoneId={data.activeZoneId}
@@ -5746,7 +5874,7 @@ export function Step2({
           updateActiveRadius={updateActiveRadius}
           zonesInRadius={zonesInRadius}
         />}
-      {!isAdminView && campaignZonesOverview.isMultiZone && campaignZonesOverview.hasOverlap && <div role="status" data-testid="step2-multizone-overlap-warning" style={{
+      {!isAdminView && campaignZonesOverview.isMultiZone && campaignZonesOverview.allZonesReady && campaignZonesOverview.hasOverlap && <div role="status" data-testid="step2-multizone-overlap-warning" style={{
         margin: "0 0 12px",
         padding: "10px 12px",
         borderRadius: 10,
@@ -5904,6 +6032,7 @@ export function Step2({
           {milanoClientView && <MilanoCoverageModeChooser
             mode={milanoClientMode}
             address={coverageAddress || selectedSearchPoint}
+            pointProvenance={describePointProvenance(selectedSearchPoint)}
             containingNil={containingNil || (coverageAddress?.nearestNilName ? { name: coverageAddress.nearestNilName } : null)}
             onChooseNil={() => { switchToComuneMode(); setPendingNilPreselectName(null); enterNilManualMode(); setActiveMapLayers(prev => ({ ...prev, nil: true })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
             radiusKm={radiusKm} onRadiusChange={updateActiveRadius} radiusDisabled={apiLoading}
