@@ -267,6 +267,13 @@ test("KPI multi-PV: mai zero né somma se un PV non è pronto; quantità non dup
   assert.equal(s.totalQuantity, 98046 + 50000, "ogni PV contato una sola volta");
 });
 
+test("Step 2: nessun contatto o assistente fisso sopra la mappa", () => {
+  const routes = read("../src/app/PublicRoutes.jsx");
+  assert.ok(routes.includes('page !== "step2" && !assistantAllowed && <PublicContactBox />'));
+  assert.ok(routes.includes('page !== "step2" && assistantAllowed && <InlineHelpCta'));
+  assert.ok(routes.includes("{showFooter && <Footer"), "contatti raggiungibili nel footer");
+});
+
 test("banner selezione punto: non copre il centro della mappa su Samsung", () => {
   const mapPanel = read("../src/pages/public/configurator/step2/Step2MapPanel.jsx");
   const start = mapPanel.indexOf("manualPinMode && <div");
