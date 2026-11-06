@@ -267,6 +267,23 @@ test("KPI multi-PV: mai zero né somma se un PV non è pronto; quantità non dup
   assert.equal(s.totalQuantity, 98046 + 50000, "ogni PV contato una sola volta");
 });
 
+test("nuovo PV: la ricerca parte vuota e non eredita i suggerimenti del precedente", () => {
+  const start = step2.indexOf("const handleAddZone = () =>");
+  const end = step2.indexOf("const updateZoneField =", start);
+  const body = step2.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  for (const statement of [
+    'searchDraftByZoneRef.current.set(newId, "")',
+    'setSearch("")',
+    'setDropOpen(false)',
+    'setGeocodeSuggestions([])',
+    'setAddressSearchError("")',
+    'city: null',
+    'coverage: { address: null }'
+  ]) assert.ok(body.includes(statement), `nuovo PV deve contenere: ${statement}`);
+  assert.ok(body.includes("activatePointOfSale"), "PV2 diventa il PV attivo");
+});
+
 test("Step 2: nessun contatto o assistente fisso sopra la mappa", () => {
   const routes = read("../src/app/PublicRoutes.jsx");
   assert.ok(routes.includes('page !== "step2" && !assistantAllowed && <PublicContactBox />'));
