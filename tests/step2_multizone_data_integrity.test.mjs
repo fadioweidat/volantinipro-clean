@@ -18,6 +18,8 @@ import {
 } from "../src/lib/step2/campaignZonesModel.js";
 import { calculateQuotePricing } from "../src/lib/quotePricing.js";
 import { resolveConfiguratorDistributionZones } from "../src/lib/pricing/resolveConfiguratorDistributionZones.js";
+import { matchesRequestedCivic, parseRequestedCivic } from "../src/lib/step2/civicAddressMatch.js";
+import { activatePointOfSale } from "../src/lib/step2/campaignZonesModel.js";
 
 const step2 = readFileSync(new URL("../src/pages/public/configurator/Step2.jsx", import.meta.url), "utf8");
 const step4 = readFileSync(new URL("../src/pages/public/configurator/Step4.jsx", import.meta.url), "utf8");
@@ -309,4 +311,49 @@ test("G. comune zone vs radius touching the same comune / shared NIL -> possible
   // warning visibile in Step2 e Step4
   assert.match(step2, /data-testid="step2-multizone-overlap-warning"/);
   assert.match(step4, /<Step4MultiZoneSummary summary=\{multiZoneSummary\} posPricing=\{multiZonePosPricing\}/);
+});
+
+
+// ---------------------------------------------------------------- Regression: real Samsung Step 2, 2026-11-05
+test("Samsung: civico 330/333 must not be silently replaced by a street/POI centroid", () => {
+  assert.deepEqual(parseRequestedCivic("Milano viale certosa 330"), { number: "330", street: "viale certosa" });
+  assert.deepEqual(parseRequestedCivic("Viale Certosa 333, Milano"), { number: "333", street: "Viale Certosa" });
+  assert.deepEqual(parseRequestedCivic("Milano Via Antonio Oroboni 12/A"), { number: "12A", street: "Via Antonio Oroboni" });
+  assert.equal(parseRequestedCivic("Milano Viale Certosa"), null);
+  assert.equal(parseRequestedCivic("Milano CAP 20156"), null);
+  const exact = { street: "Viale Certosa", houseNumber: "330", city: "Milano", lat: 45.5, lng: 9.1 };
+  assert.equal(matchesRequestedCivic("Milano viale certosa 330", exact), true);
+  assert.equal(matchesRequestedCivic("Viale Certosa 333 Milano", exact), false);
+  assert.equal(matchesRequestedCivic("Milano viale certosa 330", { ...exact, houseNumber: null }), false);
+  assert.equal(matchesRequestedCivic("Milano viale certosa 330", { ...exact, street: "Via Certosa" }), false);
+  assert.equal(matchesRequestedCivic("Milano viale certosa", { street: "Viale Certosa" }), true);
+  // Mapbox/OSM fallback and UI enforce the SAME acceptance rule.
+  assert.match(step2, /verifiedNomAddresses = civicRequest \? nomAddresses\.filter\(s => matchesRequestedCivic\(search, s\)\)/);
+  assert.match(step2, /civicUnverified = Boolean\(parseRequestedCivic\(search\) && !matchesRequestedCivic\(search, point\)\)/);
+});
+
+test("Samsung: switching to the second PV never carries the first PV's address", () => {
+  const first = { ...zoneMonza, id: "pv1", selectedSearchPoint: { label: "Bruzzano", lat: 45.525, lng: 9.174 }, coverage: { address: { label: "Bruzzano", lat: 45.525, lng: 9.174 } } };
+  const second = { ...zoneRho, id: "pv2", city: null, cityName: "", selectedComuni: [], selectedSearchPoint: null, coverage: { address: null }, readyForQuote: false };
+  const state = activatePointOfSale({ campaignZones: [first, second], activeZoneId: first.id, coverage: { address: first.coverage.address } }, second.id);
+  assert.equal(state.activeZoneId, "pv2");
+  assert.equal(state.city, null);
+  assert.equal(state.selectedSearchPoint, null);
+  assert.equal(state.coverage.address, null);
+  assert.match(step2, /if \(activeZoneIdRef\.current !== ownerZoneId\) return;/);
+  assert.match(step2, /searchDraftByZoneRef\.current\.get\(activeZone\.id\)/);
+});
+
+test("Samsung: no unique-household or overlap claim before ALL point-of-sale zones are configured", () => {
+  const first = comuneZone("pv_bruzzano", MILANO, 10000, [row("BRUZZANO", 10000, 10000, { nil_code: "14" })], { nilManualMode: true });
+  const second = { id: "pv2", city: { ...MILANO }, cityName: "Milano", searchMode: "municipality", assigned_flyers: 10000, readyForQuote: false, kpiSnapshot: { families: 744299, population: 1e6 }, allocation: [row("BRUZZANO", 10000, 10000, { nil_code: "14" })] };
+  const result = summarizeCampaignZones([first, second]);
+  assert.equal(result.allZonesReady, false);
+  assert.equal(result.totalFamilies, null);
+  assert.equal(result.totalPopulation, null);
+  assert.equal(result.hasOverlap, false);
+  assert.equal(result.uniqueHouseholds.uniqueFamilies, null);
+  assert.equal(result.uniqueFamiliesStatus, "not_determinable");
+  assert.equal(result.capacityStatus, "configuration_incomplete");
+  assert.match(step2, /campaignZonesOverview\.allZonesReady && campaignZonesOverview\.hasOverlap/);
 });
