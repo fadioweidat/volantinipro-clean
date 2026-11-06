@@ -31,11 +31,11 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
             {manualPinMode && <div style={{
               position: "absolute",
               top: 16,
-              left: "50%",
-              transform: "translateX(-50%)",
+              left: 12,
+              right: 12,
               zIndex: 1000,
-              padding: "10px 18px",
-              borderRadius: 30,
+              padding: "9px 12px",
+              borderRadius: 12,
               background: "#1E3A8A",
               border: "2px solid #60A5FA",
               color: C.white,
@@ -45,15 +45,22 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
               boxShadow: "0 8px 24px rgba(0,0,0,.6)",
               display: "flex",
               alignItems: "center",
-              gap: 10
+              justifyContent: "space-between",
+              gap: 8,
+              maxWidth: "calc(100% - 24px)",
+              boxSizing: "border-box"
             }}>
                 <span style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 6
-              }}><Step1Icon name="pin" size={14} /> Clicca su un punto qualsiasi della mappa per calcolare il raggio</span>
-                <button onClick={() => setManualPinMode(false)} style={{
-                padding: "4px 10px",
+                gap: 6,
+                minWidth: 0,
+                flex: 1,
+                lineHeight: 1.3
+              }}><Step1Icon name="pin" size={14} /> Tocca la mappa per scegliere il punto</span>
+                <button type="button" onClick={() => setManualPinMode(false)} style={{
+                flexShrink: 0,
+                padding: "8px 10px",
                 borderRadius: 14,
                 border: "none",
                 background: "rgba(255,255,255,.2)",
