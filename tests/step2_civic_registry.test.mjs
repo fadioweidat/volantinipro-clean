@@ -109,9 +109,9 @@ test("stradario: il 330 non compare nei dati consultati, senza affermarne inesis
   // percorso della via dai civici ufficiali, solo per inquadrare la scelta manuale
   assert.equal(r.streetPath.type, "LineString");
   assert.ok(r.streetPath.coordinates.length >= 2);
-  assert.match(describeRegistryOutcome(r, "330"), /non è presente nel dataset dei civici del Comune di Milano/);
-  assert.match(describeRegistryOutcome(r, "330"), /numero massimo registrato su questa via: 316/);
-  assert.match(describeRegistryOutcome(r, "330"), /non dimostra che il numero non esista/);
+  assert.match(describeRegistryOutcome(r, "330"), /numero civico non verificato nel dataset del Comune di Milano/);
+  assert.match(describeRegistryOutcome(r, "330"), /numero più alto registrato è 316/);
+  assert.match(describeRegistryOutcome(r, "330"), /non prova che il civico non esista/);
 });
 
 test("stradario: via assente, via ambigua, errori HTTP, risposta non valida, timeout", async () => {
@@ -267,9 +267,15 @@ test("KPI multi-PV: mai zero né somma se un PV non è pronto; quantità non dup
   assert.equal(s.totalQuantity, 98046 + 50000, "ogni PV contato una sola volta");
 });
 
-test("scelta manuale: si apre inquadrando la via dello stradario, non l'Italia intera", () => {
+test("scelta manuale: inquadra la via automaticamente e apre la mappa su mobile", () => {
+  assert.ok(step2.includes("outcome?.status === CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY && outcome.streetPath"));
   assert.ok(step2.includes("if (check?.streetPath) setFocusedNil({ id: `street:${check.street}`, geometry: check.streetPath, nonce: Date.now() });"));
   assert.ok(step2.includes("streetPath: outcome.streetPath || null,"));
+  assert.ok(step2.includes('document.getElementById("step2-map-target")?.scrollIntoView'));
+  const mapPanel = read("../src/pages/public/configurator/step2/Step2MapPanel.jsx");
+  assert.ok(mapPanel.includes('id="step2-map-target"'));
+  assert.ok(panel.includes("!civicRequest && <button"), "nessuna proposta Milano intera per un civico specifico");
+  assert.ok(panel.includes("if (civicRequest && !matchesRequestedCivic(search, c)) return null;"), "non proporre Municipio come indirizzo");
 });
 
 test("provenienza del punto: verificato, provider, manuale, solo via", () => {
