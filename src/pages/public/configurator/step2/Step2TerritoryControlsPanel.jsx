@@ -207,7 +207,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                             return;
                           }
                           const sIntent = detectSearchIntent(search);
-                          if (sIntent.intent === "address" && sIntent.parentComune === "Milano") {
+                          if (sIntent.intent === "address" && (sIntent.parentComune === "Milano" || geocodeSuggestions.some(c => isGeocoderResultInMilanoComune(c) && matchesRequestedCivic(search, c) && parseRequestedCivic(search)))) {
                             const topValid = geocodeSuggestions.find(c => {
                               const textLooksLikeAddr = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
                               const inMil = isGeocoderResultInMilanoComune(c);
@@ -297,8 +297,8 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                       </div>;
                     }
                     const searchIntent = detectSearchIntent(search);
-                    const addressIntentInMilano = searchIntent.intent === "address" && searchIntent.parentComune === "Milano";
                     const civicRequest = parseRequestedCivic(search);
+                    const addressIntentInMilano = searchIntent.intent === "address" && (searchIntent.parentComune === "Milano" || Boolean(civicRequest && geocodeSuggestions.some(c => isGeocoderResultInMilanoComune(c) && matchesRequestedCivic(search, c))));
                     // Ordine (§ticket): indirizzi/punti → Milano → altri comuni
                     // (solo come alternativa esplicita, mai scelta principale).
                     const rankSuggestion = s => {
@@ -316,7 +316,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                     const hasValidMilanoAddress = validMilanoAddresses.length > 0;
                     const orderedSuggestions = addressIntentInMilano ? [...geocodeSuggestions].sort((a, b) => rankSuggestion(a) - rankSuggestion(b)) : geocodeSuggestions;
                     return <>
-                      {addressIntentInMilano && !hasValidMilanoAddress && <div style={{
+                      {(addressIntentInMilano || Boolean(civicRequest)) && !hasValidMilanoAddress && <div style={{
                         padding: "12px 14px",
                         borderBottom: "1px solid rgba(255,255,255,.08)",
                         background: "rgba(251,191,36,.08)",
@@ -413,7 +413,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                             </div>;
                         }
                         // A road/POI hit without an exact house number is not a verified civic.
-                        if (addressIntentInMilano && civicRequest && (looksLikeAddressResult(c) || textLooksLikeAddress) && !matchesRequestedCivic(search, c)) return null;
+                        if (civicRequest && (looksLikeAddressResult(c) || textLooksLikeAddress) && !matchesRequestedCivic(search, c)) return null;
                         if (addressIntentInMilano && (looksLikeAddressResult(c) || textLooksLikeAddress)) {
                           const inMilano = isGeocoderResultInMilanoComune(c);
                           if (!inMilano) return null;
