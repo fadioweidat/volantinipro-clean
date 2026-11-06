@@ -5,8 +5,8 @@
 //  - sulla Preview *.vercel.app il token Mapbox risponde 403 (limitato ai
 //    domini volantinipro.it) e lo Step 2 passa a Nominatim;
 //  - OpenStreetMap non ha il civico 330 (solo tratti di via) -> "non verificato";
-//  - lo stradario ufficiale del Comune (ds634) ha Viale Certosa 1-316: il 330
-//    non esiste; il "330" di Mapbox cade a 27 m dal civico 282.
+//  - il dataset del Comune (ds634) mostra un massimo di 316 per Viale Certosa:
+//    non e' una prova assoluta di inesistenza del 330; Mapbox puo' interpolare.
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -100,7 +100,7 @@ test("stradario: civico con lettera trovato solo con la lettera giusta", async (
   assert.equal(b.status, CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY);
 });
 
-test("stradario: Viale Certosa 330 non esiste -> stato esplicito con l'intervallo reale", async () => {
+test("stradario: il 330 non compare nei dati consultati, senza affermarne inesistenza", async () => {
   const { fetchImpl } = fakeRegistry({ streets: [CERTOSA], civics: [C282A, C316] });
   const r = await lookupMilanoCivic({ street: "Viale Certosa", number: "330" }, { fetchImpl });
   assert.equal(r.status, CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY);
@@ -109,7 +109,9 @@ test("stradario: Viale Certosa 330 non esiste -> stato esplicito con l'intervall
   // percorso della via dai civici ufficiali, solo per inquadrare la scelta manuale
   assert.equal(r.streetPath.type, "LineString");
   assert.ok(r.streetPath.coordinates.length >= 2);
-  assert.match(describeRegistryOutcome(r, "330"), /Viale Certosa 330 non risulta nello stradario ufficiale del Comune di Milano \(civici registrati: 1-316\)\. Scegli il punto esatto sulla mappa\./);
+  assert.match(describeRegistryOutcome(r, "330"), /non è presente nel dataset dei civici del Comune di Milano/);
+  assert.match(describeRegistryOutcome(r, "330"), /numero massimo registrato su questa via: 316/);
+  assert.match(describeRegistryOutcome(r, "330"), /non dimostra che il numero non esista/);
 });
 
 test("stradario: via assente, via ambigua, errori HTTP, risposta non valida, timeout", async () => {
@@ -144,11 +146,20 @@ const MAPBOX_330 = { id: "address.1", street: "Viale Certosa", houseNumber: "330
 const MUNICIPIO_8 = { id: "locality.8", name: "Municipio 8", placeType: "locality", source: "mapbox" };
 const STREET_ONLY = { id: "osm.1", street: "Viale Certosa", houseNumber: null, lat: 45.496, lng: 9.137, placeType: "road", source: "nominatim" };
 
-test("geocoder + stradario: il 330 di Mapbox viene scartato perché il civico non esiste", () => {
+test("geocoder + stradario: il candidato 330 resta visibile ma richiede un clic sulla mappa", () => {
   const q = "Viale Certosa 330, Milano";
   const out = applyRegistryOutcome([MAPBOX_330, MUNICIPIO_8, STREET_ONLY], { status: CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY, range: { min: 1, max: 316 } }, q, matchesRequestedCivic);
-  assert.ok(!out.includes(MAPBOX_330));
-  assert.ok(out.includes(MUNICIPIO_8), "le alternative esplicite restano");
+  assert.equal(out[0].houseNumber, "330");
+  assert.equal(out[0].verification, "provider_civic");
+  assert.equal(out[0].needsMapConfirmation, true);
+  assert.equal(out[0].source, "mapbox");
+  assert.notEqual(out[0], MAPBOX_330, "il candidato viene annotato senza mutare i dati originali");
+  assert.equal(out[1], MUNICIPIO_8, "le alternative esplicite restano");
+  assert.equal(out[2], STREET_ONLY, "le vie senza numero restano solo come alternative");
+  assert.ok(panel.includes("if (c?.needsMapConfirmation && civicRequest && hasPointCoordinates)"));
+  assert.ok(panel.includes("startManualPinSelection(c)"));
+  assert.ok(panel.includes("!c?.needsMapConfirmation && (looksLikeAddressResult(c)"));
+  assert.ok(step2.includes("if (focusCandidate?.needsMapConfirmation && Number.isFinite(lat) && Number.isFinite(lng))"));
 });
 
 test("geocoder + stradario: civico verificato in testa, i punti dei provider per lo stesso civico tolti", () => {
