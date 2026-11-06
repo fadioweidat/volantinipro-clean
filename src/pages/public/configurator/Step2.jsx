@@ -9,6 +9,7 @@ import { familiesShare, familiesShareOfTotal, familiesWeightedCoverage } from ".
 import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
 import { matchesRequestedCivic, parseRequestedCivic } from "../../../lib/step2/civicAddressMatch.js";
+import { applyRegistryOutcome, CIVIC_REGISTRY_STATUS, describeRegistryOutcome, lookupMilanoCivic, shouldCheckMilanoRegistry } from "../../../lib/step2/milanoCivicRegistry.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, canonicalZoneId, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
 import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
@@ -293,6 +294,10 @@ export function Step2({
   const searchDraftByZoneRef = useRef(new Map());
   const [geocodeSuggestions, setGeocodeSuggestions] = useState([]);
   const [addressSearchError, setAddressSearchError] = useState("");
+  // Esito dello stradario ufficiale del Comune di Milano per la ricerca civica
+  // corrente: { search, zoneId, status, message }. Legato a ricerca + PV, mai
+  // mostrato per un'altra ricerca o un altro punto vendita.
+  const [civicRegistryCheck, setCivicRegistryCheck] = useState(null);
   const [manualPinMode, setManualPinMode] = useState(false);
   const [allocationMode, setAllocationMode] = useState(data.allocationMode || "auto");
   const [manualAssignments, setManualAssignments] = useState(data.manualAssignments || {});
@@ -2082,6 +2087,27 @@ export function Step2({
       const searchIntent = detectSearchIntent(search);
       const civicRequest = parseRequestedCivic(search);
       const pointSearchIntent = searchMode === "address" && isMovementStep2;
+      // Civico a Milano: lo stradario ufficiale del Comune (ds634) e' la fonte
+      // di verifica, interrogato in parallelo ai geocoder. Le coordinate di un
+      // civico verificato sono quelle del Comune; un civico assente dal
+      // registro non viene accettato da nessun geocoder (es. Viale Certosa 330).
+      const requestZoneId = data.activeZoneId || null;
+      const registryCheck = shouldCheckMilanoRegistry(civicRequest, searchIntent.parentComune)
+        ? lookupMilanoCivic(civicRequest).catch(() => ({ status: CIVIC_REGISTRY_STATUS.UNAVAILABLE }))
+        : null;
+      const publishSuggestions = async list => {
+        const outcome = registryCheck ? await registryCheck : null;
+        if (cancelled) return;
+        setCivicRegistryCheck(outcome ? {
+          search,
+          zoneId: requestZoneId,
+          status: outcome.status,
+          street: outcome.street || null,
+          range: outcome.range || null,
+          message: describeRegistryOutcome(outcome, civicRequest?.number)
+        } : null);
+        setGeocodeSuggestions(rankLocationResults(applyRegistryOutcome(list, outcome, search, matchesRequestedCivic), search));
+      };
       const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
       if (mapboxToken) {
         try {
@@ -2152,13 +2178,13 @@ export function Step2({
                 });
                 const verifiedNomAddresses = civicRequest ? nomAddresses.filter(s => matchesRequestedCivic(search, s)) : nomAddresses;
                 if (verifiedNomAddresses.length > 0) {
-                  setGeocodeSuggestions(rankLocationResults([...verifiedNomAddresses, ...mapboxSuggestions], search));
+                  await publishSuggestions([...verifiedNomAddresses, ...mapboxSuggestions]);
                   return;
                 }
               } catch {}
             }
             if (cancelled) return;
-            setGeocodeSuggestions(rankLocationResults(mapboxSuggestions, search));
+            await publishSuggestions(mapboxSuggestions);
             return;
           }
         } catch {}
@@ -2178,9 +2204,11 @@ export function Step2({
           }
           return normalizeLocationResult(f, "nominatim");
         }).filter(Boolean);
-        setGeocodeSuggestions(rankLocationResults(civicRequest ? suggestions.filter(s => matchesRequestedCivic(search, s) || !looksLikeAddressResult(s)) : suggestions, search));
+        await publishSuggestions(civicRequest ? suggestions.filter(s => matchesRequestedCivic(search, s) || !looksLikeAddressResult(s)) : suggestions);
       } catch {
-        if (!cancelled) setGeocodeSuggestions([]);
+        // Nominatim non raggiungibile: lo stradario ufficiale puo' comunque
+        // verificare il civico; altrimenti nessun suggerimento (mai un punto inventato).
+        if (!cancelled) await publishSuggestions([]);
       }
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
@@ -3204,6 +3232,8 @@ export function Step2({
     setSelectedSearchPoint({
       type: "manual_point",
       label: "Punto selezionato sulla mappa",
+      // Scelto dall'utente: non e' un civico verificato.
+      verification: "manual",
       lat: Number(coords.lat),
       lng: Number(coords.lng),
       parentComune: normalizeMunicipalityName(city?.label || city?.name) === "milano" ? "Milano" : city?.label || city?.name || "Milano"
@@ -3280,7 +3310,13 @@ export function Step2({
         city: "Milano",
         province: point.province || null,
         providerPlaceId: point.id || null,
-        precision: point.placeType || point.type || "address"
+        precision: point.placeType || point.type || "address",
+        // Provenienza del punto: civico dello stradario ufficiale del Comune,
+        // civico esatto di un geocoder, oppure indirizzo senza civico.
+        verification: point.verification || (point.houseNumber ? "provider_civic" : "provider_street"),
+        source: point.source || null,
+        sourceLabel: point.sourceLabel || null,
+        nil: point.nil || null
       };
       setSelectedSearchPoint(sp);
       // Il nuovo punto ha coordinate valide (verificate sopra via
@@ -5699,6 +5735,7 @@ export function Step2({
       )}
 
       {!isAdminView && <Step2TerritoryControlsPanel
+        civicRegistryMessage={civicRegistryCheck && civicRegistryCheck.search === search && civicRegistryCheck.zoneId === (data.activeZoneId || null) ? civicRegistryCheck.message : null}
           simplifiedMilano={milanoClientView}
           activeAreaTab={activeAreaTab}
           activeZoneId={data.activeZoneId}

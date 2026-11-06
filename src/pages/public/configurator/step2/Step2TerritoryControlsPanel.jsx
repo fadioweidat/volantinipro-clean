@@ -10,7 +10,7 @@ import { S2_RADII } from "../../../../lib/step2/s2Constants.js";
 import { STORE_NAME_MAX_LENGTH } from "../../../../lib/step2/campaignZonesModel.js";
 import { matchesRequestedCivic, parseRequestedCivic } from "../../../../lib/step2/civicAddressMatch.js";
 
-export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAreaTab, activeZoneId, addressFullCoverageConfirmed, addressIntentInMilano, addressSearchError, apiLoading, appendMunicipalityToActiveZone, campaignZones, capSearchLoading, capSuggestions, city, col, data, dropOpen, duplicateComuneNotice, geocodeSuggestions, getCampaignZoneLabel, handleAddZone, renamePointOfSale, deletePointOfSale, handleCapSelect, hasSearchPoint, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isMobile, isMovementStep2, isNilAnalysis, isRadiusMode, municipalityBoundary, nilManualMode, onBack, pendingAddMunicipality, pill, radiusAdvisoryData, radiusKm, recommendedRadiusForSlider, removeMunicipalityFromActiveZone, resetActiveZone, resolveMilanoCity, search, searchedLocation, searchMode, selectAddressPointInMilano, selectCampaignZone, selectMilanoAsNil, selectMunicipalityAsRadiusCenter, selectOperationalPoint, selectPrimaryMunicipality, selectedCaps, selectedComuni, selectedSearchPoint, setAddressFullCoverageConfirmed, setAddressSearchError, setCapDataMap, setCity, setCoverageDecision, setCoverageStrategy, setData, setDismissedAdvisoryRadius, setDropOpen, setHiddenBoundaries, setPartialCoverageConfirmed, setPendingAddMunicipality, setSearch, setSelected, setSelectedCaps, setSelectedComuni, setSelectedSearchPoint, sharedCoveragePctText, startManualPinSelection, svcType, switchToCapMode, switchToComuneMode, switchToRadiusMode, updateActiveRadius, zonesInRadius }) {
+export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicRegistryMessage = null, activeAreaTab, activeZoneId, addressFullCoverageConfirmed, addressIntentInMilano, addressSearchError, apiLoading, appendMunicipalityToActiveZone, campaignZones, capSearchLoading, capSuggestions, city, col, data, dropOpen, duplicateComuneNotice, geocodeSuggestions, getCampaignZoneLabel, handleAddZone, renamePointOfSale, deletePointOfSale, handleCapSelect, hasSearchPoint, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isMobile, isMovementStep2, isNilAnalysis, isRadiusMode, municipalityBoundary, nilManualMode, onBack, pendingAddMunicipality, pill, radiusAdvisoryData, radiusKm, recommendedRadiusForSlider, removeMunicipalityFromActiveZone, resetActiveZone, resolveMilanoCity, search, searchedLocation, searchMode, selectAddressPointInMilano, selectCampaignZone, selectMilanoAsNil, selectMunicipalityAsRadiusCenter, selectOperationalPoint, selectPrimaryMunicipality, selectedCaps, selectedComuni, selectedSearchPoint, setAddressFullCoverageConfirmed, setAddressSearchError, setCapDataMap, setCity, setCoverageDecision, setCoverageStrategy, setData, setDismissedAdvisoryRadius, setDropOpen, setHiddenBoundaries, setPartialCoverageConfirmed, setPendingAddMunicipality, setSearch, setSelected, setSelectedCaps, setSelectedComuni, setSelectedSearchPoint, sharedCoveragePctText, startManualPinSelection, svcType, switchToCapMode, switchToComuneMode, switchToRadiusMode, updateActiveRadius, zonesInRadius }) {
   return (
     <>
       {/* Section */}
@@ -217,7 +217,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                             if (topValid) {
                               selectAddressPointInMilano(topValid.name, topValid);
                             } else {
-                              setAddressSearchError(parseRequestedCivic(search) ? "Numero civico non verificato. Scegli il punto esatto sulla mappa." : "Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
+                              setAddressSearchError(parseRequestedCivic(search) ? civicRegistryMessage || "Numero civico non verificato. Scegli il punto esatto sulla mappa." : "Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
                               setSelectedSearchPoint(null);
                               setDropOpen(false);
                               logAddressVsMunicipalityDebug(search, city, city, null, true, "invalid_milano_address_blocked_auto_select", search, "unknown", null);
@@ -292,7 +292,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                     {searchMode !== "cap" ? (() => {
                     if (geocodeSuggestions.length === 0 && search.length >= 2) {
                       return <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "#FBBF24" }}>
-                        {parseRequestedCivic(search) ? "Civico non verificato: non è possibile usare la posizione generica della via." : "Nessun risultato..."}
+                        {parseRequestedCivic(search) ? civicRegistryMessage || "Civico non verificato: non è possibile usare la posizione generica della via." : "Nessun risultato..."}
                         {parseRequestedCivic(search) && <button type="button" onClick={startManualPinSelection} style={{ display: "block", marginTop: 8, minHeight: 36, borderRadius: 7, border: "1px solid #60A5FA", color: "#93C5FD", background: "rgba(59,130,246,.12)", padding: "6px 10px", cursor: "pointer" }}>Scegli punto esatto sulla mappa</button>}
                       </div>;
                     }
@@ -328,7 +328,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                           color: "#FBBF24",
                           marginBottom: 8
                         }}>
-                            {civicRequest ? "Numero civico non verificato: usa il punto esatto sulla mappa." : "Indirizzo non trovato a Milano. Controlla il nome della via."}
+                            {civicRequest ? civicRegistryMessage || "Numero civico non verificato: usa il punto esatto sulla mappa." : "Indirizzo non trovato a Milano. Controlla il nome della via."}
                           </div>
                           <div style={{
                           display: "flex",
@@ -432,7 +432,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                               fontSize: 10,
                               color: "rgba(255,255,255,.45)",
                               marginLeft: 6
-                            }}>indirizzo/punto · Milano</span>
+                            }}>{c.verification === "official_registry" ? "civico verificato · stradario Comune di Milano" : "indirizzo/punto · Milano"}</span>
                             </div>;
                         }
                         if (addressIntentInMilano && !isNilLikePlaceType(c.placeType) && normalizeMunicipalityName(c.label || c.name) !== "milano") {
@@ -807,6 +807,12 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                     color: C.white
                   }}>
                         <Step1Icon name="pin" size={12} /> {hasSearchPoint ? selectedSearchPoint.label : city?.label || city?.name || selectedComuni[0]?.label || selectedComuni[0]?.name || searchedLocation}
+                        {hasSearchPoint && <span data-testid="step2-point-verification" style={{ display: "block", marginTop: 2, fontSize: 10, fontWeight: 600, color: selectedSearchPoint.verification === "official_registry" ? "#4ADE80" : "rgba(255,255,255,.55)" }}>
+                          {selectedSearchPoint.verification === "official_registry" ? "Civico verificato · stradario Comune di Milano"
+                            : selectedSearchPoint.verification === "manual" || selectedSearchPoint.type === "manual_point" ? "Punto scelto sulla mappa · non è un civico verificato"
+                            : selectedSearchPoint.verification === "provider_civic" ? `Civico trovato da ${selectedSearchPoint.source === "mapbox" ? "Mapbox" : "OpenStreetMap"} · non verificato nello stradario del Comune`
+                            : "Indirizzo senza numero civico"}
+                        </span>}
                       </div>
                       <div style={{
                     padding: "6px 12px",

@@ -2,19 +2,21 @@
 // centroid. Never silently upgrade a road/POI geocoder hit to a verified civic.
 // This module is pure so both geocoder and UI apply the same acceptance rule.
 
-const STREET_TYPE = /\b(via|viale|corso|piazza|piazzale|largo|strada|vicolo|galleria|alzaia|bastioni|ripa|foro)\b/i;
+const STREET_TYPE = /\b(via|viale|corso|piazza|piazzale|piazzetta|largo|strada|vicolo|galleria|alzaia|bastioni|ripa|foro|passaggio)\b/i;
 
+// "12/A" = "12A" (lettera), ma "24/6" resta "24/6": la barra numerica non si
+// fonde col numero, altrimenti 24/6 e 246 sarebbero lo stesso civico.
 export function normalizeItalianStreetNumber(value) {
   return String(value ?? "")
     .toUpperCase()
     .replace(/[\s.\-]/g, "")
-    .replace(/\//g, "")
+    .replace(/\/(?=[A-Z])/g, "")
     .replace(/^0+(?=\d)/, "");
 }
 
 function normalizeStreet(value) {
   return String(value || "")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
@@ -40,7 +42,17 @@ export function matchesRequestedCivic(query, result) {
   if (!requested) return true; // A street-level request remains supported.
   const actualNumber = normalizeItalianStreetNumber(result?.houseNumber ?? result?.address?.house_number ?? "");
   if (!actualNumber || actualNumber !== requested.number) return false;
+  // Stradario ufficiale del Comune di Milano: la via e' gia' stata risolta dal
+  // registro a partire da questa stessa ricerca ("Piazza Duomo" -> "Piazza del Duomo").
+  if (result?.verification === "official_registry") return true;
   // The number alone is not sufficient: reject 330 on a different road.
   const actualStreet = normalizeStreet(result?.street || result?.address?.road || "");
-  return Boolean(actualStreet && actualStreet === normalizeStreet(requested.street));
+  if (!actualStreet) return false;
+  const wanted = normalizeStreet(requested.street);
+  if (actualStreet === wanted) return true;
+  // "Via Oroboni" = "Via Antonio Oroboni": stesso tipo di via e tutte le parole
+  // cercate presenti nel nome. "Via Certosa" resta diversa da "Viale Certosa".
+  const a = actualStreet.split(" ");
+  const w = wanted.split(" ");
+  return a[0] === w[0] && w.length >= 2 && w.slice(1).every(token => a.slice(1).includes(token));
 }
