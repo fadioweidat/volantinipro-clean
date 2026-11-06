@@ -23,7 +23,7 @@ test("drivers, customers and admins keep the assistant", () => {
 
 test("the public site shows contacts to visitors and the assistant to logged users", () => {
   const routes = read("src/app/PublicRoutes.jsx");
-  assert.match(routes, /isConfiguratorStep && !assistantAllowed && <PublicContactBox \/>/);
+  assert.match(routes, /isConfiguratorStep && page !== "step2" && !assistantAllowed && <PublicContactBox \/>/);
   const box = read("src/components/common/PublicContactBox.jsx");
   assert.match(box, /Hai domande\? Scrivici/);
   assert.match(box, /WhatsApp/);
