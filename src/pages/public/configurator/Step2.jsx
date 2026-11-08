@@ -3809,9 +3809,13 @@ export function Step2({
     if (!analysisOwnedByActiveZone) return;
     // Stessa guardia: nessuna allocazione derivata dai dati della zona precedente.
     if (!city && searchMode !== "cap" && data.campaignZones.length > 1) return;
+    // Valori calcolati per QUESTO PV: se nel frattempo e' stato attivato un
+    // altro PV (cambi rapidi), l'aggiornamento non va applicato a quello.
+    const ownerZoneId = data.activeZoneId;
     setData(prev => {
+      if (prev.activeZoneId !== ownerZoneId) return prev;
       const zones = Array.isArray(prev.campaignZones) ? prev.campaignZones : [];
-      const zoneIndex = zones.findIndex(z => z.id === prev.activeZoneId);
+      const zoneIndex = zones.findIndex(z => z.id === ownerZoneId);
       if (zoneIndex === -1) return prev;
       const currentZone = zones[zoneIndex];
       const nextCalculationStatus = !hasUsableAllocationData && (selZones.length > 0 || Boolean(city)) ? "unavailable" : allocationStatus === "success" ? "success" : "pending";
@@ -5425,9 +5429,12 @@ export function Step2({
     if (!data.activeZoneId || localZoneId !== data.activeZoneId) return;
     // ISOLAMENTO PV: readiness/KPI mai calcolati su un'analisi di un altro PV.
     if (!analysisOwnedByActiveZone) return;
+    // KPI e readiness appartengono al PV per cui sono stati calcolati.
+    const ownerZoneId = data.activeZoneId;
     setData(prev => {
+      if (prev.activeZoneId !== ownerZoneId) return prev;
       const zones = Array.isArray(prev.campaignZones) ? prev.campaignZones : [];
-      const zoneIndex = zones.findIndex(z => z.id === prev.activeZoneId);
+      const zoneIndex = zones.findIndex(z => z.id === ownerZoneId);
       if (zoneIndex === -1) return prev;
       const currentZone = zones[zoneIndex];
       if (currentZone.readyForQuote === activeZoneReadyForQuote && JSON.stringify(currentZone.kpiSnapshot || null) === JSON.stringify(activeZoneSnapshotForSave)) return prev;

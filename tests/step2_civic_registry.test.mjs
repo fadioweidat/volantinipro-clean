@@ -376,3 +376,12 @@ test("punto confermato sulla mappa: conserva l'indirizzo del proprio PV, mai que
   const fn = step2.slice(step2.indexOf("function startManualPinSelection"), step2.indexOf("async function handleManualMapClick"));
   assert.match(fn, /zoneId: data\.activeZoneId \|\| null/);
 });
+
+test("cambi rapidi di PV: KPI, readiness e quantita' scritti solo sul PV per cui sono calcolati", () => {
+  // E2E 412x915 (2026-11-08): dopo 10 cambi rapidi PV1 (Oroboni, 3 km, 92.355
+  // famiglie) e' stato salvato con i valori di PV4 (51.046 / 56.098 pz): l'updater
+  // scriveva su prev.activeZoneId, cioe' sul PV attivato nel frattempo.
+  assert.equal((step2.match(/zones\.findIndex\(z => z\.id === prev\.activeZoneId\)/g) || []).length, 0, "nessuna scrittura sul PV attivo 'del momento'");
+  const guarded = step2.match(/const ownerZoneId = data\.activeZoneId;\r?\n\s+setData\(prev => \{\r?\n\s+if \(prev\.activeZoneId !== ownerZoneId\) return prev;/g) || [];
+  assert.equal(guarded.length, 2, "allocazione/quantita' e snapshot KPI legati al PV proprietario");
+});
