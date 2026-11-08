@@ -14,7 +14,7 @@ import {
   applyRegistryOutcome, CIVIC_REGISTRY_STATUS, describeRegistryOutcome, formatCivicNumber,
   lookupMilanoCivic, parseCivicNumber, shouldCheckMilanoRegistry, splitStreet,
 } from "../src/lib/step2/milanoCivicRegistry.js";
-import { describePointProvenance, matchesRequestedCivic, normalizeItalianStreetNumber, parseRequestedCivic } from "../src/lib/step2/civicAddressMatch.js";
+import { CIVIC_POINT_STATE, describePointProvenance, getCivicPointState, manualPointLabel, matchesRequestedCivic, normalizeItalianStreetNumber, parseRequestedCivic } from "../src/lib/step2/civicAddressMatch.js";
 import { activatePointOfSale, summarizeCampaignZones } from "../src/lib/step2/campaignZonesModel.js";
 
 const read = rel => fs.readFileSync(new URL(rel, import.meta.url), "utf8");
@@ -146,7 +146,7 @@ const MAPBOX_330 = { id: "address.1", street: "Viale Certosa", houseNumber: "330
 const MUNICIPIO_8 = { id: "locality.8", name: "Municipio 8", placeType: "locality", source: "mapbox" };
 const STREET_ONLY = { id: "osm.1", street: "Viale Certosa", houseNumber: null, lat: 45.496, lng: 9.137, placeType: "road", source: "nominatim" };
 
-test("geocoder + stradario: il candidato 330 resta visibile ma richiede un clic sulla mappa", () => {
+test("geocoder + stradario: il candidato 330 resta visibile, selezionabile come posizione indicativa", () => {
   const q = "Viale Certosa 330, Milano";
   const out = applyRegistryOutcome([MAPBOX_330, MUNICIPIO_8, STREET_ONLY], { status: CIVIC_REGISTRY_STATUS.NOT_IN_REGISTRY, range: { min: 1, max: 316 } }, q, matchesRequestedCivic);
   assert.equal(out[0].houseNumber, "330");
@@ -157,7 +157,15 @@ test("geocoder + stradario: il candidato 330 resta visibile ma richiede un clic 
   assert.equal(out[1], MUNICIPIO_8, "le alternative esplicite restano");
   assert.equal(out[2], STREET_ONLY, "le vie senza numero restano solo come alternative");
   assert.ok(panel.includes("if (c?.needsMapConfirmation && civicRequest && hasPointCoordinates)"));
-  assert.ok(panel.includes("startManualPinSelection(c)"));
+  // Regressione b49c808 (verificata con git bisect il 2026-11-08): la riga del
+  // candidato non era piu' selezionabile e PV2 "Viale Certosa 333" restava
+  // bloccato. In produzione (b89e78f) il tap selezionava il punto; ora lo
+  // seleziona come PROVIDER_CANDIDATE, con avviso e correzione sulla mappa.
+  const row = panel.slice(panel.indexOf("if (c?.needsMapConfirmation && civicRequest && hasPointCoordinates)"), panel.indexOf("if (civicRequest && !matchesRequestedCivic(search, c)) return null;"));
+  assert.match(row, /onClick=\{\(\) => selectAddressPointInMilano\(c\.name \|\| c\.label, c\)\}/, "tap sul candidato = selezione del punto");
+  assert.match(row, /Posizione indicativa da/, "avviso coordinate indicative");
+  assert.match(row, /onClick=\{\(\) => startManualPinSelection\(c\)\}/, "alternativa: punto esatto sulla mappa");
+  // Invio non auto-seleziona mai un candidato non verificato.
   assert.ok(panel.includes("!c?.needsMapConfirmation && (looksLikeAddressResult(c)"));
   assert.ok(step2.includes("if (focusCandidate?.needsMapConfirmation && Number.isFinite(lat) && Number.isFinite(lng))"));
 });
@@ -200,7 +208,8 @@ test("Step 2: stradario in parallelo ai geocoder, esito legato a ricerca e PV", 
 
 test("Step 2: provenienza del punto salvata e mostrata (verificato, provider, manuale)", () => {
   assert.match(step2, /verification: point\.verification \|\| \(point\.houseNumber \? "provider_civic" : "provider_street"\),/);
-  assert.match(step2, /type: "manual_point",\r?\n\s+label: "Punto selezionato sulla mappa",\r?\n[\s\S]{0,80}verification: "manual",/);
+  assert.match(step2, /type: "manual_point",\r?\n\s+label: manualPointLabel\(manualPinSourceRef\.current, ownerZoneId\),\r?\n[\s\S]{0,80}verification: "manual",/);
+  assert.match(step2, /needsMapConfirmation: Boolean\(point\.needsMapConfirmation\),/);
   assert.match(panel, /"Civico verificato · stradario Comune di Milano"/);
   assert.match(panel, /"Punto scelto sulla mappa · non è un civico verificato"/);
   assert.match(panel, /civicRegistryMessage \|\| "Numero civico non verificato: usa il punto esatto sulla mappa\."/);
@@ -338,4 +347,32 @@ test("punto manuale in un PV nuovo: raggio confermato sul punto, indirizzo salva
   assert.match(fn, /switchToRadiusMode\(\);[\s\S]*setRadiusSelectionConfirmed\(Number\(radius \|\| 3\) > 0\);/);
   assert.match(fn, /persistCoverageAddress\(\{ label: point\.label, lat: point\.lat, lng: point\.lng, municipality: point\.parentComune \}\);/);
   assert.match(fn, /if \(activeZoneIdRef\.current !== ownerZoneId \|\| !milano\) return;/);
+});
+
+test("stati del civico: OFFICIAL_VERIFIED, PROVIDER_CANDIDATE, MANUAL_CONFIRMED, UNRESOLVED", () => {
+  const at = { lat: 45.5, lng: 9.12 };
+  assert.equal(getCivicPointState({ ...at, verification: "official_registry" }), CIVIC_POINT_STATE.OFFICIAL_VERIFIED);
+  assert.equal(getCivicPointState({ ...at, verification: "provider_civic", needsMapConfirmation: true }), CIVIC_POINT_STATE.PROVIDER_CANDIDATE);
+  assert.equal(getCivicPointState({ ...at, type: "manual_point", verification: "manual" }), CIVIC_POINT_STATE.MANUAL_CONFIRMED);
+  assert.equal(getCivicPointState({ ...at, verification: "provider_street" }), CIVIC_POINT_STATE.UNRESOLVED);
+  assert.equal(getCivicPointState({ verification: "official_registry", lat: null, lng: 9 }), CIVIC_POINT_STATE.UNRESOLVED, "senza coordinate non e' mai un punto");
+  assert.equal(getCivicPointState(null), CIVIC_POINT_STATE.UNRESOLVED);
+});
+
+test("candidato del provider: avviso posizione indicativa, mai 'verificato'", () => {
+  const txt = describePointProvenance({ verification: "provider_civic", needsMapConfirmation: true, source: "mapbox" });
+  assert.equal(txt, "Posizione indicativa da Mapbox · civico non verificato dal Comune: controlla il segnaposto sulla mappa");
+  assert.doesNotMatch(txt, /verificato · stradario/);
+  const chooser = read("../src/pages/public/configurator/step2/MilanoCoverageModeChooser.jsx");
+  assert.ok(chooser.includes('data-testid="milano-correct-point"'), "correzione del punto dal selettore modalità");
+  assert.ok(step2.includes("onCorrectPoint={() => startManualPinSelection(selectedSearchPoint)}"));
+});
+
+test("punto confermato sulla mappa: conserva l'indirizzo del proprio PV, mai quello di un altro", () => {
+  assert.equal(manualPointLabel({ label: "Viale Certosa 333, Milano", zoneId: "pv2" }, "pv2"), "Viale Certosa 333, Milano");
+  assert.equal(manualPointLabel({ label: "Viale Certosa 333, Milano", zoneId: "pv2" }, "pv1"), "Punto selezionato sulla mappa", "scelta iniziata in PV2, tocco arrivato in PV1");
+  assert.equal(manualPointLabel({ label: "  ", zoneId: "pv1" }, "pv1"), "Punto selezionato sulla mappa");
+  assert.equal(manualPointLabel(null, "pv1"), "Punto selezionato sulla mappa");
+  const fn = step2.slice(step2.indexOf("function startManualPinSelection"), step2.indexOf("async function handleManualMapClick"));
+  assert.match(fn, /zoneId: data\.activeZoneId \|\| null/);
 });

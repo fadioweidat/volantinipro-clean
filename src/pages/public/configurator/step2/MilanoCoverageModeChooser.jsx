@@ -5,14 +5,16 @@ import { S2_RADII } from "../../../../lib/step2/s2Constants.js";
 import { formatRadiusLabel } from "../../../../lib/utils/format.js";
 
 // Presentation only: all choices and radius updates use Step2's canonical handlers.
-export function MilanoCoverageModeChooser({ mode, address, pointProvenance = null, containingNil, onChooseNil, onChooseRadius, onChooseComune, radiusKm, onRadiusChange, radiusDisabled, recommendedRadius, children }) {
+export function MilanoCoverageModeChooser({ mode, address, pointProvenance = null, pointNeedsMapCheck = false, onCorrectPoint = null, containingNil, onChooseNil, onChooseRadius, onChooseComune, radiusKm, onRadiusChange, radiusDisabled, recommendedRadius, children }) {
   return <section className="vp-milano-mode" aria-labelledby="milano-mode-title" data-testid="milano-mode-chooser">
     <div className="vp-milano-eyebrow">02 · Modalità di distribuzione</div>
     <h2 id="milano-mode-title">Come vuoi distribuire a Milano?</h2>
     <p>Scegli i quartieri oppure un raggio intorno al tuo punto di partenza.</p>
     {address?.label && <div className="vp-milano-context" data-testid="milano-address-context">
       <Step1Icon name="pin" size={19} /><div><strong>{address.label}</strong>
-      {containingNil?.name && <span>Questo indirizzo si trova nel quartiere/NIL {containingNil.name}. Questo riferimento non seleziona automaticamente una zona.</span>}</div>
+      {containingNil?.name && <span>Questo indirizzo si trova nel quartiere/NIL {containingNil.name}. Questo riferimento non seleziona automaticamente una zona.</span>}
+      {pointNeedsMapCheck && pointProvenance && <span data-testid="milano-point-needs-check" style={{ color: "#FBBF24" }}>{pointProvenance}.</span>}
+      {pointNeedsMapCheck && onCorrectPoint && <button type="button" data-testid="milano-correct-point" onClick={onCorrectPoint} style={{ marginTop: 6, padding: "8px 12px", minHeight: 42, borderRadius: 8, border: "1px solid #60A5FA", background: "rgba(59,130,246,.16)", color: "#93C5FD", fontWeight: 700, cursor: "pointer" }}>Correggi il punto sulla mappa</button>}</div>
     </div>}
     <div className="vp-milano-mode-options">
       <button type="button" className="vp-milano-mode-card is-nil" aria-pressed={mode === "nil"} onClick={onChooseNil}>

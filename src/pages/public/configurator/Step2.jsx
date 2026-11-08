@@ -8,7 +8,7 @@ import { buildTerritorialAiSnapshot } from "../../../lib/step2/buildTerritorialA
 import { familiesShare, familiesShareOfTotal, familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
-import { describePointProvenance, matchesRequestedCivic, parseRequestedCivic } from "../../../lib/step2/civicAddressMatch.js";
+import { CIVIC_POINT_STATE, describePointProvenance, getCivicPointState, manualPointLabel, matchesRequestedCivic, parseRequestedCivic } from "../../../lib/step2/civicAddressMatch.js";
 import { applyRegistryOutcome, CIVIC_REGISTRY_STATUS, describeRegistryOutcome, lookupMilanoCivic, shouldCheckMilanoRegistry } from "../../../lib/step2/milanoCivicRegistry.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, canonicalZoneId, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
@@ -299,6 +299,9 @@ export function Step2({
   // mostrato per un'altra ricerca o un altro punto vendita.
   const [civicRegistryCheck, setCivicRegistryCheck] = useState(null);
   const [manualPinMode, setManualPinMode] = useState(false);
+  // Indirizzo da cui parte la scelta manuale (per PV): il punto confermato
+  // sulla mappa conserva l'indirizzo cercato invece di un'etichetta generica.
+  const manualPinSourceRef = useRef(null);
   const [allocationMode, setAllocationMode] = useState(data.allocationMode || "auto");
   const [manualAssignments, setManualAssignments] = useState(data.manualAssignments || {});
   // Ordine di priorità per la modalità "Priorità" (solo modalità Comuni):
@@ -3241,6 +3244,10 @@ export function Step2({
   // centro preferito della modalità Raggio (radiusCenterSource = "address").
   function startManualPinSelection(focusCandidate = null) {
     setManualPinMode(true);
+    manualPinSourceRef.current = {
+      label: focusCandidate?.name || focusCandidate?.label || (parseRequestedCivic(search) ? search : "") || selectedSearchPoint?.label || "",
+      zoneId: data.activeZoneId || null
+    };
     setAddressSearchError("");
     setDropOpen(false);
     // Su telefono chiudi la tastiera e porta subito la mappa in vista.
@@ -3273,13 +3280,14 @@ export function Step2({
     setManualPinMode(false);
     const point = {
       type: "manual_point",
-      label: "Punto selezionato sulla mappa",
+      label: manualPointLabel(manualPinSourceRef.current, ownerZoneId),
       // Scelto dall'utente: non e' un civico verificato.
       verification: "manual",
       lat: Number(coords.lat),
       lng: Number(coords.lng),
       parentComune: normalizeMunicipalityName(city?.label || city?.name) === "milano" ? "Milano" : city?.label || city?.name || "Milano"
     };
+    manualPinSourceRef.current = null;
     setSelectedSearchPoint(point);
     setAddressSearchError("");
     switchToRadiusMode();
@@ -3370,6 +3378,8 @@ export function Step2({
         // Provenienza del punto: civico dello stradario ufficiale del Comune,
         // civico esatto di un geocoder, oppure indirizzo senza civico.
         verification: point.verification || (point.houseNumber ? "provider_civic" : "provider_street"),
+        // PROVIDER_CANDIDATE: posizione indicativa, da controllare sulla mappa.
+        needsMapConfirmation: Boolean(point.needsMapConfirmation),
         source: point.source || null,
         sourceLabel: point.sourceLabel || null,
         nil: point.nil || null
@@ -6033,6 +6043,8 @@ export function Step2({
             mode={milanoClientMode}
             address={coverageAddress || selectedSearchPoint}
             pointProvenance={describePointProvenance(selectedSearchPoint)}
+            pointNeedsMapCheck={Boolean(selectedSearchPoint?.needsMapConfirmation) && getCivicPointState(selectedSearchPoint) === CIVIC_POINT_STATE.PROVIDER_CANDIDATE}
+            onCorrectPoint={() => startManualPinSelection(selectedSearchPoint)}
             containingNil={containingNil || (coverageAddress?.nearestNilName ? { name: coverageAddress.nearestNilName } : null)}
             onChooseNil={() => { switchToComuneMode(); setPendingNilPreselectName(null); enterNilManualMode(); setActiveMapLayers(prev => ({ ...prev, nil: true })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
             radiusKm={radiusKm} onRadiusChange={updateActiveRadius} radiusDisabled={apiLoading}

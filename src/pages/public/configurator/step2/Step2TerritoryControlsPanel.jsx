@@ -393,19 +393,23 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                         const textLooksLikeAddress = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
                         const hasPointCoordinates = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
                         const isOperationalPointResult = searchMode === "address" && isMovementStep2 && hasPointCoordinates && c?.placeType !== "place";
-                        // Un civico proposto dal geocoder ma assente dal registro
-                        // NON si seleziona con un tap: va verificato con un clic
-                        // sulla mappa. Nessun punto interpolato diventa civico verificato.
+                        // Civico proposto dal geocoder ma non presente nel dataset
+                        // del Comune (PROVIDER_CANDIDATE): si puo' selezionare con un
+                        // tap, come in produzione, ma resta marcato come posizione
+                        // indicativa e si puo' correggere toccando la mappa. Mai
+                        // presentato come civico verificato; mai auto-selezionato con Invio.
                         if (c?.needsMapConfirmation && civicRequest && hasPointCoordinates) {
-                          return <div key={c.id} style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,.1)" }}>
-                            <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, overflowWrap: "anywhere" }}>
-                              {c.name || c.label}
+                          return <div key={c.id} data-testid="step2-provider-candidate" style={{ borderBottom: "1px solid rgba(255,255,255,.1)" }}>
+                            <div role="button" tabIndex={0} onClick={() => selectAddressPointInMilano(c.name || c.label, c)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectAddressPointInMilano(c.name || c.label, c); } }} style={{ padding: "10px 14px 6px", cursor: "pointer" }}>
+                              <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, overflowWrap: "anywhere" }}>
+                                <Step1Icon name="pin" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />{c.name || c.label}
+                              </div>
+                              <div style={{ fontFamily: F.sans, fontSize: 11, color: "#FBBF24", marginTop: 4 }}>
+                                Posizione indicativa da {c.source === "mapbox" ? "Mapbox" : "OpenStreetMap"}, civico non verificato dal Comune. Tocca per usarla e controllala sulla mappa.
+                              </div>
                             </div>
-                            <div style={{ fontFamily: F.sans, fontSize: 11, color: "#FBBF24", marginTop: 4 }}>
-                              Posizione indicativa da {c.source === "mapbox" ? "Mapbox" : "OpenStreetMap"}, civico non verificato dal Comune.
-                            </div>
-                            <button type="button" onClick={() => startManualPinSelection(c)} style={{ marginTop: 8, padding: "8px 12px", minHeight: 42, borderRadius: 8, border: "1px solid #60A5FA", background: "rgba(59,130,246,.16)", color: "#93C5FD", fontWeight: 700, cursor: "pointer" }}>
-                              Apri mappa e conferma il punto
+                            <button type="button" onClick={() => startManualPinSelection(c)} style={{ margin: "0 14px 10px", padding: "8px 12px", minHeight: 42, borderRadius: 8, border: "1px solid #60A5FA", background: "rgba(59,130,246,.16)", color: "#93C5FD", fontWeight: 700, cursor: "pointer" }}>
+                              Scegli il punto esatto sulla mappa
                             </button>
                           </div>;
                         }
@@ -829,6 +833,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, civicReg
                         {hasSearchPoint && <span data-testid="step2-point-verification" style={{ display: "block", marginTop: 2, fontSize: 10, fontWeight: 600, color: selectedSearchPoint.verification === "official_registry" ? "#4ADE80" : "rgba(255,255,255,.55)" }}>
                           {selectedSearchPoint.verification === "official_registry" ? "Civico verificato · stradario Comune di Milano"
                             : selectedSearchPoint.verification === "manual" || selectedSearchPoint.type === "manual_point" ? "Punto scelto sulla mappa · non è un civico verificato"
+                            : selectedSearchPoint.verification === "provider_civic" && selectedSearchPoint.needsMapConfirmation ? `Posizione indicativa da ${selectedSearchPoint.source === "mapbox" ? "Mapbox" : "OpenStreetMap"} · civico non verificato dal Comune`
                             : selectedSearchPoint.verification === "provider_civic" ? `Civico trovato da ${selectedSearchPoint.source === "mapbox" ? "Mapbox" : "OpenStreetMap"} · non verificato nello stradario del Comune`
                             : "Indirizzo senza numero civico"}
                         </span>}

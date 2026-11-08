@@ -66,7 +66,44 @@ export function describePointProvenance(point) {
   if (!point) return null;
   if (point.verification === "official_registry") return "Civico verificato · stradario Comune di Milano";
   if (point.verification === "manual" || point.type === "manual_point") return "Punto scelto sulla mappa · non è un civico verificato";
+  if (point.verification === "provider_civic" && point.needsMapConfirmation) return `Posizione indicativa da ${point.source === "mapbox" ? "Mapbox" : "OpenStreetMap"} · civico non verificato dal Comune: controlla il segnaposto sulla mappa`;
   if (point.verification === "provider_civic") return `Civico trovato da ${point.source === "mapbox" ? "Mapbox" : "OpenStreetMap"} · non verificato nello stradario del Comune`;
   if (point.verification === "provider_street") return "Indirizzo senza numero civico";
   return null;
+}
+
+/**
+ * Stato esplicito del punto di partenza di un PV rispetto al civico richiesto.
+ * L'assenza dal dataset del Comune non prova che il civico non esista:
+ *  - OFFICIAL_VERIFIED: civico presente nello stradario ufficiale (coordinate del Comune);
+ *  - PROVIDER_CANDIDATE: civico proposto da Mapbox/OpenStreetMap, posizione indicativa;
+ *  - MANUAL_CONFIRMED: punto confermato dall'utente con un tocco sulla mappa;
+ *  - UNRESOLVED: nessun punto con coordinate valide, o indirizzo senza civico.
+ */
+export const CIVIC_POINT_STATE = Object.freeze({
+  OFFICIAL_VERIFIED: "OFFICIAL_VERIFIED",
+  PROVIDER_CANDIDATE: "PROVIDER_CANDIDATE",
+  MANUAL_CONFIRMED: "MANUAL_CONFIRMED",
+  UNRESOLVED: "UNRESOLVED",
+});
+
+const isCoordinate = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+
+export function getCivicPointState(point) {
+  if (!point || !isCoordinate(point.lat) || !isCoordinate(point.lng)) return CIVIC_POINT_STATE.UNRESOLVED;
+  if (point.verification === "official_registry") return CIVIC_POINT_STATE.OFFICIAL_VERIFIED;
+  if (point.verification === "manual" || point.type === "manual_point") return CIVIC_POINT_STATE.MANUAL_CONFIRMED;
+  if (point.verification === "provider_civic") return CIVIC_POINT_STATE.PROVIDER_CANDIDATE;
+  return CIVIC_POINT_STATE.UNRESOLVED;
+}
+
+/**
+ * Etichetta del punto confermato a mano: se la scelta parte da un indirizzo
+ * cercato nello stesso PV, l'indirizzo resta visibile (il punto resta comunque
+ * "scelto sulla mappa", mai civico verificato).
+ */
+export function manualPointLabel(source, activeZoneId) {
+  const label = String(source?.label || "").trim();
+  if (label && source?.zoneId === (activeZoneId || null)) return label;
+  return "Punto selezionato sulla mappa";
 }
