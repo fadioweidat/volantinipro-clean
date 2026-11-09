@@ -6,6 +6,7 @@ import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import { AnimatePresence, motion } from "framer-motion";
 import { submitPublicCampaign, AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, ensureRestSessionFromSdk, getStoredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveCampaign } from "../../../lib/supabaseClient.js";
+import { getBridgedUser, supabase } from "../../../supabaseClient.js";
 import { CAMPAIGN_SAVE_SLOW_MESSAGE, CAMPAIGN_SAVE_SLOW_NOTICE_MS, isCampaignSaveTimeout, withCampaignSaveTimeout } from "../../../lib/campaignSaveTimeout.js";
 import { buildExtraServicesById, buildExtraServicesRegistry, buildOptionalExtras, buildSvcCommercial, normalizeSelectedExtras } from "../../../lib/extraServicesRegistry.js";
 import { calculatePrintPrice } from "../../../lib/pricing/printPricing.js";
@@ -1613,6 +1614,27 @@ export function Step4({
             clientEmail: clientForm.email,
           }));
         } catch {}
+      }
+
+      // Se il cliente è già autenticato con la stessa email verificata,
+      // associa subito questa campagna specifica: non attendere un successivo
+      // mount della Dashboard (che potrebbe avvenire su un altro origin).
+      // La RPC verifica sul server email confermata, corrispondenza e ownership.
+      if (id && supabase) {
+        try {
+          const { data: authData, error: authError } = await getBridgedUser();
+          const authEmail = String(authData?.user?.email || "").trim().toLowerCase();
+          if (!authError && authData?.user?.id && authEmail && authEmail === String(clientForm.email || "").trim().toLowerCase()) {
+            const { error: claimError } = await supabase.rpc("claim_public_campaign", { p_campaign_id: id });
+            if (!claimError) {
+              try { localStorage.removeItem("volantinipro_pending_campaign_claim"); } catch {}
+            } else {
+              console.warn("[CAMPAIGN_IMMEDIATE_CLAIM_FAILED]", { code: claimError.code || null, message: claimError.message || null });
+            }
+          }
+        } catch (claimException) {
+          console.warn("[CAMPAIGN_IMMEDIATE_CLAIM_EXCEPTION]", { message: claimException?.message || null });
+        }
       }
 
       if (onCampaignSaved) onCampaignSaved(id, "payment");
