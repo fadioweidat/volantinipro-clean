@@ -98,6 +98,7 @@ function organizationJsonLd(siteUrl) {
     "@type": "Organization",
     name: "VolantiniPro",
     url: siteUrl,
+    logo: `${siteUrl}/favicon.png`,
     email: SUPPORT_EMAIL,
     vatID: "IT04856200615",
   };
