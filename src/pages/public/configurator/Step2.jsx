@@ -2842,7 +2842,7 @@ export function Step2({
     // attivo appartengono a un altro territorio -> non toccare la selezione
     // (NIL -> Raggio restringeva le 7 NIL di Via Torino alla sola DUOMO).
     if (!analysisOwnedByActiveZone) return;
-    if (nilManualMode && isComuneMode && isResidentialStep2 && requestedAnalysisLevel === "nil") return;
+    if (nilManualMode && isResidentialStep2) return; // Manual NIL selections must never be overwritten by automatic zone selection, including during PV switches or analysis refresh.
     // FASE 1 MULTI-ZONE: una zona appena aggiunta non ha ancora territorio ma
     // apiData/zonesInRadius sono ancora quelli della zona precedente: non
     // auto-selezionare quelle NIL/comuni nella nuova zona.
