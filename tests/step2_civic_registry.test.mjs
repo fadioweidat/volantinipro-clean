@@ -209,7 +209,8 @@ test("Step 2: stradario in parallelo ai geocoder, esito legato a ricerca e PV", 
 test("Step 2: provenienza del punto salvata e mostrata (verificato, provider, manuale)", () => {
   assert.match(step2, /verification: point\.verification \|\| \(point\.houseNumber \? "provider_civic" : "provider_street"\),/);
   assert.match(step2, /type: "manual_point",\r?\n\s+label: manualPointLabel\(manualPinSourceRef\.current, ownerZoneId\),\r?\n[\s\S]{0,80}verification: "manual",/);
-  assert.match(step2, /needsMapConfirmation: Boolean\(point\.needsMapConfirmation\),/);
+  // 367f12a: un punto il cui civico non coincide con la ricerca resta "da confermare sulla mappa".
+  assert.match(step2, /needsMapConfirmation: Boolean\(point\.needsMapConfirmation \|\| civicUnverified\),/);
   assert.match(panel, /"Civico verificato · stradario Comune di Milano"/);
   assert.match(panel, /"Punto scelto sulla mappa · non è un civico verificato"/);
   assert.match(panel, /civicRegistryMessage \|\| "Numero civico non verificato: usa il punto esatto sulla mappa\."/);
