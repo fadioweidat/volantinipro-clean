@@ -3322,7 +3322,7 @@ export function Step2({
       const isParentMilano = point?.parentComune === "Milano" || isGeocoderResultInMilanoComune(point);
       const isComuneDiverso = point?.placeType === "place" || point && normalizeMunicipalityName(point.city || point.comune || "") && normalizeMunicipalityName(point.city || point.comune || "") !== "milano";
       const civicUnverified = Boolean(parseRequestedCivic(search) && !matchesRequestedCivic(search, point));
-      if (!hasValidCoordinates || !isParentMilano || isComuneDiverso || civicUnverified) {
+      if (!hasValidCoordinates || !isParentMilano || isComuneDiverso) {
         setAddressSearchError(civicUnverified
           ? "Numero civico non verificato. Seleziona il punto esatto sulla mappa."
           : "Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
@@ -3379,7 +3379,7 @@ export function Step2({
         // civico esatto di un geocoder, oppure indirizzo senza civico.
         verification: point.verification || (point.houseNumber ? "provider_civic" : "provider_street"),
         // PROVIDER_CANDIDATE: posizione indicativa, da controllare sulla mappa.
-        needsMapConfirmation: Boolean(point.needsMapConfirmation),
+        needsMapConfirmation: Boolean(point.needsMapConfirmation || civicUnverified),
         source: point.source || null,
         sourceLabel: point.sourceLabel || null,
         nil: point.nil || null
