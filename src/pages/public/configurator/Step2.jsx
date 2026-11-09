@@ -6053,7 +6053,7 @@ export function Step2({
             pointNeedsMapCheck={Boolean(selectedSearchPoint?.needsMapConfirmation) && getCivicPointState(selectedSearchPoint) === CIVIC_POINT_STATE.PROVIDER_CANDIDATE}
             onCorrectPoint={() => startManualPinSelection(selectedSearchPoint)}
             containingNil={containingNil || (coverageAddress?.nearestNilName ? { name: coverageAddress.nearestNilName } : null)}
-            onChooseNil={() => { switchToComuneMode(); setPendingNilPreselectName(null); enterNilManualMode(); setActiveMapLayers(prev => ({ ...prev, nil: true })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
+            onChooseNil={() => { switchToNilMode(); setActiveMapLayers(prev => ({ ...prev, nil: true })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
             radiusKm={radiusKm} onRadiusChange={updateActiveRadius} radiusDisabled={apiLoading}
             recommendedRadius={recommendedRadiusForSlider}
           ><MilanoNilSearch
