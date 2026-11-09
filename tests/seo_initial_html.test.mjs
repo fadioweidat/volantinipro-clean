@@ -113,16 +113,15 @@ test('all SEO HTML references point to assets present in the same build', () => 
   }
 });
 
-test('homepage exposes accessible standard favicon variants in prerendered HTML', () => {
+test('homepage declares one stable 192x192 PNG favicon in prerendered HTML', () => {
   const html = read('dist/index.html');
-  for (const [file, type] of [
-    ['favicon.ico', 'image/x-icon'],
-    ['favicon.png', 'image/png'],
-    ['favicon.svg', 'image/svg+xml'],
-  ]) {
+  for (const file of ['favicon.ico', 'favicon.png', 'favicon.svg']) {
     assert.ok(fs.existsSync(new URL(`../dist/${file}`, import.meta.url)), `missing ${file}`);
-    const iconLinks = [...html.matchAll(/<link[^>]*rel="icon"[^>]*>/g)].map(match => match[0]);
-    assert.ok(iconLinks.some(tag => tag.includes(`type="${type}"`) && tag.includes(`href="/${file}"`)), `standard icon link missing for ${file}`);
   }
+  const iconLinks = [...html.matchAll(/<link[^>]*rel="icon"[^>]*>/g)].map(match => match[0]);
+  assert.equal(iconLinks.length, 1, 'homepage must declare one canonical favicon');
+  assert.match(iconLinks[0], /type="image\/png"/);
+  assert.match(iconLinks[0], /sizes="192x192"/);
+  assert.match(iconLinks[0], /href="\/favicon\.png"/);
   assert.doesNotMatch(html, /rel="alternate icon"/);
 });
