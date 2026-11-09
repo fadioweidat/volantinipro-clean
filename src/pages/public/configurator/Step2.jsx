@@ -298,6 +298,10 @@ export function Step2({
   // corrente: { search, zoneId, status, message }. Legato a ricerca + PV, mai
   // mostrato per un'altra ricerca o un altro punto vendita.
   const [civicRegistryCheck, setCivicRegistryCheck] = useState(null);
+  // Ultima ricerca (testo + PV) per cui geocoder e stradario hanno risposto.
+  // Finche' non coincide con la ricerca corrente la verifica e' IN CORSO: la UI
+  // non deve dichiarare "civico non verificato" ne' scartare un Invio.
+  const [geocodeResolvedFor, setGeocodeResolvedFor] = useState(null);
   const [manualPinMode, setManualPinMode] = useState(false);
   // Indirizzo da cui parte la scelta manuale (per PV): il punto confermato
   // sulla mappa conserva l'indirizzo cercato invece di un'etichetta generica.
@@ -2043,6 +2047,9 @@ export function Step2({
     }
   }, [civiciLoading, civiciAvailable]);
   useEffect(() => {
+    // Nuova ricerca (testo o PV): l'esito precedente non vale piu', anche se il
+    // testo riscritto e' identico a quello gia' risolto.
+    setGeocodeResolvedFor(null);
     if (!search || search.length < 2) {
       setGeocodeSuggestions([]);
       setCapSuggestions([]);
@@ -2118,6 +2125,7 @@ export function Step2({
           message: describeRegistryOutcome(outcome, civicRequest?.number)
         } : null);
         setGeocodeSuggestions(rankLocationResults(applyRegistryOutcome(list, outcome, search, matchesRequestedCivic), search));
+        setGeocodeResolvedFor({ search, zoneId: requestZoneId });
         // Anche senza selezione il cliente deve vedere sulla mappa la via
         // cercata, non l'Italia intera. I civici ufficiali servono solo a
         // inquadrare la via: NON vengono usati come coordinate del civico mancante.
@@ -5808,6 +5816,7 @@ export function Step2({
       )}
 
       {!isAdminView && <Step2TerritoryControlsPanel
+        geocodePending={searchMode !== "cap" && String(search || "").length >= 2 && !(geocodeResolvedFor && geocodeResolvedFor.search === search && geocodeResolvedFor.zoneId === (data.activeZoneId || null))}
         civicRegistryMessage={civicRegistryCheck && civicRegistryCheck.search === search && civicRegistryCheck.zoneId === (data.activeZoneId || null) ? civicRegistryCheck.message : null}
           simplifiedMilano={milanoClientView}
           activeAreaTab={activeAreaTab}
