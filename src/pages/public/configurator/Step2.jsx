@@ -6053,7 +6053,7 @@ export function Step2({
             pointNeedsMapCheck={Boolean(selectedSearchPoint?.needsMapConfirmation) && getCivicPointState(selectedSearchPoint) === CIVIC_POINT_STATE.PROVIDER_CANDIDATE}
             onCorrectPoint={() => startManualPinSelection(selectedSearchPoint)}
             containingNil={containingNil || (coverageAddress?.nearestNilName ? { name: coverageAddress.nearestNilName } : null)}
-            onChooseNil={() => { switchToNilMode(); setActiveMapLayers(prev => ({ ...prev, nil: true })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
+            onChooseNil={() => { userModeRef.current = "municipality"; setSearchMode("municipality"); setNilManualMode(true); setAddressFullCoverageConfirmed(false); setSelected([]); setPendingNilPreselectName(null); setActiveMapLayers(prev => ({ ...prev, nil: true })); setData(prev => ({ ...prev, searchMode: "municipality", campaignZones: (prev.campaignZones || []).map(z => z.id === prev.activeZoneId ? { ...z, searchMode: "municipality", nilManualMode: true, addressFullCoverageConfirmed: false, selected: [], areaMode: "custom_zone", territoryMode: "custom_zone", coverageMode: "nil" } : z) })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
             radiusKm={radiusKm} onRadiusChange={updateActiveRadius} radiusDisabled={apiLoading}
             recommendedRadius={recommendedRadiusForSlider}
           ><MilanoNilSearch
