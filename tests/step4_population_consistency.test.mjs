@@ -43,7 +43,7 @@ test("Step4 'Persone stimate' non dichiara 'ISTAT' quando il valore e' in realta
   assert.match(block, /\* 2\.4/, "il fallback per i comuni senza popolazione ISTAT deve restare disponibile");
   assert.match(
     block,
-    /sub:\s*kpisPopulation != null \? "Fonte: ISTAT" : /,
+    /sub:\s*kpisPopulation != null \? ISTAT_HOUSEHOLDS_SHORT : "Stima su famiglie \(coefficiente medio\)"/,
     "l'etichetta sorgente deve riflettere onestamente se il valore mostrato e' realmente ISTAT o una stima derivata"
   );
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { NOT_AVAILABLE, PRELIMINARY, businessGoalLabel } from './feasibilityBusinessSchemas.js';
 import { FINANCIAL_DISCLAIMER } from './feasibilityBusinessFinancialSchemas.js';
+import { ISTAT_HOUSEHOLDS_SHORT } from '../../../../lib/istatCitation.js';
 
 const fmt = value => (value == null ? NOT_AVAILABLE : new Intl.NumberFormat('it-IT').format(Math.round(value)));
 const eur = value => (value == null ? NOT_AVAILABLE : new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value));
@@ -121,7 +122,7 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
         ) : (
           <p><strong>{NOT_AVAILABLE}</strong> <Source tag="unavailable" /></p>
         )}
-        <p className="vf-small">Fonte: ISTAT. {!targetPotential.available && 'Il dato non era disponibile per questa località al momento dell\'analisi.'}</p>
+        <p className="vf-small">{ISTAT_HOUSEHOLDS_SHORT}. {!targetPotential.available && 'Il dato non era disponibile per questa località al momento dell\'analisi.'}</p>
       </section>
 
       <section className="vf-panel">

@@ -214,7 +214,7 @@ export function AdvancedCoverageReport({ campaignId, onNav }) {
       </section>
 
       <footer style={footerStyle}>
-        <div>Report Esecutivo VolantiniPro · Elaborazione geografica PostGIS · ISTAT 2024</div>
+        <div>Report Esecutivo VolantiniPro · Elaborazione geografica PostGIS · ISTAT, famiglie al 31/12/2024</div>
         <div>Documento generato su dati operativi reali</div>
       </footer>
     </main>
