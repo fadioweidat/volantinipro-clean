@@ -61,7 +61,7 @@ test("pages: snapshot first, live request only without it; Step 2 untouched", ()
   assert.match(calc, /const milanoSnapshot = isMilanoComune\(comune\) \? MILANO_SNAPSHOT : null;/);
   assert.match(calc, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(milanoSnapshot \? null : comune\)\)/);
   assert.match(calc, /: milanoSnapshot \? 'ready'/);
-  assert.match(calc, /snapshotCalculationLabel\(milanoSnapshot\.dateLabel\)/);
+  assert.match(calc, /Milano intera: \{formatHeroMetric\(analysis\.nilCount\)\} quartieri \(NIL\)\. Nel configuratore puoi scegliere i singoli quartieri\./);
   assert.doesNotMatch(calc, /Dati ISTAT aggiornati/);
   const quick = read("src/pages/public/QuickQuotePage.jsx");
   assert.match(quick, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(service === "d2d" && !milanoSnapshot \? milanoComune : null\)\)/);

@@ -4,10 +4,17 @@
 // database is slow. Only the fields the calculator reads are kept (no
 // geometry, no OMI, no scores). Missing or invalid snapshot -> null -> the
 // live request is used, never invented numbers. Step 2 stays live.
+//
+// The NIL rows prove the answer is a complete "Milano intera" (88 NIL) and give
+// the coverage; the totals shown are the official ISTAT comune figures from
+// src/lib/istat/milanoIstatTotals.js (741.887 famiglie, 816.076 volantini),
+// applied by readHomeCalculatorAnalysis. The raw `values` block of the JSON
+// (744.299 = area-based NIL sum) is kept as generated and is not displayed.
 import { readHomeCalculatorAnalysis } from './homeCalculatorAnalysis.js';
+import { MILANO_NIL_COUNT as ISTAT_MILANO_NIL_COUNT } from '../istat/milanoIstatTotals.js';
 
 export const MILANO_SNAPSHOT_VERSION = 1;
-export const MILANO_NIL_COUNT = 88;
+export const MILANO_NIL_COUNT = ISTAT_MILANO_NIL_COUNT;
 
 export const MILANO_SNAPSHOT_ROW_FIELDS = Object.freeze([
   'territory_level', 'nil_code', 'nil_name', 'comune_name', 'municipality_code',

@@ -18,6 +18,13 @@ import {
   calculateDistributionZonePrice,
   classifyTerritory,
 } from "../pricing/distributionPricing.js";
+import {
+  FLYERS_PER_HOUSEHOLD,
+  MILANO_ISTAT_AREA_KM2,
+  MILANO_ISTAT_DENSITY_PER_KM2,
+  MILANO_ISTAT_HOUSEHOLDS,
+  MILANO_ISTAT_POPULATION,
+} from "../istat/milanoIstatTotals.js";
 import { ALL_CITY_SLUGS, CITY_SLUGS, SERVED_CITIES, cityPageKey, cityPath } from "./seoLandingRoutes.js";
 
 export { ALL_CITY_SLUGS, CITY_SLUGS, SERVED_CITIES, cityPageKey, cityPath };
@@ -25,14 +32,8 @@ export { ALL_CITY_SLUGS, CITY_SLUGS, SERVED_CITIES, cityPageKey, cityPath };
 export const ISTAT_SOURCE =
   "ISTAT, Bilancio demografico e popolazione residente al 31 dicembre 2024; superficie dai confini ISTAT al 1° gennaio 2026.";
 
-// Solo Milano: nel configuratore le famiglie sono suddivise negli 88 NIL in
-// proporzione alla superficie, quindi la somma dei quartieri non coincide
-// esattamente con il totale ISTAT mostrato qui (report fonte dati, 2026-11-13).
-export const MILANO_NIL_SOURCE_NOTE =
-  "Nel configuratore Milano è suddivisa negli 88 quartieri (NIL): le famiglie dei quartieri sono una stima VolantiniPro proporzionale alla superficie, quindi la loro somma può differire leggermente dal totale ISTAT.";
-
 // Formula dello Step 2: famiglie x 1,1 (margine operativo del 10%).
-export const RECOMMENDED_FLYERS_PER_HOUSEHOLD = 1.1;
+export const RECOMMENDED_FLYERS_PER_HOUSEHOLD = FLYERS_PER_HOUSEHOLD;
 
 // Nomi pubblici delle fasce: mai "Como/Lecco" (comprende anche Brescia e
 // Varese), descrivono solo la densita'.
@@ -49,7 +50,7 @@ export const formatInt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\
 export const formatEuro = (n) => (Number.isInteger(Number(n)) ? `€${formatInt(n)}` : `€${formatInt(Math.trunc(n))},${String(Math.round((n % 1) * 100)).padStart(2, "0")}`);
 
 const CITY_ISTAT = {
-  milano: { name: "Milano", province: "MI", households: 741887, population: 1365698, areaKm2: 181.17, densityPerKm2: 7538.2 },
+  milano: { name: "Milano", province: "MI", households: MILANO_ISTAT_HOUSEHOLDS, population: MILANO_ISTAT_POPULATION, areaKm2: MILANO_ISTAT_AREA_KM2, densityPerKm2: MILANO_ISTAT_DENSITY_PER_KM2 },
   monza: { name: "Monza", province: "MB", households: 57702, population: 123032, areaKm2: 32.77, densityPerKm2: 3754.9 },
   bergamo: { name: "Bergamo", province: "BG", households: 59638, population: 120389, areaKm2: 39.86, densityPerKm2: 3020 },
   brescia: { name: "Brescia", province: "BS", households: 97803, population: 199853, areaKm2: 90.66, densityPerKm2: 2204.3 },

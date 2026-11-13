@@ -8,7 +8,7 @@ import { searchItalianMunicipalities } from "../../lib/geocoding/searchItalianMu
 import { readComuneParam, readServiceParam } from "../../lib/quote/quoteComuneParam.js";
 import { buildHomeCalculatorAnalysisArgs, buildQuickQuoteAnchorAnalysisArgs, readHomeCalculatorAnalysis, splitQuickQuoteComuni } from "../../lib/quote/homeCalculatorAnalysis.js";
 import { MILANO_SNAPSHOT } from "../../lib/quote/milanoSnapshotSource.js";
-import { ISTAT_HOUSEHOLDS_SHORT, MILANO_NIL_METHOD_NOTE } from "../../lib/istatCitation.js";
+import { ISTAT_HOUSEHOLDS_SHORT } from "../../lib/istatCitation.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../../lib/extraServicesRegistry.js";
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
 import { printQuotePdf } from "../../lib/pdf/printQuotePdf.js";
@@ -364,7 +364,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     const milano = milanoSnapshot ? milanoSnapshot.analysis : milanoComune && milanoAnalysis.data ? readHomeCalculatorAnalysis(milanoAnalysis.data, milanoComune) : null;
     return comuni.map((c) => {
       if (c === milanoComune) {
-        // Sum of the 88 NILs, same quantity rule as Step 2 "Milano intera".
+        // Milano intera: official ISTAT comune totals (741.887 / 816.076), see milanoIstatTotals.js.
         const ok = milano?.families > 0 && milano?.recommended > 0;
         return { municipality: c.name, households: ok ? milano.families : null, population: ok ? milano.population : null, recommendedFlyers: ok ? milano.recommended : null, matched: Boolean(ok) };
       }
@@ -1105,7 +1105,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                       </div>
                     ))}
                   </div>
-                  <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)" }}>{ISTAT_HOUSEHOLDS_SHORT}{milanoSnapshot ? <> · Milano intera (88 quartieri, {MILANO_NIL_METHOD_NOTE}) · calcolo del {milanoSnapshot.dateLabel}.</> : "."}</div>
+                  <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)" }}>{ISTAT_HOUSEHOLDS_SHORT}.</div>
                 </div>
               )}
 
