@@ -1,33 +1,46 @@
-// Citazione unica della fonte famiglie (report fonte dati Milano, 2026-11-13):
-// ISTAT al 31/12/2024, data dello snapshot = data di calcolo, nessun claim assoluto.
+// Citazione unica e dato unico per Milano intera (report fonte dati Milano,
+// 2026-11-13): ISTAT al 31/12/2024, 741.887 famiglie, 816.076 volantini.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  ISTAT_HOUSEHOLDS_COMPACT,
   ISTAT_HOUSEHOLDS_SHORT,
   PDF_HOUSEHOLDS_SOURCE_NOTE,
   snapshotCalculationLabel,
 } from "../src/lib/istatCitation.js";
-import { ISTAT_SOURCE, MILANO_NIL_SOURCE_NOTE } from "../src/lib/seo/cityPagesData.js";
+import {
+  MILANO_ISTAT_HOUSEHOLDS,
+  MILANO_ISTAT_POPULATION,
+  MILANO_ISTAT_RECOMMENDED_FLYERS,
+} from "../src/lib/istat/milanoIstatTotals.js";
+import { ISTAT_SOURCE, cityFacts } from "../src/lib/seo/cityPagesData.js";
+import { validateMilanoSnapshot } from "../src/lib/quote/milanoSnapshot.js";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 
-test("citazioni brevi: fonte ISTAT con data di riferimento", () => {
+test("citazione breve unica con data di riferimento", () => {
   assert.equal(ISTAT_HOUSEHOLDS_SHORT, "Fonte: ISTAT, famiglie al 31/12/2024");
-  assert.equal(ISTAT_HOUSEHOLDS_COMPACT, "ISTAT, famiglie al 31/12/2024");
-  assert.equal(snapshotCalculationLabel("22/10/2026"), "Calcolo del 22/10/2026 su dati ISTAT al 31/12/2024");
+  assert.equal(snapshotCalculationLabel("23/10/2026"), "Calcolo del 23/10/2026 su dati ISTAT al 31/12/2024");
   assert.equal(snapshotCalculationLabel(null), null);
-});
-
-test("PDF e SEO citano lo stesso bilancio demografico 2024", () => {
-  assert.match(PDF_HOUSEHOLDS_SOURCE_NOTE, /ISTAT, Bilancio demografico e popolazione residente al 31 dicembre 2024/);
+  assert.ok(PDF_HOUSEHOLDS_SOURCE_NOTE.startsWith(ISTAT_HOUSEHOLDS_SHORT));
   assert.match(PDF_HOUSEHOLDS_SOURCE_NOTE, /famiglie \+ 10% di margine operativo/);
   assert.match(ISTAT_SOURCE, /^ISTAT, Bilancio demografico e popolazione residente al 31 dicembre 2024/);
-  assert.match(MILANO_NIL_SOURCE_NOTE, /proporzionale alla superficie/);
 });
 
-test("nessuna data snapshot presentata come aggiornamento ISTAT, nessun claim assoluto", () => {
+test("Milano intera: un solo numero, SEO = calcolatore = Preventivo Rapido", () => {
+  assert.equal(MILANO_ISTAT_HOUSEHOLDS, 741887);
+  assert.equal(MILANO_ISTAT_POPULATION, 1365698);
+  assert.equal(MILANO_ISTAT_RECOMMENDED_FLYERS, 816076);
+  const seo = cityFacts("milano");
+  assert.equal(seo.households, 741887);
+  assert.equal(seo.wholeCityFlyers, 816076);
+  const snapshot = validateMilanoSnapshot(JSON.parse(read("src/lib/quote/milanoWholeCitySnapshot.json")));
+  assert.equal(snapshot.analysis.families, seo.households);
+  assert.equal(snapshot.analysis.recommended, seo.wholeCityFlyers);
+  assert.equal(snapshot.analysis.population, 1365698);
+});
+
+test("nessuna data snapshot come aggiornamento ISTAT, nessun claim assoluto, nessuna nota sulla differenza", () => {
   const files = [
     "src/components/home/HomeQuoteCalculator.jsx",
     "src/components/home/HomepageTerritoryMap.jsx",
@@ -41,5 +54,6 @@ test("nessuna data snapshot presentata come aggiornamento ISTAT, nessun claim as
     const src = read(f);
     assert.doesNotMatch(src, /ISTAT aggiornati al/i, f);
     assert.doesNotMatch(src, /ISTAT esatt|certificat/i, f);
+    assert.doesNotMatch(src, /differire leggermente|stimate per superficie/i, f);
   }
 });

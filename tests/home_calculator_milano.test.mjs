@@ -21,15 +21,17 @@ test("Milano uses the Step 2 'Milano intera' request; other comuni keep the sing
   assert.equal(buildHomeCalculatorAnalysisArgs(null)[4], null, "no comune, no request");
 });
 
-test("Milano intera: sum of the 88 NILs, same quantity rule as Step 2", () => {
+test("Milano intera: 88 NILs required, figures = official ISTAT comune totals (same as the SEO page)", () => {
   const { body } = fixture("milano_intera");
   const a = readHomeCalculatorAnalysis(body, MILANO);
   assert.equal(a.kind, "milano");
   assert.equal(a.nilCount, 88);
-  assert.equal(a.families, 744299);
-  const perNil = body.comuni_breakdown.reduce((s, r) => s + r.volantini_nel_raggio, 0);
-  assert.equal(a.recommended, perNil);
-  assert.ok(Math.abs(a.recommended - Math.round(744299 * 1.1)) <= 88, "only per-NIL rounding differs");
+  assert.equal(a.families, 741887, "ISTAT bilancio demografico 31/12/2024, not the NIL sum");
+  assert.equal(a.recommended, 816076, "round(741.887 x 1,1)");
+  assert.equal(a.population, 1365698);
+  // The area-based NIL sums stay available for diagnostics only.
+  assert.equal(a.nilFamiliesSum, 744299);
+  assert.equal(a.nilFlyersSum, body.comuni_breakdown.reduce((s, r) => s + r.volantini_nel_raggio, 0));
   assert.equal(a.coverage, 100);
 });
 
@@ -68,10 +70,10 @@ test("Preventivo Rapido: Milano gets its own 'Milano intera' request, the other 
   assert.deepEqual(buildQuickQuoteAnchorAnalysisArgs([seveso, meda], "d2d", null), [45.64, 9.14, 25, "d2d", "Seveso", null, "comune", null, "multi", null, null, false]);
   assert.equal(buildQuickQuoteAnchorAnalysisArgs([seveso], "h2h", null)[4], null, "H2H/B2B use the per-comune POI requests");
   const milano = readHomeCalculatorAnalysis(fixture("milano_intera").body, MILANO);
-  assert.ok(milano.population > 0, "population summed from the NILs");
+  assert.equal(milano.population, 1365698, "ISTAT comune population");
 });
 
-test("Preventivo Rapido wiring: Milano row from the NIL sum, clear message instead of an endless 'In calcolo…'", () => {
+test("Preventivo Rapido wiring: Milano row from the ISTAT comune totals, clear message instead of an endless 'In calcolo…'", () => {
   const quick = readFileSync(new URL("../src/pages/public/QuickQuotePage.jsx", import.meta.url), "utf8");
   assert.match(quick, /useServiceAnalysis\(\.\.\.buildQuickQuoteAnchorAnalysisArgs\(otherComuni, service, qty\)\)/);
   assert.match(quick, /useServiceAnalysis\(\.\.\.buildHomeCalculatorAnalysisArgs\(service === "d2d" && !milanoSnapshot \? milanoComune : null\)\)/);

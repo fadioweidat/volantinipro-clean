@@ -6,6 +6,7 @@
 import { apiToZones } from '../step2/zoneGeoHelpers.js';
 import { canonicalizeItalianMunicipalityName } from '../geocoding/canonicalizeItalianMunicipalityName.js';
 import { getZoneFullCoverageFlyers } from '../doorToDoorCoverage.js';
+import { MILANO_ISTAT_HOUSEHOLDS, MILANO_ISTAT_POPULATION, MILANO_ISTAT_RECOMMENDED_FLYERS, MILANO_NIL_COUNT } from '../istat/milanoIstatTotals.js';
 
 // Same single-comune request as Preventivo Rapido (QuickQuotePage.jsx).
 export const SINGLE_COMUNE_RADIUS_KM = 3;
@@ -68,13 +69,25 @@ export function readHomeCalculatorAnalysis(data, comune) {
     // The resolver warns when the sweep did not return every Milano NIL: a
     // partial sum must never be shown as "Milano intera".
     if (warnings.some((w) => String(w).startsWith('MILANO_NIL_COMPLETE_INCOMPLETE'))) return { kind: 'milano', incomplete: true };
-    const families = nils.reduce((sum, z) => sum + (finite(z.families) || 0), 0);
-    const recommended = nils.reduce((sum, z) => sum + getZoneFullCoverageFlyers(z), 0);
-    const population = nils.reduce((sum, z) => sum + (finite(z.pop) || 0), 0);
+    // The NILs only prove that the answer is a complete "Milano intera"; the
+    // figures shown are the official ISTAT comune totals (741.887 famiglie,
+    // 816.076 volantini), not the area-based NIL sum (744.299 / 818.734).
+    // nilFamiliesSum / nilFlyersSum stay available for diagnostics only.
+    const nilFamiliesSum = nils.reduce((sum, z) => sum + (finite(z.families) || 0), 0);
+    const nilFlyersSum = nils.reduce((sum, z) => sum + getZoneFullCoverageFlyers(z), 0);
     const inRadius = rows.reduce((sum, r) => sum + (finite(r.households_in_radius) || 0), 0);
     const total = rows.reduce((sum, r) => sum + (finite(r.households_total) || 0), 0);
-    if (!(families > 0) || !(recommended > 0)) return { kind: 'milano', incomplete: true };
-    return { kind: 'milano', families, recommended, population: population > 0 ? population : null, coverage: total > 0 ? Math.min(100, Math.round((inRadius / total) * 100)) : null, nilCount: nils.length };
+    if (!(nilFamiliesSum > 0) || !(nilFlyersSum > 0) || nils.length !== MILANO_NIL_COUNT) return { kind: 'milano', incomplete: true };
+    return {
+      kind: 'milano',
+      families: MILANO_ISTAT_HOUSEHOLDS,
+      recommended: MILANO_ISTAT_RECOMMENDED_FLYERS,
+      population: MILANO_ISTAT_POPULATION,
+      coverage: total > 0 ? Math.min(100, Math.round((inRadius / total) * 100)) : null,
+      nilCount: nils.length,
+      nilFamiliesSum,
+      nilFlyersSum,
+    };
   }
   const zones = apiToZones(data, null) || [];
   const zone = zones.find((z) => !z.isNil && canonicalizeItalianMunicipalityName(z.name, z).toLowerCase() === comune.name.toLowerCase()) || null;
