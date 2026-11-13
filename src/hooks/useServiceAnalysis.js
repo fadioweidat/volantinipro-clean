@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildServiceAnalysisRequest } from '../lib/step2/buildServiceAnalysisRequest.js';
 import { fetchPoiAnalysis } from '../lib/analysis/poiAnalysisAdapter.js';
 import { ANALYSIS_SLOW_AFTER_MS, fetchWithAttemptTimeout, resolveAnalysisStatus } from '../lib/step2/analysisStatus.js';
+import { normalizeMilanoNilAnalysis } from '../lib/istat/normalizeMilanoNilAnalysis.js';
 
 const step2DebugEnabled = () =>
   typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV &&
@@ -356,7 +357,8 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           setDataKey(fetchKey);
         } else {
           appliedKeyRef.current = fetchKey;
-          setData(result);
+          // Milano: NIL allineati al dato ISTAT del comune (741.887 famiglie), idempotente.
+          setData(normalizeMilanoNilAnalysis(result));
           setDataKey(fetchKey);
           setError(null);
           debugStep2('[ZONE_ANALYSIS_APPLIED]', { requestId, municipality });

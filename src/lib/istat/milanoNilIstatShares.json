@@ -1,0 +1,459 @@
+{
+  "version": 1,
+  "source": "ISTAT, Bilancio demografico e popolazione residente al 31 dicembre 2024 (comune 015146), ripartito sui 88 NIL in proporzione alla superficie",
+  "method": "largest_remainder",
+  "weightsFrom": {
+    "file": "src/lib/quote/milanoWholeCitySnapshot.json",
+    "generatedAt": "2026-10-22T14:23:58.131Z"
+  },
+  "databaseNilSum": {
+    "households": 744299,
+    "population": 1370130
+  },
+  "totals": {
+    "households": 741887,
+    "population": 1365698
+  },
+  "nils": {
+    "1": {
+      "name": "DUOMO",
+      "households": 9558,
+      "population": 17595
+    },
+    "2": {
+      "name": "BRERA",
+      "households": 6683,
+      "population": 12303
+    },
+    "3": {
+      "name": "GIARDINI P.TA VENEZIA",
+      "households": 1019,
+      "population": 1876
+    },
+    "4": {
+      "name": "GUASTALLA",
+      "households": 6318,
+      "population": 11631
+    },
+    "5": {
+      "name": "PORTA VIGENTINA - PORTA LODOVICA",
+      "households": 4634,
+      "population": 8529
+    },
+    "6": {
+      "name": "PORTA TICINESE - CONCA DEL NAVIGLIO",
+      "households": 5122,
+      "population": 9430
+    },
+    "7": {
+      "name": "MAGENTA - S. VITTORE",
+      "households": 5674,
+      "population": 10445
+    },
+    "8": {
+      "name": "PARCO SEMPIONE",
+      "households": 1920,
+      "population": 3535
+    },
+    "9": {
+      "name": "PORTA GARIBALDI - PORTA NUOVA",
+      "households": 3207,
+      "population": 5903
+    },
+    "10": {
+      "name": "STAZIONE CENTRALE - PONTE SEVESO",
+      "households": 6351,
+      "population": 11692
+    },
+    "11": {
+      "name": "ISOLA",
+      "households": 5399,
+      "population": 9940
+    },
+    "12": {
+      "name": "MACIACHINI - MAGGIOLINA",
+      "households": 6837,
+      "population": 12585
+    },
+    "13": {
+      "name": "GRECO - SEGNANO",
+      "households": 7218,
+      "population": 13289
+    },
+    "14": {
+      "name": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI",
+      "households": 17335,
+      "population": 31909
+    },
+    "15": {
+      "name": "BICOCCA",
+      "households": 6243,
+      "population": 11493
+    },
+    "16": {
+      "name": "GORLA - PRECOTTO",
+      "households": 12253,
+      "population": 22556
+    },
+    "17": {
+      "name": "ADRIANO",
+      "households": 9932,
+      "population": 18284
+    },
+    "18": {
+      "name": "CIMIANO - ROTTOLE - Q.RE FELTRE",
+      "households": 20292,
+      "population": 37354
+    },
+    "19": {
+      "name": "PADOVA - TURRO - CRESCENZAGO",
+      "households": 8416,
+      "population": 15493
+    },
+    "20": {
+      "name": "LORETO - CASORETTO - NOLO",
+      "households": 7133,
+      "population": 13130
+    },
+    "21": {
+      "name": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+      "households": 11745,
+      "population": 21621
+    },
+    "22": {
+      "name": "CITTA' STUDI",
+      "households": 9010,
+      "population": 16586
+    },
+    "23": {
+      "name": "LAMBRATE - ORTICA",
+      "households": 12629,
+      "population": 23248
+    },
+    "24": {
+      "name": "PARCO FORLANINI - CAVRIANO",
+      "households": 11943,
+      "population": 21986
+    },
+    "25": {
+      "name": "CORSICA",
+      "households": 4414,
+      "population": 8125
+    },
+    "26": {
+      "name": "XXII MARZO",
+      "households": 6683,
+      "population": 12303
+    },
+    "27": {
+      "name": "PTA ROMANA",
+      "households": 4093,
+      "population": 7535
+    },
+    "28": {
+      "name": "UMBRIA - MOLISE - CALVAIRATE",
+      "households": 4867,
+      "population": 8959
+    },
+    "29": {
+      "name": "ORTOMERCATO",
+      "households": 5724,
+      "population": 10538
+    },
+    "30": {
+      "name": "TALIEDO - MORSENCHIO - Q.RE FORLANINI",
+      "households": 15597,
+      "population": 28712
+    },
+    "31": {
+      "name": "MONLUE' - PONTE LAMBRO",
+      "households": 10731,
+      "population": 19754
+    },
+    "32": {
+      "name": "TRIULZO SUPERIORE",
+      "households": 5672,
+      "population": 10441
+    },
+    "33": {
+      "name": "ROGOREDO - SANTA GIULIA",
+      "households": 4898,
+      "population": 9018
+    },
+    "34": {
+      "name": "CHIARAVALLE",
+      "households": 1263,
+      "population": 2325
+    },
+    "35": {
+      "name": "LODI - CORVETTO",
+      "households": 14853,
+      "population": 27342
+    },
+    "36": {
+      "name": "SCALO ROMANA",
+      "households": 7089,
+      "population": 13049
+    },
+    "37": {
+      "name": "MORIVIONE",
+      "households": 3338,
+      "population": 6146
+    },
+    "38": {
+      "name": "VIGENTINO - Q.RE FATIMA",
+      "households": 7564,
+      "population": 13924
+    },
+    "39": {
+      "name": "QUINTOSOLE",
+      "households": 4321,
+      "population": 7953
+    },
+    "40": {
+      "name": "RONCHETTO DELLE RANE",
+      "households": 770,
+      "population": 1419
+    },
+    "41": {
+      "name": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE",
+      "households": 13537,
+      "population": 24919
+    },
+    "42": {
+      "name": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA",
+      "households": 13192,
+      "population": 24285
+    },
+    "43": {
+      "name": "TIBALDI",
+      "households": 3209,
+      "population": 5907
+    },
+    "44": {
+      "name": "PORTA TICINESE - CONCHETTA",
+      "households": 6056,
+      "population": 11150
+    },
+    "45": {
+      "name": "MONCUCCO - SAN CRISTOFORO",
+      "households": 6515,
+      "population": 11993
+    },
+    "46": {
+      "name": "BARONA",
+      "households": 8189,
+      "population": 15075
+    },
+    "47": {
+      "name": "CANTALUPA",
+      "households": 3783,
+      "population": 6963
+    },
+    "48": {
+      "name": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO",
+      "households": 9822,
+      "population": 18080
+    },
+    "49": {
+      "name": "GIAMBELLINO",
+      "households": 8034,
+      "population": 14789
+    },
+    "50": {
+      "name": "PORTA GENOVA",
+      "households": 4069,
+      "population": 7490
+    },
+    "51": {
+      "name": "PORTA MAGENTA",
+      "households": 5333,
+      "population": 9816
+    },
+    "52": {
+      "name": "BANDE NERE",
+      "households": 10873,
+      "population": 20015
+    },
+    "53": {
+      "name": "LORENTEGGIO",
+      "households": 10794,
+      "population": 19870
+    },
+    "54": {
+      "name": "MUGGIANO",
+      "households": 1813,
+      "population": 3337
+    },
+    "55": {
+      "name": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA",
+      "households": 14171,
+      "population": 26086
+    },
+    "56": {
+      "name": "FORZE ARMATE",
+      "households": 13089,
+      "population": 24095
+    },
+    "57": {
+      "name": "SAN SIRO",
+      "households": 4020,
+      "population": 7400
+    },
+    "58": {
+      "name": "DE ANGELI - MONTE ROSA",
+      "households": 5400,
+      "population": 9941
+    },
+    "59": {
+      "name": "TRE TORRI",
+      "households": 2095,
+      "population": 3856
+    },
+    "60": {
+      "name": "STADIO - IPPODROMI",
+      "households": 14021,
+      "population": 25811
+    },
+    "61": {
+      "name": "QUARTO CAGNINO",
+      "households": 4026,
+      "population": 7411
+    },
+    "62": {
+      "name": "QUINTO ROMANO",
+      "households": 6718,
+      "population": 12366
+    },
+    "63": {
+      "name": "FIGINO",
+      "households": 5815,
+      "population": 10704
+    },
+    "64": {
+      "name": "TRENNO",
+      "households": 1998,
+      "population": 3679
+    },
+    "65": {
+      "name": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO",
+      "households": 15901,
+      "population": 29271
+    },
+    "66": {
+      "name": "QT 8",
+      "households": 4181,
+      "population": 7697
+    },
+    "67": {
+      "name": "PORTELLO",
+      "households": 3713,
+      "population": 6835
+    },
+    "68": {
+      "name": "PAGANO",
+      "households": 5264,
+      "population": 9691
+    },
+    "69": {
+      "name": "SARPI",
+      "households": 7395,
+      "population": 13614
+    },
+    "70": {
+      "name": "GHISOLFA",
+      "households": 4292,
+      "population": 7900
+    },
+    "71": {
+      "name": "VILLAPIZZONE - CAGNOLA - BOLDINASCO",
+      "households": 13987,
+      "population": 25749
+    },
+    "72": {
+      "name": "MAGGIORE - MUSOCCO - CERTOSA",
+      "households": 12369,
+      "population": 22769
+    },
+    "73": {
+      "name": "CASCINA MERLATA",
+      "households": 7064,
+      "population": 13004
+    },
+    "74": {
+      "name": "ROSERIO",
+      "households": 2889,
+      "population": 5317
+    },
+    "75": {
+      "name": "STEPHENSON",
+      "households": 2287,
+      "population": 4208
+    },
+    "76": {
+      "name": "QUARTO OGGIARO - VIALBA - MUSOCCO",
+      "households": 11334,
+      "population": 20865
+    },
+    "77": {
+      "name": "BOVISA",
+      "households": 7809,
+      "population": 14374
+    },
+    "78": {
+      "name": "FARINI",
+      "households": 4124,
+      "population": 7590
+    },
+    "79": {
+      "name": "DERGANO",
+      "households": 5545,
+      "population": 10208
+    },
+    "80": {
+      "name": "AFFORI",
+      "households": 8452,
+      "population": 15559
+    },
+    "81": {
+      "name": "BOVISASCA",
+      "households": 6441,
+      "population": 11857
+    },
+    "82": {
+      "name": "COMASINA",
+      "households": 3783,
+      "population": 6963
+    },
+    "83": {
+      "name": "BRUZZANO",
+      "households": 6818,
+      "population": 12551
+    },
+    "84": {
+      "name": "PARCO NORD",
+      "households": 6255,
+      "population": 11514
+    },
+    "85": {
+      "name": "PARCO DELLE ABBAZIE",
+      "households": 56058,
+      "population": 103193
+    },
+    "86": {
+      "name": "PARCO DEI NAVIGLI",
+      "households": 14789,
+      "population": 27224
+    },
+    "87": {
+      "name": "ASSIANO",
+      "households": 23841,
+      "population": 43888
+    },
+    "88": {
+      "name": "PARCO BOSCO IN CITTA'",
+      "households": 31976,
+      "population": 58863
+    }
+  }
+}

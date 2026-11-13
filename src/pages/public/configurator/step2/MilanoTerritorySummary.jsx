@@ -1,6 +1,7 @@
 import React from "react";
 import { Step2BottomActions } from "./Step2BottomActions.jsx";
 import { formatIntegerIT, formatRadiusLabel } from "../../../../lib/utils/format.js";
+import { householdsSourceLabel } from "../../../../lib/istatCitation.js";
 
 // No estimates or allocation calculations here: values come from the existing truth/view models.
 export function MilanoTerritorySummary({ radiusKm, radiusMunicipalities = [], radiusNils = [], mode, hasSelection, zoneLabel, viewModel, truthModel, quantity, coverageLabel, areaLabel, loading, failed, onRetry, coverageDecisionRequired, coverageDecision, availableFlyers, requiredFlyers, manualFlyers, isCoverageDecisionValid, onQuantityDecision, onManualQuantity, nilResidual, advancedContent, onOpenReport, actions }) {
@@ -10,7 +11,7 @@ export function MilanoTerritorySummary({ radiusKm, radiusMunicipalities = [], ra
     ["Zona", zoneLabel || "Milano"],
     ["Modalità", {nil: "Quartieri / NIL", radius: "Raggio", municipality: "Tutto Milano"}[mode] || "Da scegliere"],
     ...(mode === "radius" ? [["Raggio", formatRadiusLabel(radiusKm)], ["Comuni coinvolti", ready ? radiusMunicipalities.length : unavailable]] : []),
-    ["Famiglie stimate", ready ? formatIntegerIT(viewModel.primaryFamiliesValue) : unavailable],
+    [mode === "nil" ? "Famiglie stimate (quartieri)" : "Famiglie stimate", ready ? formatIntegerIT(viewModel.primaryFamiliesValue) : unavailable],
     ["Quantità scelta", `${formatIntegerIT(quantity)} pz`],
     ["Quantità consigliata", ready ? `${formatIntegerIT(viewModel.recommendedFlyersValue)} pz` : unavailable],
     ["Copertura", ready ? coverageLabel : unavailable],
@@ -19,6 +20,7 @@ export function MilanoTerritorySummary({ radiusKm, radiusMunicipalities = [], ra
   return <aside className="vp-milano-summary" aria-label="Riepilogo territorio Milano" data-testid="milano-territory-summary">
     <div className="vp-milano-eyebrow">03 · Riepilogo</div><h2>La tua distribuzione</h2>
     <dl>{rows.map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || "Dato non disponibile"}</dd></div>)}</dl>
+    {ready && <p className="vp-milano-summary-note" data-testid="milano-households-source">Fonte: {householdsSourceLabel(mode)}</p>}
     {mode === "radius" && ready && <section className="vp-milano-radius-context" aria-label="Territori nel raggio">
       <h3>Comuni nel raggio</h3>
       <p>Quota delle famiglie stimate nel raggio</p>
@@ -45,7 +47,7 @@ export function MilanoTerritorySummary({ radiusKm, radiusMunicipalities = [], ra
     </section>}
     {hasSelection && <details className="vp-milano-advanced"><summary>Dettagli avanzati</summary>
       <p>Fonti e criteri territoriali della configurazione corrente.</p>
-      <dl><div><dt>Fonte famiglie</dt><dd>{truthModel.demography?.source || viewModel.primarySource || "Dato non disponibile"}</dd></div><div><dt>NIL coinvolti</dt><dd>{truthModel.zones?.involved ?? "—"}</dd></div><div><dt>Margine operativo</dt><dd>{formatIntegerIT(truthModel.quantity?.operationalMargin || 0)} pz</dd></div></dl>
+      <dl><div><dt>Fonte famiglie</dt><dd>{householdsSourceLabel(mode)}</dd></div><div><dt>NIL coinvolti</dt><dd>{truthModel.zones?.involved ?? "—"}</dd></div><div><dt>Margine operativo</dt><dd>{formatIntegerIT(truthModel.quantity?.operationalMargin || 0)} pz</dd></div></dl>
       <button type="button" onClick={onOpenReport}>Apri Analisi Avanzata</button>
       {advancedContent}
     </details>}
