@@ -8,6 +8,7 @@ import { searchItalianMunicipalities } from "../../lib/geocoding/searchItalianMu
 import { readComuneParam, readServiceParam } from "../../lib/quote/quoteComuneParam.js";
 import { buildHomeCalculatorAnalysisArgs, buildQuickQuoteAnchorAnalysisArgs, readHomeCalculatorAnalysis, splitQuickQuoteComuni } from "../../lib/quote/homeCalculatorAnalysis.js";
 import { MILANO_SNAPSHOT } from "../../lib/quote/milanoSnapshotSource.js";
+import { ISTAT_HOUSEHOLDS_SHORT, MILANO_NIL_METHOD_NOTE } from "../../lib/istatCitation.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../../lib/extraServicesRegistry.js";
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
 import { printQuotePdf } from "../../lib/pdf/printQuotePdf.js";
@@ -1104,7 +1105,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                       </div>
                     ))}
                   </div>
-                  {milanoSnapshot && <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)" }}>Milano intera (88 quartieri): dati ISTAT aggiornati al {milanoSnapshot.dateLabel}.</div>}
+                  <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)" }}>{ISTAT_HOUSEHOLDS_SHORT}{milanoSnapshot ? <> · Milano intera (88 quartieri, {MILANO_NIL_METHOD_NOTE}) · calcolo del {milanoSnapshot.dateLabel}.</> : "."}</div>
                 </div>
               )}
 

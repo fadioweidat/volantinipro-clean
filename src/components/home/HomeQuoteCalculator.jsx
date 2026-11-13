@@ -6,6 +6,7 @@ import { searchItalianMunicipalities } from '../../lib/geocoding/searchItalianMu
 import { formatOperationalMarginNote, getOperationalMarginPct } from '../../lib/doorToDoorCoverage.js';
 import { buildHomeCalculatorAnalysisArgs, isMilanoComune, readHomeCalculatorAnalysis } from '../../lib/quote/homeCalculatorAnalysis.js';
 import { MILANO_SNAPSHOT } from '../../lib/quote/milanoSnapshotSource.js';
+import { ISTAT_HOUSEHOLDS_COMPACT, MILANO_NIL_METHOD_NOTE, snapshotCalculationLabel } from '../../lib/istatCitation.js';
 import { formatHeroMetric } from './homepageHeroData.js';
 import { buildQuoteSelectionHref } from '../../lib/quote/quoteComuneParam.js';
 
@@ -148,7 +149,7 @@ export default function HomeQuoteCalculator({ onConfigure }) {
     </div>
 
     <div className="vpq-metrics" aria-live="polite" aria-busy={status === 'loading'}>
-      <div><span>{comune ? `Famiglie nel Comune di ${comune.name}` : 'Famiglie nel Comune'}</span><ProcessIcon name="people" /><strong>{metric(families)}</strong><small>Fonte ISTAT</small></div>
+      <div><span>{comune ? `Famiglie nel Comune di ${comune.name}` : 'Famiglie nel Comune'}</span><ProcessIcon name="people" /><strong>{metric(families)}</strong><small>{ISTAT_HOUSEHOLDS_COMPACT}</small></div>
       <div><span>Quantità consigliata</span><ProcessIcon name="document" /><strong>{metric(recommended)}</strong><small>{status === 'ready' && marginNote ? marginNote : 'Famiglie + margine operativo'}</small></div>
       <div><span>Copertura del Comune</span><ProcessIcon name="chart" /><strong>{status === 'ready' && coverage !== null ? `${coverage}%` : metric(null)}</strong><small>Quota analizzata</small></div>
     </div>
@@ -157,7 +158,7 @@ export default function HomeQuoteCalculator({ onConfigure }) {
     {status === 'loading' && <p className="vpq-example-note" role="status">Analisi dei dati ISTAT per {comune.name} in corso…</p>}
     {status === 'error' && <p className="vpq-calc-alert" role="alert">Dati territoriali non disponibili per {comune.name} in questo momento. Puoi comunque calcolare il preventivo nel configuratore.</p>}
     {status === 'unavailable' && <p className="vpq-calc-alert" role="alert">Non abbiamo dati ISTAT per {comune.name}. Puoi comunque calcolare il preventivo nel configuratore.</p>}
-    {status === 'ready' && isMilano && <p className="vpq-example-note">Milano intera: {formatHeroMetric(analysis.nilCount)} quartieri (NIL). Nel configuratore puoi scegliere i singoli quartieri.{milanoSnapshot && <> Dati ISTAT aggiornati al {milanoSnapshot.dateLabel}.</>}</p>}
+    {status === 'ready' && isMilano && <p className="vpq-example-note">Milano intera: {formatHeroMetric(analysis.nilCount)} quartieri (NIL), {MILANO_NIL_METHOD_NOTE} sul dato ISTAT. Nel configuratore puoi scegliere i singoli quartieri.{milanoSnapshot && <> {snapshotCalculationLabel(milanoSnapshot.dateLabel)}.</>}</p>}
 
     <p className="vpq-info"><ProcessIcon name="info" /><span>Se la quantità supera la capacità stimata della zona, puoi ampliare il territorio o aggiungere altri Comuni.</span></p>
     <button type="button" className="vpq-cta" onClick={goToQuoteSelection}>Calcola il preventivo online <span aria-hidden="true">→</span></button>

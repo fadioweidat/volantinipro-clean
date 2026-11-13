@@ -235,3 +235,4 @@ tests/step2_radius_integrity.test.mjs
 tests/ai_core_limits.test.mjs
 tests/anonymous_assistant_off.test.mjs
 tests/assistant_no_credit.test.mjs
+tests/istat_citation.test.mjs

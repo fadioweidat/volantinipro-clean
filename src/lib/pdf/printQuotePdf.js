@@ -1,4 +1,5 @@
 import { escapeHtmlDeep } from "./escapeHtmlDeep.js";
+import { ISTAT_REFERENCE_DATE, PDF_HOUSEHOLDS_SOURCE_NOTE } from "../istatCitation.js";
 function fmt(n, dec = 0) {
   if (n == null || n === "") return null;
   const num = Number(n);
@@ -360,6 +361,7 @@ export function printQuotePdf(unsafeData) {
       ${kv("Volantini consigliati", fmt(outputs.recommendedFlyers))}
       ${kv("Stato copertura", outputs.coverageStatus === "sufficient" ? "Sufficiente" : "Parziale")}
     </div>
+    ${outputs.estimatedFamilies != null ? `<div class="callout" style="margin-top:10px">${PDF_HOUSEHOLDS_SOURCE_NOTE}</div>` : ""}
     ${ins && rec ? `<div class="callout" style="margin-top:10px">${
       ins >= rec
         ? `La quantità inserita di <strong>${fmt(ins)}</strong> volantini è sufficiente rispetto ai <strong>${fmt(rec)}</strong> consigliati. Restano <strong>${fmt(ins - rec)}</strong> volantini disponibili.`
@@ -412,7 +414,7 @@ export function printQuotePdf(unsafeData) {
   <!-- Admin info -->
   ${(d.adminInfo || []).length ? `
   <div class="section">
-    ${secHeader(nextSec(), "Sintesi demografica ed economica", "Dati ISTAT e territoriali")}
+    ${secHeader(nextSec(), "Sintesi demografica ed economica", `Dati ISTAT al ${ISTAT_REFERENCE_DATE} e territoriali`)}
     <div class="kv-grid">
       ${(d.adminInfo || []).map(i => kv(i.label, i.value)).join("")}
     </div>

@@ -71,7 +71,9 @@ test("hero wiring: eager glob (no build break if deleted), live call only withou
   assert.match(hero, /import\.meta\.glob\('\.\/heroScenarioSnapshot\.json', \{ eager: true, import: 'default' \}\)/);
   assert.match(hero, /const live = active && !snapshot;/);
   assert.match(hero, /dataDateLabel=\{snapshot\?\.dateLabel \|\| null\}/);
-  assert.match(read("src/components/home/HomepageTerritoryMap.jsx"), /\{dataDateLabel&&<span className="vph-map-context-date">Dati ISTAT aggiornati al \{dataDateLabel\}<\/span>\}/);
+  assert.match(read("src/components/home/HomepageTerritoryMap.jsx"), /\{dataDateLabel&&<span className="vph-map-context-date">\{snapshotCalculationLabel\(dataDateLabel\)\}<\/span>\}/);
+  // The snapshot date is a calculation date, never an "ISTAT update" date.
+  assert.doesNotMatch(read("src/components/home/HomepageTerritoryMap.jsx"), /Dati ISTAT aggiornati/);
   assert.match(hero, /const pending = snapshot \? false : \(!error && !data \|\| loading\);/);
   const css = read("src/components/home/homepage-hero.css");
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.vph-skeleton \{ animation:none;/);

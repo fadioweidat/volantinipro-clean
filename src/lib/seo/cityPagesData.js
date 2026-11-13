@@ -25,6 +25,12 @@ export { ALL_CITY_SLUGS, CITY_SLUGS, SERVED_CITIES, cityPageKey, cityPath };
 export const ISTAT_SOURCE =
   "ISTAT, Bilancio demografico e popolazione residente al 31 dicembre 2024; superficie dai confini ISTAT al 1° gennaio 2026.";
 
+// Solo Milano: nel configuratore le famiglie sono suddivise negli 88 NIL in
+// proporzione alla superficie, quindi la somma dei quartieri non coincide
+// esattamente con il totale ISTAT mostrato qui (report fonte dati, 2026-11-13).
+export const MILANO_NIL_SOURCE_NOTE =
+  "Nel configuratore Milano è suddivisa negli 88 quartieri (NIL): le famiglie dei quartieri sono una stima VolantiniPro proporzionale alla superficie, quindi la loro somma può differire leggermente dal totale ISTAT.";
+
 // Formula dello Step 2: famiglie x 1,1 (margine operativo del 10%).
 export const RECOMMENDED_FLYERS_PER_HOUSEHOLD = 1.1;
 
