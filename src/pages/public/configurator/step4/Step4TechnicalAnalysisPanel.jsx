@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import KpiTooltip from "../../../../components/ui/KpiTooltip.jsx";
 import { C, F } from "../../../../lib/constants.js";
+import { ISTAT_HOUSEHOLDS_SHORT } from "../../../../lib/istatCitation.js";
 
 export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setShowTechPanel, isMobile, estimatedFamiliesForSummary, coverageForSummary, selectedZoneNames, col, nonEmpty, serviceSummaryConfig, fieldCard, step4TerritoryPluralLabel, breakdownRows, isComuneMode, svcType, step4Omi, formatNumber, cleanSource, operationalSummary, techSections, toggleTech, handleDownloadPdf, pdfBusy }) {
   if (isQuick) return null;
@@ -65,7 +66,7 @@ export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setSh
                   {[{
                 label: "Famiglie operative stimate",
                 val: formatNumber(estimatedFamiliesForSummary, "—"),
-                sub: "Stima territoriale GIS/NIL",
+                sub: ISTAT_HOUSEHOLDS_SHORT,
                 c: C.green,
                 tip: "Stima del fabbisogno e delle famiglie raggiungibili nell'area selezionata su base geografica."
               }, {

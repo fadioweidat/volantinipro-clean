@@ -50,6 +50,7 @@ test("nessuna data snapshot come aggiornamento ISTAT, nessun claim assoluto, nes
     "src/lib/istatCitation.js",
     "src/lib/seo/cityPagesData.js",
     "src/pages/public/configurator/Step4.jsx",
+    "src/pages/public/configurator/step4/Step4TechnicalAnalysisPanel.jsx",
     "src/pages/customer/AdvancedCoverageReport.jsx",
     "src/pages/customer/feasibility/business/FeasibilityBusinessReport.jsx",
   ];
@@ -59,6 +60,6 @@ test("nessuna data snapshot come aggiornamento ISTAT, nessun claim assoluto, nes
     assert.doesNotMatch(src, /ISTAT esatt|certificat/i, f);
     assert.doesNotMatch(src, /differire leggermente|stimate per superficie/i, f);
     // Mai "Fonte: ISTAT" o "ISTAT 2024" senza la data di riferimento.
-    assert.doesNotMatch(src, /["'>]Fonte:? ISTAT["'.<]|ISTAT 2024|src: "ISTAT"/, f);
+    assert.doesNotMatch(src, /["'>]Fonte:? ISTAT["'.<]|ISTAT 2024|src: "ISTAT"|Stima territoriale GIS\/NIL/, f);
   }
 });
