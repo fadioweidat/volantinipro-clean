@@ -44,6 +44,7 @@ import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js
 
 import { buildOnProjectPayload } from "../../../lib/business/businessOnProject.js";
 import { Step4BusinessRequest } from "./step4/Step4BusinessRequest.jsx";
+import { ISTAT_HOUSEHOLDS_SHORT } from "../../../lib/istatCitation.js";
 
 export function Step4({
   data,
@@ -758,12 +759,12 @@ export function Step4({
       fields: [{
         l: "Famiglie operative stimate",
         v: formatNumber(estimatedFamiliesForSummary, "—"),
-        src: "Stima territoriale GIS/NIL",
+        src: ISTAT_HOUSEHOLDS_SHORT,
         c: "#22C55E"
       }, {
         l: "Popolazione stimata",
         v: formatNumber(kpisPopulation) || "—",
-        src: "ISTAT",
+        src: ISTAT_HOUSEHOLDS_SHORT,
         c: "#22C55E"
       }, {
         l: "Copertura dell'area",
@@ -1000,11 +1001,11 @@ export function Step4({
     serviceSummaryConfig.admin = [{
       l: "Famiglie stimate",
       v: formatNumber(estimatedFamiliesForSummary, "—"),
-      src: "ISTAT"
+      src: ISTAT_HOUSEHOLDS_SHORT
     }, {
       l: "Popolazione stimata",
       v: formatNumber(kpisPopulation) || "dato non disponibile",
-      src: "ISTAT"
+      src: ISTAT_HOUSEHOLDS_SHORT
     }, {
       l: "Superficie analizzata",
       v: d2dAreaKm2 ? formatAreaKm2(d2dAreaKm2) : null,
@@ -1012,7 +1013,7 @@ export function Step4({
     }, {
       l: "Densità media",
       v: d2dAvgDensity ? `${formatNumber(d2dAvgDensity)} ab./km²` : null,
-      src: "ISTAT"
+      src: ISTAT_HOUSEHOLDS_SHORT
     }, {
       l: `${step4TerritoryPluralLabel} nel raggio`,
       v: kpisComuniCount != null ? formatNumber(kpisComuniCount) : null,
@@ -2366,13 +2367,13 @@ export function Step4({
                   {svcType === "d2d" && [{
                 icon: "home",
                 l: "Famiglie stimate nell'area",
-                sub: "Stima territoriale GIS/NIL",
+                sub: ISTAT_HOUSEHOLDS_SHORT,
                 v: formatNumber(estimatedFamiliesForSummary, "—"),
                 c: C.green
               }, {
                 icon: "family",
                 l: "Persone stimate",
-                sub: kpisPopulation != null ? "Fonte: ISTAT" : "Stima su famiglie (coefficiente medio)",
+                sub: kpisPopulation != null ? ISTAT_HOUSEHOLDS_SHORT : "Stima su famiglie (coefficiente medio)",
                 v: formatNumber(kpisPopulation ?? Math.round((kpis.families ?? totF) * 2.4), "—"),
                 c: C.white
               }, {
