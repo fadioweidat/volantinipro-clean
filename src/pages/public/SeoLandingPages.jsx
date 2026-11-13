@@ -6,7 +6,7 @@ import { C, F } from "../../lib/constants.js";
 import Button from "../../components/ui/Button.jsx";
 import { pricesPageContent as prices } from "../../lib/seo/pricesPageContent.js";
 import { H2H_HOURLY_RATE_EUR, H2H_MIN_HOURS_PER_OUTING } from "../../lib/pricing/handToHandPricing.js";
-import { CITY_PAGES, ISTAT_SOURCE, cityFacts, formatEuro, formatInt, cityPriceQuantities, cityReachSentence } from "../../lib/seo/cityPagesData.js";
+import { CITY_PAGES, ISTAT_SOURCE, MILANO_NIL_SOURCE_NOTE, cityFacts, formatEuro, formatInt, cityPriceQuantities, cityReachSentence } from "../../lib/seo/cityPagesData.js";
 
 // SEO — pagina prezzi e pagine citta' (2026-10-25). Stesso design system della
 // pagina Milano (MilanoLandingPage.jsx). Contenuti in src/lib/seo/
@@ -131,14 +131,14 @@ export function CityNumbersSection({ slug, onNav, showPrices = true }) {
             </div>
           ))}
         </div>
-        <p style={smallNote}>Fonte: {ISTAT_SOURCE}</p>
+        <p style={smallNote}>Fonte: {ISTAT_SOURCE}{slug === "milano" && <> {MILANO_NIL_SOURCE_NOTE}</>}</p>
       </Section>
       <Section title={`Quanti volantini servono ${f.at}`}>
         <p style={pStyle}>
           Il configuratore consiglia una quantità pari alle famiglie della zona più un margine operativo del 10%. Per tutta {f.name} sono circa <strong style={{ color: C.white }}>{formatInt(f.wholeCityFlyers)} volantini</strong>.
         </p>
         <p style={pStyle}>
-          {cityReachSentence(f)} Nel configuratore vedi le famiglie ISTAT esatte del raggio o del comune che scegli.
+          {cityReachSentence(f)} Nel configuratore vedi le famiglie stimate sul dato ISTAT per il raggio{slug === "milano" ? ", il comune o i quartieri" : " o il comune"} che scegli.
         </p>
       </Section>
       {showPrices && <Section title={`Quanto costa ${f.at}`}>
