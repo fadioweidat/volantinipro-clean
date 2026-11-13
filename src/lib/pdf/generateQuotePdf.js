@@ -1,3 +1,5 @@
+import { ISTAT_REFERENCE_DATE, PDF_HOUSEHOLDS_SOURCE_NOTE } from "../istatCitation.js";
+
 const PAGE = { w: 595.28, h: 841.89, margin: 42 };
 const COLORS = {
   ink: "0.11 0.15 0.27",
@@ -479,6 +481,7 @@ function renderPdf(model) {
     { label: "Quantit\u00e0 residua", value: model.outputs.remainingFlyers > 0 ? formatNumberIT(model.outputs.remainingFlyers) : null },
     { label: "Quantit\u00e0 mancante", value: model.outputs.missingFlyers > 0 ? formatNumberIT(model.outputs.missingFlyers) : null },
   ]);
+  if (model.outputs.estimatedFamilies != null) paragraph(w, PDF_HOUSEHOLDS_SOURCE_NOTE);
   const qExplanation = model.quantityExplanation || quantityExplanation(model);
   if (qExplanation) paragraph(w, qExplanation);
   if (model.outputs.coverageStatus === "partial") paragraph(w, "Hai scelto di continuare con copertura parziale.");
@@ -503,7 +506,7 @@ function renderPdf(model) {
   section(w, "4. Indicatori servizio", "KPI operativi della stima");
   kvGrid(w, model.scores.map(s => ({ label: s.label, value: `${s.value}/100 - ${s.description || ""}` })));
 
-  section(w, "5. AdminInfo / ISTAT summary", "Sintesi demografica ed economica");
+  section(w, "5. AdminInfo / ISTAT summary", `Sintesi demografica ed economica · dati ISTAT al ${ISTAT_REFERENCE_DATE}`);
   kvGrid(w, model.adminInfo.map(i => ({ label: i.label, value: i.value })));
 
   renderAiAnalysis(w, model);

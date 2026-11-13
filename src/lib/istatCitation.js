@@ -20,3 +20,13 @@ export function snapshotCalculationLabel(dateLabel) {
 /** Nota fonte e metodo della sezione dati del PDF preventivo. */
 export const PDF_HOUSEHOLDS_SOURCE_NOTE =
   `${ISTAT_HOUSEHOLDS_SHORT} (Bilancio demografico e popolazione residente). Per un raggio o un singolo quartiere le famiglie sono stimate in proporzione alla superficie. ${RECOMMENDED_QUANTITY_METHOD}.`;
+
+/** Famiglie dei quartieri (NIL) di Milano: stima per superficie del dato ISTAT. */
+export const NIL_HOUSEHOLDS_LABEL = "Famiglie stimate (quartiere)";
+export const NIL_HOUSEHOLDS_SOURCE = `ISTAT, famiglie al ${ISTAT_REFERENCE_DATE} · ripartite per superficie`;
+/** Valore leggibile per "Fonte famiglie" (mai una chiave tecnica). */
+export function householdsSourceLabel(mode) {
+  return mode === "municipality"
+    ? `ISTAT, famiglie al ${ISTAT_REFERENCE_DATE} (totale del comune)`
+    : NIL_HOUSEHOLDS_SOURCE;
+}

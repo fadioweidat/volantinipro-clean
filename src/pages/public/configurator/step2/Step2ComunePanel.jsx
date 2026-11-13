@@ -1,6 +1,7 @@
 import React from "react";
 import { C, F } from "../../../../lib/constants.js";
 import { formatIntegerIT, formatPercentIT } from "../../../../lib/utils/format.js";
+import { NIL_HOUSEHOLDS_LABEL, NIL_HOUSEHOLDS_SOURCE } from "../../../../lib/istatCitation.js";
 
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 
@@ -54,6 +55,11 @@ export function Step2ComunePanel({ simplifiedMilano = false, activeCampaignZone,
                             useGrouping: true
                           })}</b> volantini
                         </div>
+                        {isNilAnalysis && <div data-testid="nil-households-source" style={{
+                        fontFamily: F.sans,
+                        fontSize: 10,
+                        color: "rgba(255,255,255,.35)"
+                      }}>{NIL_HOUSEHOLDS_LABEL}: {NIL_HOUSEHOLDS_SOURCE}</div>}
                       </div>
                       {!simplifiedMilano && isComuneMode && isNilAnalysis && <button onClick={() => {
                       setNilManualMode(v => {
