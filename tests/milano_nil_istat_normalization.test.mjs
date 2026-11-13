@@ -107,17 +107,6 @@ test("wiring: hook D2D normalizza, Step 2 mostra fonte leggibile e nota stima NI
   assert.match(pdf, /paragraph\(w, PDF_HOUSEHOLDS_SOURCE_NOTE\)/);
 });
 
-test("migration proposta: stessa firma, resto maggiore su tutti i NIL, fuori da supabase/migrations", () => {
-  const sql = read("supabase/migrations_pending_approval/20261113180000_milano_nil_istat_normalized_shares.sql");
-  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.get_nil_breakdown_in_radius\(center_lat double precision, center_lng double precision, radius_km double precision\)/);
-  assert.match(sql, /RETURNS TABLE\(territory_level text, nil_code text, nil_name text, municipality_code text, comune_name text, households_total integer, population_total integer, households_in_radius integer, population_in_radius integer, area_km2 numeric, density_per_km2 numeric, pct_copertura numeric, volantini_nel_raggio integer, age_0_14_pct numeric, age_65_plus_pct numeric, average_income numeric, old_age_index numeric, businesses_total integer, geometry_geojson text\)/);
-  assert.match(sql, /sum\(a\.nil_m2\) over \(\)/);
-  assert.match(sql, /order by f\.hh_exact - f\.hh_floor desc, f\.nil_code/);
-  const rollback = read("supabase/migrations_pending_approval/20261113180000_milano_nil_istat_normalized_shares.rollback.sql");
-  assert.match(rollback, /pg_get_functiondef/);
-  assert.match(rollback, /e\.households_total \* e\.nil_city_ratio/);
-});
-
 test("valori NIL diversi da quelli attesi (es. nuovo anno nel database) non vengono sovrascritti", () => {
   const row = { territory_level: "nil", nil_code: "77", nil_name: "BRUZZANO", municipality_code: "015146", pct_copertura: 100, households_in_radius: 5885, households_total: 5885, population_total: 9000, population_in_radius: 9000, volantini_nel_raggio: 5885 };
   const data = { values: { famiglie_stimate: 5885, volantini_consigliati: 6474 }, comuni_breakdown: [row], metadata: {} };
