@@ -27,6 +27,9 @@ test("Step 4 multi-PV: stato famiglie uniche dichiarato prima dell'uso (regressi
   assert.match(step4, /import \{ countTerritories, territoryTypeLabel \} from "\.\.\/\.\.\/\.\.\/lib\/step2\/territoryCounts\.js"/);
   assert.match(step4, /import \{ UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL \} from "\.\.\/\.\.\/\.\.\/lib\/step2\/uniqueHouseholds\.js"/);
   assert.match(step4, /const territoryCounts = !isMultiZoneQuote && zoneAllocs\.length > 0 \? countTerritories\(zoneAllocs\) : null;/);
+  assert.match(step4, /import \{ averageUnitPrice, resolveQuoteStatus \} from "\.\.\/\.\.\/\.\.\/lib\/quoteStatus\.js"/);
+  assert.match(step4, /const familiesDisplay = uniqueFamiliesUndetermined \? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : formatNumber\(estimatedFamiliesForSummary, "—"\);/);
+  assert.doesNotMatch(step4, /B2B_DELIVERY_TYPES/);
 });
 
 // Righe reali dello Step 2 (nomi e volantini dal PDF del 2026-11-05).
