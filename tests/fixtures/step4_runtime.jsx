@@ -8,11 +8,14 @@ const units = [
   { id:'comune_baranzate', name:'Baranzate', municipality_code:'015250', isNil:false, familiesTotal:6000, densita:4000, geometry:square(9.116,45.46) },
 ];
 const pv = (id,lng) => ({ id,readyForQuote:true,city:{name:'Milano',lat:45.46,lng:9.11},cityName:'Milano', selectedComuni:[{name:'Milano'}],searchMode:'address',radiusKm:3,selectedSearchPoint:{lat:45.466,lng,label:`Via Test ${id}, Milano`},assigned_flyers:10000,finalFlyers:10000,store_name:`PV ${id}`,kpiSnapshot:{families:14000,requiredFlyers:15000,areaMode:'radius',center:{lat:45.466,lng},radiusKm:3},allocation:units });
-export const multiPv = {type:'d2d',service:'d2d',cityName:'Milano',quantity:20000,flyers:20000,campaignZones:[pv('west',9.112),pv('east',9.121)]};
-export const multiComune = {type:'d2d',service:'d2d',cityName:'Milano',quantity:20000,flyers:20000,campaignZones:[
-  {id:'milano',city:{name:'Milano'},cityName:'Milano',selectedComuni:[{name:'Milano'}],finalFlyers:10000,assigned_flyers:10000,allocation:[{name:'Milano',territory_type:'comune',familiesTotal:10000}]},
-  {id:'bresso',city:{name:'Bresso'},cityName:'Bresso',selectedComuni:[{name:'Bresso'}],finalFlyers:10000,assigned_flyers:10000,allocation:[{name:'Bresso',territory_type:'comune',familiesTotal:5000}]},
-]};
+export const multiPv = {type:'d2d',service:'d2d',cityName:'Milano',quantity:20000,flyerQuantity:20000,flyers:20000,campaignZones:[pv('west',9.112),pv('east',9.121)]};
+// The legacy multi-comune flow intentionally has NO campaignZones: minimum
+// applies by municipality, unlike the per-PV commercial rule above.
+export const multiComune = {type:'d2d',service:'d2d',cityName:'Milano',quantity:20000,flyerQuantity:20000,flyers:20000,
+  serviceKpis:{families:15000,recommendedFlyers:20000,coverage:100},searchMode:'municipality',
+  selectedComuni:[{name:'Milano'},{name:'Cormano'},{name:'Bresso'}],
+  zonesAllocation:[{name:'Milano',assignedFlyers:10000,requiredFlyers:10000},{name:'Cormano',assignedFlyers:5000,requiredFlyers:5000},{name:'Bresso',assignedFlyers:5000,requiredFlyers:5000}],
+};
 export const makeStep4 = data => <Step4 data={data} setData={() => {}} onBack={() => {}} onNav={() => {}} onHome={() => {}} />;
 if (typeof document !== 'undefined') {
   const chosen = new URLSearchParams(window.location.search).get('scenario') === 'multi-comune' ? multiComune : multiPv;
