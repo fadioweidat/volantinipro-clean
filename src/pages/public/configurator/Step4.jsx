@@ -98,6 +98,9 @@ export function Step4({
     capacityStatus: multiPvPlan.ready ? 'unique_union_estimate' : 'territory_data_unavailable',
   }, [rawMultiZoneSummary, multiPvPlan]);
   const isMultiZoneQuote = !isQuick && svcType === "d2d" && multiZoneSummary.isMultiZone;
+  // Keep the unavailable state explicit when the canonical union cannot be
+  // computed; never display a summed (double-counted) household estimate.
+  const uniqueFamiliesUndetermined = isMultiZoneQuote && !multiPvPlan?.ready;
   // FASE 2: prezzo distribuzione per punto vendita dallo stesso motore della campagna.
   const multiZonePosPricing = useMemo(() => isMultiZoneQuote ? buildPointOfSalePricing(multiZoneSummary) : null, [isMultiZoneQuote, multiZoneSummary]);
   const multiZoneUnsupported = !isQuick && svcType !== "d2d" && multiZoneSummary.isMultiZone;
