@@ -3,7 +3,7 @@ import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { C, F } from "../../../../lib/constants.js";
 import { MONTHS_SHORT } from "../../../../lib/appConstants.js";
 
-export function Step4PlanningPanel({ box, secHead, isQuick, sectionAccent, data, isMobile, nonEmpty, selDays, selectedDatesLabel, preferredPeriodLabel, urgencySurchargePctLabel, sent, disc, col, pairsData }) {
+export function Step4PlanningPanel({ box, secHead, isQuick, sectionAccent, data, isMobile, nonEmpty, selDays, selectedDatesLabel, preferredPeriodLabel, urgencySurchargePctLabel, sent, disc, col, pairsData, quoteStatus = null }) {
   return (
     <>
       {!isQuick && <div style={{

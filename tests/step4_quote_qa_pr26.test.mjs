@@ -30,6 +30,7 @@ test("Step 4 multi-PV: stato famiglie uniche dichiarato prima dell'uso (regressi
   assert.match(step4, /import \{ averageUnitPrice, resolveQuoteStatus \} from "\.\.\/\.\.\/\.\.\/lib\/quoteStatus\.js"/);
   assert.match(step4, /const familiesDisplay = uniqueFamiliesUndetermined \? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : formatNumber\(estimatedFamiliesForSummary, "—"\);/);
   assert.doesNotMatch(step4, /B2B_DELIVERY_TYPES/);
+  assert.match(planning, /export function Step4PlanningPanel\(\{[^}]*quoteStatus = null/);
 });
 
 // Righe reali dello Step 2 (nomi e volantini dal PDF del 2026-11-05).
