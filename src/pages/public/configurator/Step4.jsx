@@ -41,6 +41,7 @@ import { trackQuoteCompleted } from "../../../lib/analytics/siteEvents.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../../lib/monitoring/errorLog.js";
 import { buildQuoteAssistantStep4Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
+import { averageUnitPrice, resolveQuoteStatus } from "../../../lib/quoteStatus.js";
 import { countTerritories, territoryTypeLabel } from "../../../lib/step2/territoryCounts.js";
 import { UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL } from "../../../lib/step2/uniqueHouseholds.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
@@ -717,6 +718,7 @@ export function Step4({
   // "Milano completo") il comportamento resta invariato.
   const mainAreaLabel = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones).join(" + ") || "Aree selezionate" : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
   const estimatedFamiliesForSummary = svcType === "d2d" ? isMultiZoneQuote ? multiZoneSummary.totalFamilies : kpis.families ?? (selZ.length ? totF : null) : null;
+  const familiesDisplay = uniqueFamiliesUndetermined ? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : formatNumber(estimatedFamiliesForSummary, "—");
   const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : isMultiZoneQuote ? null : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
   const fallbackCoverageText = (kpis.coverage ?? avgCov) == null ? "—" : `${kpis.coverage ?? avgCov}%`;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).
@@ -2368,7 +2370,7 @@ export function Step4({
             }, isB2B && {
               icon: "",
               l: "Consegna",
-              v: B2B_DELIVERY_TYPES.find(o => o.value === data.deliveryType)?.label || "-",
+              v: BUSINESS_DELIVERY_METHODS.find(o => o.value === (data.businessDeliveryMethod || data.deliveryType))?.label || "-",
               c: C.purple
             }, {
               icon: "",
