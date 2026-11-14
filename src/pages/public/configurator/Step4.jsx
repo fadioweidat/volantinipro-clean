@@ -760,7 +760,9 @@ export function Step4({
   // Nel raggio il numero di comuni coinvolti non e' quello dei comuni scelti
   // come centro (spesso 1: Milano). Step 2 salva la conta delle intersezioni
   // reali in comuniNelRaggio; deve vincere sul KPI generico delle selezioni.
-  const radiusCommunesCount = data.areaMode === "radius" && Number(data.comuniNelRaggio) > 0 ? Number(data.comuniNelRaggio) : null;
+  // In una campagna multi-PV questo valore top-level appartiene SOLO al PV
+  // attivo: non deve prevalere sull'unione dei comuni di tutti i PV.
+  const radiusCommunesCount = !isMultiZoneQuote && data.areaMode === "radius" && Number(data.comuniNelRaggio) > 0 ? Number(data.comuniNelRaggio) : null;
   const summaryMunicipalityCount = radiusCommunesCount ?? (summaryMunicipalityNames.length || null);
   const kpisComuniCount = radiusCommunesCount ?? kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
   const d2dAreaKm2 = kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null);

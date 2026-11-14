@@ -140,6 +140,11 @@ test("municipality counts distinguish PV and NIL from unique municipalities", ()
   'all PV municipality lists must be unioned and deduplicated');
 });
 
+test('Step 4 multi-PV municipality KPI does not inherit the active PV radius count', () => {
+  assert.match(step4, /const radiusCommunesCount = !isMultiZoneQuote && data\.areaMode === "radius"/);
+  assert.match(step4, /comuniCount: getCampaignMunicipalityNames\(data\.campaignZones\)\.length/);
+});
+
 test("manual NIL labels ignore stale full-city allocation and removed selections", () => {
   const pv = { cityName: 'Milano', searchMode: 'municipality', nilManualMode: true,
     allocation: [{ id: 'duomo', name: 'DUOMO' }, { id: 'certosa', name: 'CERTOSA' }] };
