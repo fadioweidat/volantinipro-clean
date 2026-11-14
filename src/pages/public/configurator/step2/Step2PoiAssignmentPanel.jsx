@@ -5,7 +5,7 @@ import { businessOptionLabel, businessCategoryLabel, BUSINESS_DELIVERY_METHODS, 
 import { ACTIVITY_TARGET_LABELS } from "../../../../lib/step2/activityTargets.js";
 import { PROMOTER_COUNT_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../../lib/step1/step1OptionLists.js";
 
-export function Step2PoiAssignmentPanel({ assignPoiToOperator, businessMaterialPlan, businessOperationalPlan, businessPoiCategoryCounts, businessPoiFilter, changeOperatorCountInStep2, city, clearPoiAssignments, distributionTargetSelection, focusPoiRow, focusedPoiId, h2hPoiCategoryCounts, h2hPoiFilter, isBusinessStep2, isMobile, isMovementStep2, operatorCountForPoiAssignment, operatorSchedules, poiAssignments, poiComuneResolver, poiListSearch, poiRequestFailed, pois, rebalanceSelectedPois, retryPoi, selectAndBalanceAllPois, selectedOperationalPois, setBusinessPoiFilter, setH2hPoiFilter, setPoiListSearch, togglePoiAssignment, updateOperatorScheduleInStep2, updatePoiCopies, visiblePoisForAssignment }) {
+export function Step2PoiAssignmentPanel({ assignPoiToOperator, businessMaterialPlan, businessOperationalPlan, businessPoiCategoryCounts, businessPoiFilter, changeOperatorCountInStep2, city, clearPoiAssignments, distributionTargetSelection, focusPoiRow, focusedPoiId, h2hPoiCategoryCounts, h2hPoiFilter, isBusinessStep2, isMobile, isMovementStep2, operatorCountForPoiAssignment, operatorSchedules, poiAssignments, poiComuneResolver, poiListSearch, poiRequestFailed, poiLoading, pois, rebalanceSelectedPois, retryPoi, selectAndBalanceAllPois, selectedOperationalPois, setBusinessPoiFilter, setH2hPoiFilter, setPoiListSearch, togglePoiAssignment, updateOperatorScheduleInStep2, updatePoiCopies, visiblePoisForAssignment }) {
   return (
     <>
       {(isMovementStep2 || isBusinessStep2) && city && <div style={{
@@ -52,7 +52,7 @@ export function Step2PoiAssignmentPanel({ assignPoiToOperator, businessMaterialP
                   fontFamily: F.sans,
                   fontSize: 9,
                   fontWeight: 750
-                }}>{pois.length} trovati</span>
+                }}>{poiLoading ? "Caricamento luoghi…" : `${pois.length} trovati`}</span>
                   <span style={{
                   padding: "5px 8px",
                   borderRadius: 8,
@@ -264,7 +264,7 @@ export function Step2PoiAssignmentPanel({ assignPoiToOperator, businessMaterialP
                   }}>{label}{value !== "all" ? ` (${count})` : ""}</button>;
                 })}
                   </div>}
-                {visiblePoisForAssignment.length === 0 ? (poiRequestFailed ? <div role="status" style={{
+                {visiblePoisForAssignment.length === 0 ? (poiLoading ? <div role="status" style={{ padding: "12px 14px", fontFamily: F.sans, fontSize: 10, color: "#93C5FD" }}>Caricamento dei luoghi e delle attività…</div> : poiRequestFailed ? <div role="status" style={{
                 padding: "12px 14px",
                 display: "flex",
                 alignItems: "center",

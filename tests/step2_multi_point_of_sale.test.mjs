@@ -120,6 +120,29 @@ test("municipality counts distinguish PV and NIL from unique municipalities", ()
   assert.deepEqual(getCampaignMunicipalityNames([PV1, PV3]), ['Milano', 'Monza']);
   assert.deepEqual(getCampaignMunicipalityNames([PV4]), ['Cormano', 'Cusano Milanino']);
   assert.deepEqual(getCampaignMunicipalityNames([{ allocation: [row('BRUZZANO', 10000)] }]), []);
+  const certosaRadius = {
+    ...secondMilano,
+    searchMode: 'address',
+    kpiSnapshot: buildZoneKpiSnapshot({
+      areaMode: 'radius',
+      analysisLevel: 'nil',
+      municipalityNames: ['Milano', 'Baranzate', 'Novate Milanese', 'Pero', 'Rho']
+    })
+  };
+  assert.deepEqual(getCampaignMunicipalityNames([PV1, certosaRadius]),
+    ['Milano', 'Baranzate', 'Novate Milanese', 'Pero', 'Rho'],
+    'PV centered in Milano must include all real intersected comuni, never five NIL or just Milano');
+  assert.deepEqual(getCampaignMunicipalityNames([certosaRadius, {
+    ...certosaRadius,
+    id: 'other_radius',
+    kpiSnapshot: buildZoneKpiSnapshot({ areaMode: 'radius', municipalityNames: ['milano', 'Pero', 'Settimo Milanese'] })
+  }]), ['Milano', 'Baranzate', 'Novate Milanese', 'Pero', 'Rho', 'Settimo Milanese'],
+  'all PV municipality lists must be unioned and deduplicated');
+});
+
+test('Step 4 multi-PV municipality KPI does not inherit the active PV radius count', () => {
+  assert.match(step4, /const radiusCommunesCount = !isMultiZoneQuote && data\.areaMode === "radius"/);
+  assert.match(step4, /comuniCount: getCampaignMunicipalityNames\(data\.campaignZones\)\.length/);
 });
 
 test("manual NIL labels ignore stale full-city allocation and removed selections", () => {
@@ -207,14 +230,15 @@ test("P. payload contains every PV with identity, location, territory and quanti
   ]);
 });
 
-test("Q. overlap contract unchanged: never deduplicated, warning wording per PV", () => {
+test("Q. legacy summary reports overlap; Step4 requires unique territory plan before showing totals", () => {
   const twin = zone("pv2b", { searchMode: "address", city: MILANO, cityName: "Milano", radiusKm: 1, radius: 1, selectedSearchPoint: { label: "Via Torino 12, Milano", lat: 45.4607, lng: 9.1857 }, selectedComuni: [MILANO], assigned_flyers: 5000, allocation: [row("DUOMO", 5000, { nil_code: "1" })] });
   const s = summarizeCampaignZones([PV2, twin]);
   assert.equal(s.hasOverlap, true);
   assert.equal(s.capacityDeduplicated, false);
   assert.equal(s.capacityStatus, "overlap_not_deduplicated");
   assert.equal(buildMultiZoneMetadata(s).capacity_deduplicated, false);
-  assert.match(summaryUi, /non sono deduplicate/);
+  assert.match(summaryUi, /famiglie uniche stimate/);
+  assert.match(summaryUi, /Preventivo bloccato/);
   assert.equal(summarizeCampaignZones(MIXED).hasOverlap, false);
 });
 
@@ -224,13 +248,13 @@ test("L. Step3 shows PV labels for display only; Smart Pairing request source un
   assert.match(step3, /const comunePrincipale = allZonesList\[0\] \|\| data\.cityName \|\| "Zona da confermare";/);
 });
 
-test("M. Step4 summary uses PV wording and canonical prices (no pricing logic in UI)", () => {
-  assert.match(summaryUi, /punti vendita nel preventivo/);
-  assert.match(summaryUi, /TOTALE CAMPAGNA/);
+test("M. Step4 summary uses PV-per-comune canonical prices and manual overlap owner (no pricing logic in UI)", () => {
+  assert.match(summaryUi, /punti vendita · Unione dei raggi/);
+  assert.match(summaryUi, /TOTALE ·/);
   const imports = summaryUi.split(/\r?\n/).filter(l => l.startsWith("import ")).join("\n");
   assert.doesNotMatch(imports, /calculateQuotePricing|calculateMultiZoneDistributionPrice|QUOTE_PRICES|distributionPricing/);
   assert.match(imports, /import \{ formatQuoteCurrency \} from/);
-  assert.match(step4, /<Step4MultiZoneSummary summary=\{multiZoneSummary\} posPricing=\{multiZonePosPricing\} campaignTotal=\{total\} campaignQuantity=\{flyerQty\} \/>/);
+  assert.match(step4, /<Step4MultiZoneSummary summary=\{multiZoneSummary\} posPricing=\{multiZonePosPricing\} campaignTotal=\{total\} campaignQuantity=\{flyerQty\} onOwnerChange=/);
 });
 
 test("R. PV switcher is touch-friendly and wraps (no horizontal overflow)", () => {

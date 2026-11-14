@@ -53,7 +53,7 @@ function haversineKm(a, b) {
  * Snapshot KPI/capacita' minimo e deterministico della zona attiva.
  * Solo scalari canonici: niente oggetti transitori (apiData, geometrie).
  */
-export function buildZoneKpiSnapshot({ serviceKpis = {}, requiredFlyers = null, finalFlyers = null, areaMode = null, analysisLevel = null, radiusCenter = null, radiusKm = null } = {}) {
+export function buildZoneKpiSnapshot({ serviceKpis = {}, requiredFlyers = null, finalFlyers = null, areaMode = null, analysisLevel = null, radiusCenter = null, radiusKm = null, municipalityNames = null } = {}) {
   const kpis = serviceKpis || {};
   const center = radiusCenter && finite(radiusCenter.lat) !== null && finite(radiusCenter.lng) !== null
     ? { lat: Number(radiusCenter.lat), lng: Number(radiusCenter.lng), label: radiusCenter.label || null }
@@ -67,6 +67,12 @@ export function buildZoneKpiSnapshot({ serviceKpis = {}, requiredFlyers = null, 
     requiredFlyers: finite(requiredFlyers),
     finalFlyers: finite(finalFlyers),
     comuniCount: finite(kpis.comuniCount),
+    // In modalità Raggio lo Step 2 conosce i comuni realmente intersecati.
+    // Salvare i nomi per PV permette allo Step 4 di fare l'unione corretta:
+    // la sola selectedComuni contiene il comune di partenza (es. Milano).
+    municipalityNames: Array.isArray(municipalityNames)
+      ? [...new Map(municipalityNames.map(name => String(name || '').trim()).filter(Boolean).map(name => [normalizeKey(name), name])).values()]
+      : null,
     analysisLevel: analysisLevel || kpis.analysisLevel || null,
     areaMode: areaMode || null,
     center,
@@ -124,11 +130,14 @@ function municipalityNames(zone) {
 export function getCampaignMunicipalityNames(zones = []) {
   const names = new Map();
   for (const zone of zones) {
+    const radiusMunicipalities = zone.searchMode === 'address' && zone.kpiSnapshot?.areaMode === 'radius'
+      && Array.isArray(zone.kpiSnapshot?.municipalityNames)
+      ? zone.kpiSnapshot.municipalityNames : [];
     const municipalRows = zone.searchMode === 'address' && zone.kpiSnapshot?.analysisLevel === 'comune'
       ? getCampaignZoneAllocation(zone) : [];
     const explicit = Array.isArray(zone.selectedMunicipalities) && zone.selectedMunicipalities.length
       ? zone.selectedMunicipalities : zone.selectedComuni || [];
-    const candidates = municipalRows.length ? municipalRows : explicit.length ? explicit : [zone.city || zone.cityName];
+    const candidates = radiusMunicipalities.length ? radiusMunicipalities : municipalRows.length ? municipalRows : explicit.length ? explicit : [zone.city || zone.cityName];
     for (const candidate of candidates) {
       const name = String(typeof candidate === 'string' ? candidate : candidate?.name || candidate?.label || '').trim();
       const key = name.replace(/\s*\([A-Z]{2}\)\s*$/i, '').trim().toLowerCase();
@@ -490,6 +499,7 @@ export function summarizeCampaignZones(campaignZones) {
  * (prezzo = somma dei prezzi di zona, mai la tariffa di una zona sola).
  */
 export function buildMultiZoneDistributionZones(summary) {
+  if (summary?.territoryPlan) return summary.territoryPlan.ready ? summary.territoryPlan.distributionZones : [];
   const zones = summary?.zones || [];
   return zones.flatMap(z => {
     const zone = z.source || {};
@@ -515,6 +525,34 @@ function rowName(value) {
  * regole di mappatura del ramo single-zone di Step4.
  */
 export function buildMultiZoneCampaignZonesPayload(summary) {
+  // Il contratto di invio deve riportare le quote di comune realmente
+  // assegnate ai PV, non gli stessi poligoni sovrapposti dieci volte.
+  if (summary?.territoryPlan?.ready) {
+    let index = 0;
+    return summary.territoryPlan.rows.flatMap(pv => {
+      const zone = summary.zones.find(z => z.id === pv.id);
+      return pv.municipalities.filter(c => c.quantity > 0).map(c => ({
+        municipality: c.name,
+        quantity: c.quantity,
+        priority: ++index,
+        lat: zone?.center?.lat ?? null,
+        lng: zone?.center?.lng ?? null,
+        radius_m: zone?.radiusKm ? Math.round(zone.radiusKm * 1000) : null,
+        territory_type: 'radius',
+        parent_municipality: c.name,
+        address_label: zone?.source?.selectedSearchPoint?.label || null,
+        // Il poligono del comune non equivale alla partizione PV (Voronoi).
+        polygon_geojson: null,
+        campaign_zone_id: pv.id,
+        campaign_zone_label: pv.label,
+        campaign_zone_index: zone?.index ?? null,
+        campaign_zone_mode: zone?.searchMode || 'address',
+        campaign_zone_name: pv.name,
+        campaign_zone_location: zone?.location || null,
+        store_name: sanitizeStoreName(zone?.source?.store_name) || null,
+      }));
+    });
+  }
   const out = [];
   let priority = 1;
   for (const z of summary?.zones || []) {
@@ -582,8 +620,15 @@ export function buildMultiZoneMetadata(summary) {
     total_quantity: summary.totalQuantity,
     total_required_flyers: summary.totalRequiredFlyers,
     total_families: summary.totalFamilies,
-    capacity_deduplicated: false,
+    capacity_deduplicated: Boolean(summary.territoryPlan?.ready),
     capacity_status: summary.capacityStatus,
+    ...(summary.territoryPlan?.ready ? {
+      territorial_method: summary.territoryPlan.method,
+      pv_municipality_pricing: summary.territoryPlan.rows,
+      ownership_choices: summary.territoryPlan.ownershipChoices,
+      overlap_cells: summary.territoryPlan.overlapCells,
+      capacity_warnings: summary.territoryPlan.capacityWarnings,
+    } : {}),
     overlaps: summary.overlaps,
     zones: summary.zones.map(z => ({
       id: z.id,
@@ -610,6 +655,9 @@ export function buildMultiZoneMetadata(summary) {
  * mostra questi valori, non li ricalcola.
  */
 export function buildPointOfSalePricing(summary) {
+  if (summary?.territoryPlan) return summary.territoryPlan.ready
+    ? { rows: summary.territoryPlan.rows, distributionTotal: summary.territoryPlan.distributionTotal }
+    : { rows: [], distributionTotal: null };
   const zones = summary?.zones || [];
   const rows = zones.map(z => {
     const single = { zones: [z] };

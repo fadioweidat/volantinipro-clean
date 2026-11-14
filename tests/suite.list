@@ -231,3 +231,4 @@ tests/assistant_no_credit.test.mjs
 tests/istat_citation.test.mjs
 tests/quick_quote_multicomune_price.test.mjs
 tests/milano_nil_istat_normalization.test.mjs
+tests/multi_pv_union_pricing_pdf.test.mjs

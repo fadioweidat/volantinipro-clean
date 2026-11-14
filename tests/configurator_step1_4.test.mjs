@@ -47,6 +47,24 @@ test("cambio D2D/H2H/Business conserva Step 1 e azzera esclusivamente territorio
   assert.equal(after.serviceKpis, null);
 });
 
+test("cambio Business -> Hand to Hand non usa la vecchia quantita' dello Step 2", () => {
+  const before = {
+    type: "b2b", qty: 3000, flyerQuantity: 3000,
+    businessMaterialQuantity: 3000,
+    insertedFlyersOriginal: 3000, originalFlyerQuantity: 3000,
+    availableFlyers: 3000, flyerQuantityFromStep1: 3000,
+  };
+  const next = applyConfiguratorServiceChange(before, "h2h");
+  assert.equal(next.qty, 3000, "la scelta cliente rimane finche' non viene modificata");
+  assert.equal(next.insertedFlyersOriginal, null);
+  assert.equal(next.originalFlyerQuantity, null);
+  assert.equal(next.availableFlyers, null);
+  assert.equal(next.flyerQuantityFromStep1, null);
+  const edited = { ...next, qty: 5000, flyerQuantity: 5000 };
+  const actualStep2Quantity = Number(edited.insertedFlyersOriginal || edited.originalFlyerQuantity || edited.flyerQuantity || edited.qty || 10000);
+  assert.equal(actualStep2Quantity, 5000);
+});
+
 test("Step 2 non fabbrica zone se il backend non restituisce breakdown", () => {
   assert.deepEqual(apiToZones({ values: { famiglie_stimate: 1000 }, comuni_breakdown: [] }, { name: "Milano" }), []);
 });
@@ -118,7 +136,7 @@ test("UI, payload DB e PDF condividono lo stesso totale e il PDF è valido", () 
   // (stampa esclusa) e il blocco pricing espone un campo "printing" separato.
   // Il "Prezzo finale" mostrato al cliente (hero Step 4 + PDF) usa invece
   // grandTotal = distribuzione + stampa indicativa + grafica.
-  assert.match(step4, /const grandTotal = Number\(\(total \+ printingLinePrice \+ graphicLinePrice\)\.toFixed\(2\)\)/);
+  assert.match(step4, /const grandTotal = total == null \? null : Number\(\(total \+ printingLinePrice \+ graphicLinePrice\)\.toFixed\(2\)\)/);
   assert.match(step4, /pricing: \{[\s\S]*?\btotal,[\s\S]*?\bgrandTotal,[\s\S]*?printing: printingExtra \? \{/);
   assert.match(step4, /metadata: \{[\s\S]{0,40}grand_total: grandTotal,/);
   assert.match(step4, /const distributionExtras = selectedExtras\.filter\(e => e\.id !== "printing"\)/);

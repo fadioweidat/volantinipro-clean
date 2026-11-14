@@ -128,6 +128,7 @@ export function mapQuoteDataToPdfModel(input) {
     area: data.area || {},
     outputs: data.outputs || {},
     municipalities: data.municipalities || [],
+    pointOfSaleBreakdown: data.pointOfSaleBreakdown || null,
     scores: data.scores || [],
     adminInfo: data.adminInfo || [],
     aiAnalysis: data.aiAnalysis || { enabled: false },
@@ -501,6 +502,20 @@ function renderPdf(model) {
     }), [108, 132, 84, 106, 81]);
   } else {
     paragraph(w, "Dettaglio comuni non disponibile.");
+  }
+
+  if (model.pointOfSaleBreakdown?.rows?.length) {
+    section(w, "3A. Prezzo per PV e comune", "Quantita ripartite per famiglie uniche assegnate; prezzi per fascia comunale");
+    paragraph(w, model.pointOfSaleBreakdown.method);
+    paragraph(w, `Totale famiglie uniche stimate: ${formatNumberIT(model.pointOfSaleBreakdown.totalFamilies)}. Aree sovrapposte assegnate a un solo PV.`);
+    for (const pv of model.pointOfSaleBreakdown.rows) {
+      w.ensure(58);
+      paragraph(w, `${pv.name}: ${formatNumberIT(pv.quantity)} volantini, ${formatNumberIT(pv.families)} famiglie uniche, distribuzione ${formatCurrencyIT(pv.distributionPrice)}.`);
+      table(w, ["Comune", "Famiglie uniche", "Volantini", "Fascia", "Prezzo"], pv.municipalities.map(c => [
+        c.name, formatNumberIT(c.families), formatNumberIT(c.quantity), c.tier, formatCurrencyIT(c.price),
+      ]), [140, 91, 78, 120, 82]);
+    }
+    for (const warning of model.pointOfSaleBreakdown.capacityWarnings || []) paragraph(w, `ATTENZIONE: ${warning}`);
   }
 
   section(w, "4. Indicatori servizio", "KPI operativi della stima");

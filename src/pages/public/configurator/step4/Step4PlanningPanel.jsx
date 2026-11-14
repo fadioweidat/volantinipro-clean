@@ -3,7 +3,7 @@ import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { C, F } from "../../../../lib/constants.js";
 import { MONTHS_SHORT } from "../../../../lib/appConstants.js";
 
-export function Step4PlanningPanel({ box, secHead, isQuick, sectionAccent, data, isMobile, nonEmpty, selDays, selectedDatesLabel, urgencySurchargePctLabel, sent, disc, col, pairsData }) {
+export function Step4PlanningPanel({ box, secHead, isQuick, sectionAccent, data, isMobile, nonEmpty, selDays, selectedDatesLabel, preferredPeriodLabel, urgencySurchargePctLabel, sent, disc, col, pairsData }) {
   return (
     <>
       {!isQuick && <div style={{
@@ -40,7 +40,7 @@ export function Step4PlanningPanel({ box, secHead, isQuick, sectionAccent, data,
                   {nonEmpty([{
                 icon: "calendar",
                 l: "Periodo",
-                v: selDays.length > 0 ? selectedDatesLabel : "Da definire con il team",
+                v: selDays.length > 0 ? selectedDatesLabel : preferredPeriodLabel,
                 c: selDays.length > 0 ? C.white : "#A5B4FC",
                 highlight: true
               }, {

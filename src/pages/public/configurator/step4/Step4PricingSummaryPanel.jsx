@@ -198,7 +198,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, h2hDetail = null, s
                   fontFamily: F.sans,
                   fontSize: 11,
                   color: "rgba(255,255,255,.42)"
-                }}>{h2hDetail ? "Prezzo all'ora per operatore" : "Costo per 1.000 volantini"}</span>
+                }}>{h2hDetail ? "Prezzo all'ora per operatore" : "Costo distribuzione per 1.000 volantini (stampa esclusa)"}</span>
                   <span style={{
                   fontFamily: F.sans,
                   fontSize: 12,
@@ -217,7 +217,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, h2hDetail = null, s
                   fontFamily: F.sans,
                   fontSize: 11,
                   color: "rgba(255,255,255,.42)"
-                }}>Costo per famiglia raggiunta</span>
+                }}>Costo per famiglia stimata nell'area (non deduplicata)</span>
                     <span style={{
                   fontFamily: F.sans,
                   fontSize: 12,
