@@ -2281,15 +2281,22 @@ export function Step2({
       const code = String(z?.municipality_code || "");
       if (!z?.isNil && !z?.nilCode && /^\d{6}$/.test(code)) codeByName.set(normalizeMunicipalityName(z.name), code);
     });
-    let changed = false;
-    const next = selectedComuni.map(c => {
-      if (hasCode(c)) return c;
-      const code = codeByName.get(normalizeMunicipalityName(c.label || c.name));
-      if (!code) return c;
-      changed = true;
-      return { ...c, municipality_code: code };
+    const canEnrich = selectedComuni.some(c => !hasCode(c) && codeByName.has(normalizeMunicipalityName(c.label || c.name)));
+    if (!canEnrich) return;
+    // Aggiornamento funzionale: si applicano i codici all'elenco PIU' RECENTE,
+    // cosi' un comune aggiunto nel frattempo non viene perso.
+    setSelectedComuni(prev => {
+      if (!Array.isArray(prev)) return prev;
+      let changed = false;
+      const next = prev.map(c => {
+        if (hasCode(c)) return c;
+        const code = codeByName.get(normalizeMunicipalityName(c.label || c.name));
+        if (!code) return c;
+        changed = true;
+        return { ...c, municipality_code: code };
+      });
+      return changed ? next : prev;
     });
-    if (changed) setSelectedComuni(next);
   }, [apiZones, selectedComuni]); // eslint-disable-line react-hooks/exhaustive-deps
   const hasUsefulApiZones = useMemo(() => Array.isArray(apiZones) && apiZones.length > 0 && apiZones.some(z => {
     if (svcType === "h2h") return Number(z.poi || 0) > 0;

@@ -108,5 +108,7 @@ test("Step 2: codici ISTAT completi o nessuno; righe degli altri comuni tenute c
   assert.match(src, /filtered = \[\.\.\.nilAreas, \.\.\.otherAreas\];/);
   assert.match(src, /const matchedSelected = filtered\.filter\(z => allNames\.has\(normalizeMunicipalityName\(z\.name\)\)\);/);
   assert.match(src, /return \{ \.\.\.c, municipality_code: code \};/);
+  // Aggiornamento funzionale: un comune aggiunto nel frattempo non si perde.
+  assert.match(src, /setSelectedComuni\(prev => \{\s+if \(!Array\.isArray\(prev\)\) return prev;/);
   assert.match(src, /selIndexOf\(z\) >= 0 \|\| \(!nilManualMode && !isNilArea\(z\)\)/);
 });
