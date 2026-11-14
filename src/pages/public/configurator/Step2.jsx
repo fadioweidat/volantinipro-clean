@@ -3886,7 +3886,10 @@ export function Step2({
       sources: confirmedStep2Sources,
       activeService: svcType,
       selectedService: svcType,
-      comuniNelRaggio: zonesInRadius.length,
+      // zonesInRadius include anche i NIL di Milano: non sono comuni distinti.
+      // Il riepilogo territoriale sopra mostra la conta normalizzata, perciò
+      // Step 3/4 devono ricevere esattamente la stessa unità di misura.
+      comuniNelRaggio: areaMode === "radius" ? radiusMunicipalityRows.length : null,
       metadata: {
         omi: omiInfo,
         operational_waypoints: operationalWaypoints,
