@@ -63,6 +63,28 @@ export function looksLikeAddressResult(s) {
   return isAddressLikePlaceType(s?.placeType) || ADDRESS_INTENT_RE.test(s?.name || s?.label || "");
 }
 
+// A neighbourhood or an address at street level must never validate a
+// house-number search. The geocoder may return perfectly plausible but
+// different street numbers; compare the actual civic before allowing it.
+export function requestedCivicNumber(query) {
+  const firstPart = String(query || '').split(',')[0].trim();
+  if (!ADDRESS_INTENT_RE.test(firstPart)) return null;
+  const match = firstPart.match(/\s(\d+(?:\s*[\/-]\s*[a-z0-9]+|[a-z])?)\s*$/i);
+  return match ? match[1].replace(/\s/g, '').toUpperCase() : null;
+}
+
+export function matchesRequestedCivic(query, result) {
+  const required = requestedCivicNumber(query);
+  if (!required) return true; // street-level searches remain possible, but are not civico-confirmed
+  if (!result || isNilLikePlaceType(result.placeType)) return false;
+  const returned = String(result.houseNumber || result.address?.house_number || '').replace(/\s/g, '').toUpperCase();
+  if (!returned || returned !== required) return false;
+  const requestedStreet = String(query).split(',')[0].replace(/\s\d+(?:\s*[\/-]\s*[a-z0-9]+|[a-z])?\s*$/i, '');
+  const returnedStreet = result.street || '';
+  const normalize = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+  return Boolean(returnedStreet) && normalize(requestedStreet) === normalize(returnedStreet);
+}
+
 export function isGeocoderResultInMilanoComune(result) {
   if (!result) return false;
   const city = normalizeMunicipalityName(result.city || result.comune || result.municipality || result.place || "");

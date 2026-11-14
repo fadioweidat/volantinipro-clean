@@ -5,7 +5,7 @@ import { S2_RADII } from "../../../../lib/step2/s2Constants.js";
 import { formatRadiusLabel } from "../../../../lib/utils/format.js";
 
 // Presentation only: all choices and radius updates use Step2's canonical handlers.
-export function MilanoCoverageModeChooser({ mode, address, containingNil, onChooseNil, onChooseRadius, onChooseComune, radiusKm, onRadiusChange, radiusDisabled, recommendedRadius, children }) {
+export function MilanoCoverageModeChooser({ mode, address, containingNil, centerLabel, centerIsPreciseAddress = false, onChooseNil, onChooseRadius, onChooseComune, radiusKm, onRadiusChange, radiusDisabled, recommendedRadius, children }) {
   return <section className="vp-milano-mode" aria-labelledby="milano-mode-title" data-testid="milano-mode-chooser">
     <div className="vp-milano-eyebrow">02 · Modalità di distribuzione</div>
     <h2 id="milano-mode-title">Come vuoi distribuire a Milano?</h2>
@@ -30,7 +30,8 @@ export function MilanoCoverageModeChooser({ mode, address, containingNil, onChoo
     {mode === "nil" && <div className="vp-milano-mode-controls">{children}</div>}
     {mode === "radius" && <div className="vp-milano-mode-controls" data-testid="milano-radius-controls">
       <h3>Distanza dal punto di partenza</h3>
-      <p>{address?.label || "Centro del Comune di Milano"} · <strong>{formatRadiusLabel(radiusKm)}</strong></p>
+      <p>{centerLabel || "Centro del comune di Milano (non civico)"} · <strong>{formatRadiusLabel(radiusKm)}</strong></p>
+      {!centerIsPreciseAddress && <small role="status">Centro geografico indicativo: nessun numero civico verificato. Il raggio non parte da un indirizzo preciso.</small>}
       <div className="vp-milano-radius-presets">{[0.5, 1, 2, 3].map(km => <button key={km} type="button" disabled={radiusDisabled} aria-pressed={Number(radiusKm) === km} onClick={() => onRadiusChange(km)}>{formatRadiusLabel(km)}</button>)}</div>
       <InteractiveRadiusSlider value={radiusKm} options={S2_RADII} disabled={radiusDisabled} onCommit={onRadiusChange} recommendedValue={recommendedRadius} accent="#38BDF8" />
     </div>}

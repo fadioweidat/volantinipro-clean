@@ -97,7 +97,12 @@ test("The Step 1 visible quantity ignores stale Business material quantity after
 });
 
 test("Step 4 radius uses the number of intersected comuni, not just its selected Milano center", () => {
+  const step2 = read("src/pages/public/configurator/Step2.jsx");
   const step4 = read("src/pages/public/configurator/Step4.jsx");
+  assert.match(step2, /comuniNelRaggio: areaMode === "radius" \? radiusMunicipalityRows\.length : null/,
+    "NIL rows must not inflate the municipality count forwarded to Step 4");
+  assert.match(step2, /radiusMunicipalities=\{radiusMunicipalityRows\}/,
+    "Step 2 summary and forwarded count must refer to the same normalized municipality rows");
   assert.match(step4, /const radiusCommunesCount = data\.areaMode === "radius" && Number\(data\.comuniNelRaggio\) > 0/);
   assert.match(step4, /const summaryMunicipalityCount = radiusCommunesCount \?\? \(summaryMunicipalityNames\.length \|\| null\)/);
   assert.match(step4, /const kpisComuniCount = radiusCommunesCount \?\? kpis\.comuniCount/);
