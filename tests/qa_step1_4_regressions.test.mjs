@@ -95,3 +95,9 @@ test("The Step 1 visible quantity ignores stale Business material quantity after
   const step1 = read("src/pages/public/configurator/Step1.jsx");
   assert.match(step1, /isB2B \? data\.businessMaterialQuantity : data\.qty/);
 });
+
+test("Step 4 radius uses the number of intersected comuni, not just its selected Milano center", () => {
+  const step4 = read("src/pages/public/configurator/Step4.jsx");
+  assert.match(step4, /const radiusCommunesCount = data\.areaMode === "radius" && Number\(data\.comuniNelRaggio\) > 0/);
+  assert.match(step4, /const kpisComuniCount = radiusCommunesCount \?\? kpis\.comuniCount/);
+});

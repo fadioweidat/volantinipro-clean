@@ -758,7 +758,11 @@ export function Step4({
   const kpisPopulation = kpis.population ?? kpis.pop ?? (totP || null);
   const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
   const summaryMunicipalityCount = summaryMunicipalityNames.length || null;
-  const kpisComuniCount = kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
+  // Nel raggio il numero di comuni coinvolti non e' quello dei comuni scelti
+  // come centro (spesso 1: Milano). Step 2 salva la conta delle intersezioni
+  // reali in comuniNelRaggio; deve vincere sul KPI generico delle selezioni.
+  const radiusCommunesCount = data.areaMode === "radius" && Number(data.comuniNelRaggio) > 0 ? Number(data.comuniNelRaggio) : null;
+  const kpisComuniCount = radiusCommunesCount ?? kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
   const d2dAreaKm2 = kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null);
   const d2dAvgDensity = d2dAreaKm2 && kpisPopulation ? Math.round(kpisPopulation / d2dAreaKm2) : null;
   const d2dSummarySources = data.sources?.length ? data.sources : [];
