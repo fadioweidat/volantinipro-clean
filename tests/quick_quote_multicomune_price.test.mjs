@@ -74,3 +74,39 @@ test("QuickQuotePage: niente piu' gate a un solo comune, canPrice blocca il mult
   assert.match(src, /quantityByComune\.get\(c\.name\)/);
   assert.match(src, /data-testid="quick-quote-per-comune-prices"/);
 });
+
+// Step 4 (2026-11-14): Milano intera insieme ad altri comuni. Milano arriva
+// come righe NIL nell'allocazione dello Step 2: prima il match per nome falliva
+// e si ricadeva sulla fascia del primo comune per TUTTA la quantita'
+// (Bresso/Hinterland su 816.076 pz = €27.896,58).
+test("Step 4: righe NIL sommate in Milano, prezzo = Preventivo Rapido (€23.171,53)", () => {
+  const nilRows = Array.from({ length: 88 }, (_, i) => ({ name: `NIL ${i + 1}`, isNil: true, nilCode: String(i + 1), assignedFlyers: 0 }));
+  // 816.076 ripartiti sugli 88 NIL (valori qualsiasi, somma esatta).
+  let left = 816076;
+  nilRows.forEach((r, i) => { r.assignedFlyers = i === 87 ? left : 9273; left -= r.assignedFlyers; });
+  const data = {
+    selectedComuni: [{ name: "Cormano" }, { name: "Bresso" }, { name: "Milano" }],
+    zonesAllocation: [...nilRows, { name: "Cormano", assignedFlyers: 10227 }, { name: "Bresso", assignedFlyers: 13654 }],
+  };
+  const r = resolveConfiguratorDistributionZones(data, 839957);
+  assert.equal(r.multiZone, true);
+  assert.deepEqual(r.zones, [{ territory: "HINTERLAND_DENSE", quantity: 10227 }, { territory: "HINTERLAND_DENSE", quantity: 13654 }, { territory: "MILANO_CORE", quantity: 816076 }]);
+  assert.equal(calculateMultiZoneDistributionPrice(r.zones).distributionSubtotal, 23171.53);
+  assert.equal(calculateMultiZoneDistributionPrice(r.zones).distributionSubtotal, quickPrice({ comuni, breakdown, quantity: 839957, allMatched: true }));
+});
+
+test("Step 4: una riga comune vera ha la precedenza sui NIL; senza NIL e senza riga Milano non si inventa nulla", () => {
+  const withRow = resolveConfiguratorDistributionZones({ selectedComuni: [{ name: "Milano" }, { name: "Cormano" }], zonesAllocation: [{ name: "Milano", assignedFlyers: 816076 }, { name: "Cormano", assignedFlyers: 10227 }] }, 826303);
+  assert.deepEqual(withRow.zones.map((z) => z.quantity), [816076, 10227]);
+  const missing = resolveConfiguratorDistributionZones({ selectedComuni: [{ name: "Milano" }, { name: "Cormano" }], zonesAllocation: [{ name: "Cormano", assignedFlyers: 10227 }, { name: "Bresso", assignedFlyers: 1 }] }, 826303);
+  assert.equal(missing.multiZone, false, "nessuna somma parziale spacciata per completa");
+});
+
+test("Step 2: codici ISTAT completi o nessuno; righe degli altri comuni tenute con i NIL; codici copiati dalla risposta", () => {
+  const src = fs.readFileSync(new URL("../src/pages/public/configurator/Step2.jsx", import.meta.url), "utf8");
+  assert.match(src, /if \(codes\.length > 0 && codes\.length === sourceList\.length\) return/);
+  assert.match(src, /filtered = \[\.\.\.nilAreas, \.\.\.otherAreas\];/);
+  assert.match(src, /const matchedSelected = filtered\.filter\(z => allNames\.has\(normalizeMunicipalityName\(z\.name\)\)\);/);
+  assert.match(src, /return \{ \.\.\.c, municipality_code: code \};/);
+  assert.match(src, /selIndexOf\(z\) >= 0 \|\| \(!nilManualMode && !isNilArea\(z\)\)/);
+});

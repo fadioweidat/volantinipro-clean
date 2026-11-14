@@ -1434,7 +1434,12 @@ export function Step2({
     if (computedSelectionScope !== "multi" && computedSelectionScope !== "municipality") return null;
     const sourceList = Array.isArray(selectedComuni) && selectedComuni.length > 0 ? selectedComuni : city ? [city] : [];
     const codes = sourceList.map(item => item.municipality_code || item.istat_code || item.comune_code || (item.label === "Milano" || item.name === "Milano" ? "015146" : null)).filter(Boolean).map(String).map(s => s.trim()).filter(s => /^[0-9A-Za-z_-]+$/.test(s));
-    if (codes.length > 0) return Array.from(new Set(codes)).sort().join(",");
+    // Lista codici parziale (2026-11-14): la ricerca comuni non restituisce il
+    // codice ISTAT, quindi con Milano + altri comuni partiva solo "015146" e il
+    // backend restituiva soltanto Milano, perdendo gli altri comuni in quantita'
+    // e prezzo. I codici si passano solo se li hanno TUTTI i comuni selezionati;
+    // altrimenti nessun filtro per codice (il frontend filtra per nome).
+    if (codes.length > 0 && codes.length === sourceList.length) return Array.from(new Set(codes)).sort().join(",");
     return null;
   }, [computedSelectionScope, selectedComuni, city]);
   const savedDistributionTargets = Array.isArray(data.distributionTargets) ? data.distributionTargets.filter(Boolean) : [];
@@ -2292,6 +2297,30 @@ export function Step2({
   }, [city?.lat, city?.lng]);
   const activeLay = layers.find(l => l.id === thLayerId) || layers[0];
   const apiZones = useMemo(() => apiData && !apiData.error && apiData.values ? apiToZones(apiData, city, requestedAnalysisLevel, svcType, effectiveRadiusKm) : null, [apiData, city, requestedAnalysisLevel, svcType, effectiveRadiusKm]);
+  // Codici ISTAT dei comuni selezionati (2026-11-14): la ricerca comuni non li
+  // restituisce. Con piu' comuni la prima richiesta parte senza codici e il
+  // backend restituisce le righe per comune con il loro municipality_code: li si
+  // copia sui comuni selezionati, cosi' la richiesta successiva filtra per TUTTI
+  // i codici (es. Milano con i suoi NIL + Cormano + Bresso).
+  useEffect(() => {
+    if (!Array.isArray(selectedComuni) || selectedComuni.length < 2 || !Array.isArray(apiZones) || apiZones.length === 0) return;
+    const hasCode = c => Boolean(c?.municipality_code || c?.istat_code || c?.comune_code || c?.label === "Milano" || c?.name === "Milano");
+    if (selectedComuni.every(hasCode)) return;
+    const codeByName = new Map();
+    apiZones.forEach(z => {
+      const code = String(z?.municipality_code || "");
+      if (!z?.isNil && !z?.nilCode && /^\d{6}$/.test(code)) codeByName.set(normalizeMunicipalityName(z.name), code);
+    });
+    let changed = false;
+    const next = selectedComuni.map(c => {
+      if (hasCode(c)) return c;
+      const code = codeByName.get(normalizeMunicipalityName(c.label || c.name));
+      if (!code) return c;
+      changed = true;
+      return { ...c, municipality_code: code };
+    });
+    if (changed) setSelectedComuni(next);
+  }, [apiZones, selectedComuni]); // eslint-disable-line react-hooks/exhaustive-deps
   const hasUsefulApiZones = useMemo(() => Array.isArray(apiZones) && apiZones.length > 0 && apiZones.some(z => {
     if (svcType === "h2h") return Number(z.poi || 0) > 0;
     if (svcType === "b2b") return Number(z.bizTotal || 0) > 0;
@@ -2393,7 +2422,24 @@ export function Step2({
         })));
         if (isResidentialStep2 && (requestedAnalysisLevel === "nil" || isMilanoNilSource)) {
           const nilAreas = filtered.filter(isCanonicalMilanoNil);
-          filtered = nilAreas.length ? nilAreas : filtered;
+          // Milano intera insieme ad altri comuni (2026-11-14): i NIL coprono
+          // Milano, ma le righe comune degli ALTRI comuni selezionati (es.
+          // Cormano, Bresso) arrivano nella stessa risposta e prima venivano
+          // scartate, lasciando solo Milano in quantita' e prezzo.
+          const otherComuni = (selectedComuni || []).filter(c => normalizeMunicipalityName(c.label || c.name) !== "milano");
+          const otherNames = new Set(otherComuni.map(c => normalizeMunicipalityName(c.label || c.name)).filter(Boolean));
+          const otherCodes = new Set(otherComuni.map(c => c.municipalityCode || c.municipality_code || null).filter(Boolean).map(String));
+          const otherAreas = otherNames.size > 0 ? filtered.filter(z => !isCanonicalMilanoNil(z) && (otherNames.has(normalizeMunicipalityName(z.name)) || (Boolean(z.municipality_code) && otherCodes.has(String(z.municipality_code))))) : [];
+          if (nilAreas.length) {
+            filtered = [...nilAreas, ...otherAreas];
+          } else if ((selectedComuni || []).length > 1) {
+            // Nessuna riga NIL (richiesta multi senza codici): Milano arriva come
+            // riga comune (dato ISTAT del comune). Si tengono SOLO i comuni
+            // selezionati, mai gli altri comuni del raggio di ricerca.
+            const allNames = new Set((selectedComuni || []).map(c => normalizeMunicipalityName(c.label || c.name)).filter(Boolean));
+            const matchedSelected = filtered.filter(z => allNames.has(normalizeMunicipalityName(z.name)));
+            filtered = matchedSelected.length ? matchedSelected : filtered;
+          }
         } else {
           const currComuni = selectedComuni && selectedComuni.length > 0 ? selectedComuni : city ? [city] : [];
           // Build both space-normalized and hyphen-normalized name sets for fuzzy matching:
@@ -2941,7 +2987,10 @@ export function Step2({
           const byId = selected.indexOf(z.id);
           return byId >= 0 ? byId : selected.indexOf(String(z.nilCode || z.nil_code));
         };
-        const picked = areas.filter(z => selIndexOf(z) >= 0);
+        // Fuori dalla NIL manuale (es. Milano intera + altri comuni) le righe
+        // comune non-NIL restano: `selected` elenca solo i NIL di Milano.
+        const isNilArea = z => Boolean(z?.isNil === true || z?.territoryLevel === "nil" || z?.nilCode || z?.nil_code);
+        const picked = areas.filter(z => selIndexOf(z) >= 0 || (!nilManualMode && !isNilArea(z)));
         // Ordine = ordine di selezione (la NIL di partenza per prima, poi quelle
         // aggiunte dal cliente): e' l'ordine con cui l'allocazione automatica
         // assegna il residuo, cosi' il residuo va alla NIL aggiunta e non a
