@@ -3104,6 +3104,7 @@ export function Step4({
               svcType={svcType}
               kpis={kpis}
               totF={totF}
+              isMultiZoneQuote={isMultiZoneQuote}
               printingExtra={printingExtra}
               printingEstimatedPrice={printingEstimatedPrice}
               printPriceKnown={printPriceKnown}

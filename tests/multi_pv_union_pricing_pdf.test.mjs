@@ -5,6 +5,8 @@ import { buildMultiPvTerritoryPlan, splitIntegerProportionally } from '../src/li
 import { buildMultiZoneDistributionZones, buildPointOfSalePricing, buildMultiZoneCampaignZonesPayload, buildMultiZoneMetadata, summarizeCampaignZones } from '../src/lib/step2/campaignZonesModel.js';
 import { calculateQuotePricing } from '../src/lib/quotePricing.js';
 import { generateQuotePdfBytes } from '../src/lib/pdf/generateQuotePdf.js';
+import { classifyMunicipalityForPrice } from '../src/lib/step2/municipalityPricingTier.js';
+import { selectCampaignStep3Summary } from '../src/lib/step3/campaignStep3Summary.js';
 
 // This test fixture is explicitly synthetic. It tests geographic invariants;
 // it is NOT evidence of live Milan household counts.
@@ -59,8 +61,25 @@ test('manual overlap assignment changes owner, not union or total PV flyers', ()
   assert.ok(override.rows.find(r => r.id === 'b').families >= initial.rows.find(r => r.id === 'b').families);
 });
 
+test('Milano NIL retains Milano parent even if the PV starts in Pero; municipality tier is invariant', () => {
+  const a = pv('a', 9.111);
+  a.city = { name: 'Pero', lat: 45.466, lng: 9.111 };
+  a.allocation = [{ ...units[0], parent_municipality: 'Pero', densita: 700 }];
+  const b = pv('b', 9.121);
+  b.allocation = [{ ...units[0], parent_municipality: 'Rho', densita: 10000 }, { ...units[1], densita: 8000 }];
+  const plan = buildMultiPvTerritoryPlan(summary(a, b));
+  assert.equal(plan.ready, true, plan.issues?.join(' | '));
+  assert.ok(plan.rows.flatMap(r => r.municipalities).some(c => c.name === 'Milano' && c.tier === 'MILANO_CORE'));
+  assert.ok(!plan.rows.flatMap(r => r.municipalities).some(c => c.name === 'Pero'));
+  assert.ok(plan.rows.flatMap(r => r.municipalities).filter(c => c.name === 'Baranzate').every(c => c.tier === 'HINTERLAND_DENSE'));
+  assert.equal(classifyMunicipalityForPrice({ name: 'Pero' }).tier, 'COMO_LECCO');
+  assert.equal(classifyMunicipalityForPrice({ name: 'Rho', code: '015182' }).tier, 'COMO_LECCO');
+  assert.equal(classifyMunicipalityForPrice({ name: 'Baranzate', code: '015250' }).tier, 'HINTERLAND_DENSE');
+});
+
 test('two PV × two municipalities price independently by municipality tier; PDF contains details', () => {
-  const s = summary(pv('west', 9.112, 10000), pv('east', 9.121, 10000));
+  const originalPVs = [pv('west', 9.112, 10000), pv('east', 9.121, 10000)];
+  const s = summary(...originalPVs);
   const plan = buildMultiPvTerritoryPlan(s);
   assert.equal(plan.ready, true, plan.issues?.join(' | '));
   assert.equal(plan.rows.length, 2);
@@ -73,6 +92,9 @@ test('two PV × two municipalities price independently by municipality tier; PDF
   const withPlan = { ...s, territoryPlan: plan, totalFamilies: plan.totalFamilies };
   assert.deepEqual(buildMultiZoneDistributionZones(withPlan), plan.distributionZones);
   assert.equal(buildPointOfSalePricing(withPlan).distributionTotal, plan.distributionTotal);
+  const step3 = selectCampaignStep3Summary({ type: 'd2d', campaignZones: originalPVs });
+  assert.equal(step3.priceVerified, true);
+  assert.equal(step3.distributionSubtotal, plan.distributionTotal, 'Step3 and Step4 must have the SAME commercial price');
   const priced = calculateQuotePricing({ quantity: 20000, pricePerThousand: 35, distributionZones: buildMultiZoneDistributionZones(withPlan) });
   assert.equal(priced.baseCost, plan.distributionTotal);
   assert.equal(buildMultiZoneCampaignZonesPayload(withPlan).reduce((n, r) => n + r.quantity, 0), 20000);

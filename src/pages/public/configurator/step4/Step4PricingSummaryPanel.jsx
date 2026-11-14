@@ -3,7 +3,7 @@ import { formatFlyersRange } from "../../../../lib/pricing/handToHandPricing.js"
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { C, F } from "../../../../lib/constants.js";
 
-export function Step4PricingSummaryPanel({ tLabel, baseCost, h2hDetail = null, serviceExtras, disc, smartPairingDiscount, data, urgencySurchargePctLabel, urgSurch, subDiscPct, planDiscountAmount, isQuick, total, flyerQty, svcType, kpis, totF, printingExtra, printingEstimatedPrice, printPriceKnown = true, printingSelected = false, printingLinePrice = 0, artworkRequired = false, artworkSelected = false, graphicLinePrice = 0, graphicServicePrice = 79, grandTotal, eur }) {
+export function Step4PricingSummaryPanel({ tLabel, baseCost, h2hDetail = null, serviceExtras, disc, smartPairingDiscount, data, urgencySurchargePctLabel, urgSurch, subDiscPct, planDiscountAmount, isQuick, total, flyerQty, svcType, kpis, totF, isMultiZoneQuote = false, printingExtra, printingEstimatedPrice, printPriceKnown = true, printingSelected = false, printingLinePrice = 0, artworkRequired = false, artworkSelected = false, graphicLinePrice = 0, graphicServicePrice = 79, grandTotal, eur }) {
   const extrasSubtotal = (serviceExtras || []).reduce((sum, e) => {
     const n = typeof e.raw === "number" ? e.raw : Number(String(e.v || "").replace(/[^0-9.,-]/g, "").replace(",", "."));
     return sum + (Number.isFinite(n) ? n : 0);
@@ -217,7 +217,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, h2hDetail = null, s
                   fontFamily: F.sans,
                   fontSize: 11,
                   color: "rgba(255,255,255,.42)"
-                }}>Costo per famiglia stimata nell'area (non deduplicata)</span>
+                }}>Costo per famiglia stimata nell'area {isMultiZoneQuote ? '(unica)' : ''}</span>
                     <span style={{
                   fontFamily: F.sans,
                   fontSize: 12,

@@ -2,7 +2,8 @@
 // La griglia metrica (45 m) stima l'intersezione tra poligoni ISTAT/NIL e
 // l'unione dei raggi. Ogni cella appartiene al SOLO PV piu' vicino fra quelli
 // il cui raggio la contiene. I risultati sono STIME, non conteggi di civici.
-import { calculateDistributionZonePrice, classifyTerritory, roundMoney } from '../pricing/distributionPricing.js';
+import { calculateDistributionZonePrice, roundMoney } from '../pricing/distributionPricing.js';
+import { classifyMunicipalityForPrice } from './municipalityPricingTier.js';
 
 const METRES_PER_LAT = 111195;
 const METRES_PER_LNG = METRES_PER_LAT * Math.cos(45.5 * Math.PI / 180);
@@ -64,8 +65,11 @@ function keyOf(row) {
 }
 
 function municipalityOf(row) {
+  // The only NIL in the territorial dataset are Milano's 88 NIL. Step 2
+  // previously filled parent_municipality with the *active PV* (e.g. Pero),
+  // so using that field mispriced Milano NIL as neighbouring municipalities.
   return row.isNil || row.nilCode || row.nil_code
-    ? String(row.parent_municipality || 'Milano').trim()
+    ? 'Milano'
     : String(row.name || '').trim();
 }
 
@@ -166,22 +170,22 @@ export function buildMultiPvTerritoryPlan(summary, manualOwners = {}, options = 
       if (!count) continue;
       const unit = units.get(key);
       const comuneKey = norm(unit.municipality);
-      if (!perComune.has(comuneKey)) perComune.set(comuneKey, { name: unit.municipality, families: 0, density: null });
+      if (!perComune.has(comuneKey)) perComune.set(comuneKey, { name: unit.municipality, families: 0,
+        code: unit.row.isNil || unit.row.nilCode ? '015146' : unit.row.municipality_code || null });
       const target = perComune.get(comuneKey);
       target.families += count;
-      if (valid(unit.row.densita)) target.density = Number(unit.row.densita);
     }
     const comuni = [...perComune.values()].sort((a, b) => a.name.localeCompare(b.name));
     const splits = splitIntegerProportionally(pv.quantity, comuni.map(c => c.families));
     const municipalities = splits ? comuni.map((c, i) => {
-      const classified = classifyTerritory({ name: c.name, densityPerKm2: c.density ?? undefined });
-      if (classified.confidence === 'low') issues.push(`${c.name}: fascia commerciale non verificabile, manca la densita del comune.`);
+      const classified = classifyMunicipalityForPrice({ name: c.name, code: c.code });
+      if (!classified.tier) issues.push(`${c.name}: fascia commerciale non verificabile nell'indice ISTAT.`);
       return { ...c, quantity: splits[i], tier: classified.tier, confidence: classified.confidence,
-        price: splits[i] ? calculateDistributionZonePrice(classified.tier, splits[i]) : 0 };
+        price: splits[i] && classified.tier ? calculateDistributionZonePrice(classified.tier, splits[i]) : 0 };
     }) : [];
     const families = comuni.reduce((n, c) => n + c.families, 0);
     return { id: pv.id, name: pv.name, label: pv.label, quantity: pv.quantity, families,
-      municipalities, distributionPrice: splits ? roundMoney(municipalities.reduce((n, c) => n + c.price, 0)) : null,
+      municipalities, distributionPrice: splits && municipalities.every(c => c.tier) ? roundMoney(municipalities.reduce((n, c) => n + c.price, 0)) : null,
       capacityWarning: families < pv.quantity ? `${pv.name}: ${pv.quantity.toLocaleString('it-IT')} volantini richiesti ma solo ${families.toLocaleString('it-IT')} famiglie uniche assegnate. Riduci i volantini o amplia la zona.` : null };
   });
   if (rows.some(r => r.distributionPrice === null)) issues.push('Almeno un PV non ha famiglie assegnate: prezzo non calcolabile senza inventare una ripartizione.');

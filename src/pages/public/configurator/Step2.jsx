@@ -3557,7 +3557,9 @@ export function Step2({
       familiesInRadius: Number.isFinite(Number(z.familiesInRadius)) ? Number(z.familiesInRadius) : null,
       densita: Number.isFinite(Number(z.densita)) ? Number(z.densita) : null,
       territory_type: zType,
-      parent_municipality: z.parent_municipality || city?.name || (typeof data.comune === "string" ? data.comune : null) || null,
+      // NIL belongs to Milano even when the PV starts in another municipality.
+      // The active city is NOT necessarily the NIL's parent (e.g. Pero 3 km).
+      parent_municipality: isNilZone ? 'Milano' : z.parent_municipality || city?.name || (typeof data.comune === "string" ? data.comune : null) || null,
       address_label: z.address_label || selectedSearchPoint?.label || null,
     };
   });

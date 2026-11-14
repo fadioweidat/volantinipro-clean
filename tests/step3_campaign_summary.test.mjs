@@ -79,15 +79,14 @@ test("B. two PV: total = sum, 2 rows in campaignZones order, labels from the PV 
   assert.deepEqual(buildCampaignStep3Summary([PV2, PV1]).rows.map(r => r.id), ["pv2", "pv1"]);
 });
 
-test("C. five PV: total = sum of all 5, 5 rows, distribution = Step4 baseCost, rows = Step4 PV prices", () => {
+test("C. five PV without reliable GIS: quantity and names remain, but price is withheld", () => {
   const s = buildCampaignStep3Summary(FIVE);
   assert.equal(s.pointOfSaleCount, 5);
   assert.equal(s.rows.length, 5);
   assert.equal(s.totalQuantity, FIVE.reduce((a, z) => a + z.finalFlyers, 0));
-  assert.equal(s.distributionSubtotal, step4BaseCost(FIVE));
-  assert.ok(s.distributionSubtotal > 0);
-  const pos = buildPointOfSalePricing(summarizeCampaignZones(FIVE));
-  assert.deepEqual(s.rows.map(r => r.distributionPrice), pos.rows.map(r => r.distributionPrice));
+  assert.equal(s.distributionSubtotal, null);
+  assert.equal(s.priceVerified, false);
+  assert.ok(s.rows.every(r => r.distributionPrice === null));
   assert.equal(formatCampaignStep3Headline(s), `5 PV · ${s.totalQuantity.toLocaleString("it-IT")} volantini`);
 });
 
@@ -139,14 +138,14 @@ test("E. deleted-PV stale mirror: campaignZones has survivor only, legacy snapsh
   }
 });
 
-test("F. overlap: metadata reflected as note state only; quantities and prices unchanged, never deduplicated", () => {
+test("F. overlap without full geometry: preserves flyer quantities, withholds unverifiable price", () => {
   const pvA = zone("a", { searchMode: "address", city: MILANO, cityName: "Milano", radiusKm: 3, radius: 3, selectedSearchPoint: { label: "Corso Buenos Aires 10, Milano", lat: 45.47627, lng: 9.2071 }, assigned_flyers: 10000, allocation: [row("BUENOS AIRES", 10000)] });
   const pvB = zone("b", { searchMode: "address", city: MILANO, cityName: "Milano", radiusKm: 3, radius: 3, selectedSearchPoint: { label: "Piazza del Duomo, Milano", lat: 45.46468, lng: 9.19041 }, assigned_flyers: 10000, allocation: [row("DUOMO", 10000)] });
   const s = buildCampaignStep3Summary([pvA, pvB]);
   assert.equal(s.overlapPresent, true);
   assert.equal(s.capacityDeduplicated, false);
   assert.equal(s.totalQuantity, 20000);
-  assert.equal(s.distributionSubtotal, step4BaseCost([pvA, pvB]));
+  assert.equal(s.distributionSubtotal, null);
   assert.equal(buildCampaignStep3Summary(FIVE).overlapPresent, summarizeCampaignZones(FIVE).hasOverlap);
 });
 
@@ -165,7 +164,7 @@ test("G. helper is pure: no mutation, no React/network, no activeZoneId / legacy
 });
 
 test("H. Step3 wiring: multi-PV display reads the campaign summary; single-PV path and Smart Pairing request unchanged", () => {
-  assert.match(step3, /const campaignSummary = useMemo\(\(\) => selectCampaignStep3Summary\(data\), \[data\.campaignZones, data\.type\]\);/);
+  assert.match(step3, /const campaignSummary = useMemo\(\(\) => selectCampaignStep3Summary\(data\), \[data\.campaignZones, data\.type, data\.multiPvManualOwners\]\);/);
   assert.match(step3, /const isMultiPvCampaign = campaignSummary\.isMultiPointOfSale && !activeZone;/);
   assert.match(step3, /\{isMultiPvCampaign && <Step3CampaignSummary summary=\{campaignSummary\} isMobile=\{isMobile\} \/>\}/);
   assert.match(step3, /campaignSummary=\{isMultiPvCampaign \? campaignSummary : null\}/);

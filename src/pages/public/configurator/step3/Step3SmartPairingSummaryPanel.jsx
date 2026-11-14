@@ -134,11 +134,11 @@ export function Step3SmartPairingSummaryPanel({ isMobile, realSmartPairingSlots,
             }}>
                 <span style={{
                 color: "rgba(255,255,255,.5)"
-              }}>Distribuzione</span>
+              }}>Distribuzione (base)</span>
                 <span style={{
                 color: C.white,
                 fontWeight: 700
-              }}>da {formatQuoteCurrency(campaignSummary.distributionSubtotal)}</span>
+              }}>{formatQuoteCurrency(campaignSummary.distributionSubtotal)}</span>
               </div>}
               <div style={{
               display: "flex",
