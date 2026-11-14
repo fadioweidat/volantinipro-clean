@@ -24,6 +24,9 @@ test("Step 4 multi-PV: stato famiglie uniche dichiarato prima dell'uso (regressi
   const firstUse = step4.indexOf("uniqueFamiliesUndetermined &&");
   assert.ok(declaration > 0 && firstUse > declaration, "Step 4 non deve usare una variabile di stato famiglie non definita");
   assert.match(step4, /const uniqueFamiliesUndetermined = isMultiZoneQuote && !multiPvPlan\?\.ready;/);
+  assert.match(step4, /import \{ countTerritories, territoryTypeLabel \} from "\.\.\/\.\.\/\.\.\/lib\/step2\/territoryCounts\.js"/);
+  assert.match(step4, /import \{ UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL \} from "\.\.\/\.\.\/\.\.\/lib\/step2\/uniqueHouseholds\.js"/);
+  assert.match(step4, /const territoryCounts = !isMultiZoneQuote && zoneAllocs\.length > 0 \? countTerritories\(zoneAllocs\) : null;/);
 });
 
 // Righe reali dello Step 2 (nomi e volantini dal PDF del 2026-11-05).

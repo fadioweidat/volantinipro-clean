@@ -41,6 +41,8 @@ import { trackQuoteCompleted } from "../../../lib/analytics/siteEvents.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../../lib/monitoring/errorLog.js";
 import { buildQuoteAssistantStep4Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
+import { countTerritories, territoryTypeLabel } from "../../../lib/step2/territoryCounts.js";
+import { UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL } from "../../../lib/step2/uniqueHouseholds.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 import { buildOnProjectPayload, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
@@ -647,6 +649,7 @@ export function Step4({
   const step4AnalysisLevel = data.analysisLevel || data.metadata?.analysis_level || kpis.analysisLevel || "comune";
   const step4TerritoryPluralLabel = step4AnalysisLevel === "nil" ? "Zone NIL" : "Comuni";
   const zoneAllocs = isMultiZoneQuote ? flattenMultiZoneAllocation(multiZoneSummary) : singlePointOfSale ? singlePointOfSale.allocation : data.zonesAllocation || [];
+  const territoryCounts = !isMultiZoneQuote && zoneAllocs.length > 0 ? countTerritories(zoneAllocs) : null;
   const plannedGpsPoints = data.operationalWaypoints || data.gpsPlannedPoints || data.metadata?.operational_waypoints || [];
   const allocatedRequirement = zoneAllocs.length ? zoneAllocs.reduce((a, z) => a + Number(z.requiredFlyers ?? 0), 0) : null;
   const requiredQty = isMultiZoneQuote ? multiZoneSummary.totalRequiredFlyers : singlePointOfSale ? singlePointOfSale.requiredFlyers ?? allocatedRequirement : data.searchMode === "municipality" ? kpis.recommendedFlyers ?? data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? allocatedRequirement : data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? kpis.recommendedFlyers ?? allocatedRequirement;
