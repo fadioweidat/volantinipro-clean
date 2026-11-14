@@ -38,12 +38,23 @@ export function resolveConfiguratorDistributionZones(data, flyerQty) {
   const allocationRows = Array.isArray(data?.zonesAllocation) ? data.zonesAllocation : [];
 
   if (comuni.length > 1 && allocationRows.length > 1) {
+    // Milano intera insieme ad altri comuni (2026-11-14): Milano arriva come
+    // righe NIL (88 quartieri), non come una riga "Milano". Le righe NIL si
+    // sommano nel comune di Milano; senza questo il match falliva e si
+    // ricadeva sulla fascia del primo comune per tutta la quantita'.
+    const isNilRow = (r) => Boolean(r?.isNil === true || r?.territory_type === "nil" || r?.territoryLevel === "nil" || r?.nilCode || r?.nil_code);
+    const nilRows = allocationRows.filter(isNilRow);
     const zones = comuni
       .map((c) => {
         const name = c?.name || c?.label || c?.comune_name || null;
         if (!name) return null;
-        const row = allocationRows.find((r) => normalizeName(r?.name) === normalizeName(name));
-        const quantity = row ? Number(row.assignedFlyers ?? row.requiredFlyers ?? 0) : 0;
+        const row = allocationRows.find((r) => !isNilRow(r) && normalizeName(r?.name) === normalizeName(name));
+        const isMilano = normalizeName(name).replace(/\s*\(mi\)$/, "") === "milano";
+        const quantity = row
+          ? Number(row.assignedFlyers ?? row.requiredFlyers ?? 0)
+          : isMilano && nilRows.length > 0
+            ? nilRows.reduce((sum, r) => sum + Number(r.assignedFlyers ?? r.requiredFlyers ?? 0), 0)
+            : 0;
         if (!(quantity > 0)) return null; // niente quantita' reale per questo comune: non inventarla
         const density = extractDensity(c) ?? extractDensity(row);
         return { territory: classifyTerritory({ name, densityPerKm2: density }).tier, quantity };
