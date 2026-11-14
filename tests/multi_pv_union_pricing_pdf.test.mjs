@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { buildMultiPvTerritoryPlan, splitIntegerProportionally } from '../src/lib/step2/multiPvTerritoryPlan.js';
 import { buildMultiZoneDistributionZones, buildPointOfSalePricing, buildMultiZoneCampaignZonesPayload, buildMultiZoneMetadata, summarizeCampaignZones } from '../src/lib/step2/campaignZonesModel.js';
 import { calculateQuotePricing } from '../src/lib/quotePricing.js';
@@ -26,6 +26,13 @@ function pv(id, lng, quantity = 10000, radiusKm = 3) {
   };
 }
 const summary = (...pvs) => summarizeCampaignZones(pvs);
+
+test('Step2 overlap notice promises unique families in Step4, not obsolete double-counting', () => {
+  const ui = readFileSync(new URL('../src/pages/public/configurator/Step2.jsx', import.meta.url), 'utf8');
+  assert.match(ui, /Le stime per singolo PV in questo Step sono preliminari/);
+  assert.match(ui, /le famiglie vengono conteggiate una sola volta/);
+  assert.doesNotMatch(ui, /vengono sommate senza deduplica/);
+});
 
 test('largest remainder is exact, deterministic, and never pools different PV orders', () => {
   assert.deepEqual(splitIntegerProportionally(10000, [1, 1, 1]), [3334, 3333, 3333]);

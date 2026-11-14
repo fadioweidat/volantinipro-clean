@@ -5817,11 +5817,11 @@ export function Step2({
         fontSize: 12,
         lineHeight: 1.45
       }}>
-          <strong>Territori sovrapposti.</strong> {campaignZonesOverview.overlaps.map(o => {
+          <strong>{campaignZonesOverview.overlaps.length} sovrapposizioni fra punti vendita.</strong> {campaignZonesOverview.overlaps.slice(0, 3).map(o => {
           const a = campaignZonesOverview.zones.find(z => z.id === o.zoneAId);
           const b = campaignZonesOverview.zones.find(z => z.id === o.zoneBId);
           return `${a?.name || "Punto vendita"} e ${b?.name || "Punto vendita"}${o.certainty === "certain" ? " si sovrappongono" : " condividono parte del territorio"}`;
-        }).join("; ")}. Famiglie e capacità dei punti vendita vengono sommate senza deduplica: nell'area comune il conteggio può essere doppio.
+        }).join("; ")}{campaignZonesOverview.overlaps.length > 3 ? `; e altre ${campaignZonesOverview.overlaps.length - 3} sovrapposizioni.` : "."} Le stime per singolo PV in questo Step sono preliminari. Nello Step 4 le famiglie vengono conteggiate una sola volta (unione dei raggi) e le aree comuni assegnate al PV più vicino, con possibilità di modifica manuale.
         </div>}
 
       {/* ========================================================= */}
