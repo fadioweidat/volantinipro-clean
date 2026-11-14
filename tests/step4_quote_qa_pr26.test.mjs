@@ -19,6 +19,13 @@ const step4 = read("../src/pages/public/configurator/Step4.jsx");
 const actions = read("../src/pages/public/configurator/step4/Step4CampaignActionsPanel.jsx");
 const planning = read("../src/pages/public/configurator/step4/Step4PlanningPanel.jsx");
 
+test("Step 4 multi-PV: stato famiglie uniche dichiarato prima dell'uso (regressione Preview)", () => {
+  const declaration = step4.indexOf("const uniqueFamiliesUndetermined =");
+  const firstUse = step4.indexOf("uniqueFamiliesUndetermined &&");
+  assert.ok(declaration > 0 && firstUse > declaration, "Step 4 non deve usare una variabile di stato famiglie non definita");
+  assert.match(step4, /const uniqueFamiliesUndetermined = isMultiZoneQuote && !multiPvPlan\?\.ready;/);
+});
+
 // Righe reali dello Step 2 (nomi e volantini dal PDF del 2026-11-05).
 const NILS = ["BRUZZANO", "COMASINA", "BOVISASCA", "AFFORI", "PARCO NORD", "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI", "QUARTO OGGIARO - VIALBA - MUSOCCO", "BOVISA", "DERGANO", "ROSERIO", "VILLAPIZZONE - CAGNOLA - BOLDINASCO", "MACIACHINI - MAGGIOLINA"];
 const COMUNI = ["Cormano", "Novate Milanese", "Bresso", "Cusano Milanino", "Paderno Dugnano", "Bollate", "Cinisello Balsamo"];
