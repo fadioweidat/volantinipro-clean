@@ -527,7 +527,11 @@ export function Step4({
     ? { baseCost: null, smartPairingDiscount: null, urgencySurcharge: null, subtotalBeforePlan: null, planDiscountAmount: null, extraCost: null, total: null }
     : isHandToHandQuote
     ? calculateHandToHandPricing({ operatorHours: h2hOperatorHours, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras })
-    : calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
+    : calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras,
+        // Il multi-PV usa il prezzo gia' calcolato per PV (minimo una sola
+        // volta); il motore multi-comune tradizionale rimane invariato.
+        baseCostOverride: isMultiZoneQuote && multiPvPlan?.ready ? multiPvPlan.distributionTotal : null,
+        distributionZones: isMultiZoneQuote ? null : distributionZonesForPricing });
   const h2hQuoteDetail = isHandToHandQuote ? {
     calculation: describeHandToHandCalculation(pricing.operatorHours),
     operators: pricing.operators,

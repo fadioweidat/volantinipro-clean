@@ -2,7 +2,7 @@
 // La griglia metrica (45 m) stima l'intersezione tra poligoni ISTAT/NIL e
 // l'unione dei raggi. Ogni cella appartiene al SOLO PV piu' vicino fra quelli
 // il cui raggio la contiene. I risultati sono STIME, non conteggi di civici.
-import { calculateDistributionZonePrice, roundMoney } from '../pricing/distributionPricing.js';
+import { calculateDistributionZonePrice, TERRITORY_MINIMUMS, roundMoney } from '../pricing/distributionPricing.js';
 import { classifyMunicipalityForPrice } from './municipalityPricingTier.js';
 
 const METRES_PER_LAT = 111195;
@@ -180,12 +180,23 @@ export function buildMultiPvTerritoryPlan(summary, manualOwners = {}, options = 
     const municipalities = splits ? comuni.map((c, i) => {
       const classified = classifyMunicipalityForPrice({ name: c.name, code: c.code });
       if (!classified.tier) issues.push(`${c.name}: fascia commerciale non verificabile nell'indice ISTAT.`);
+      // Il prezzo per 1.000 dipende dai volantini del PV INTERO, mai dalla
+      // piccola quota di comune. Il minimo NON scatta per ogni frammento.
+      const fullPvTierPrice = classified.tier ? calculateDistributionZonePrice(classified.tier, pv.quantity) : null;
+      const ratePerThousand = fullPvTierPrice != null && pv.quantity > 0 ? fullPvTierPrice * 1000 / pv.quantity : null;
       return { ...c, quantity: splits[i], tier: classified.tier, confidence: classified.confidence,
-        price: splits[i] && classified.tier ? calculateDistributionZonePrice(classified.tier, splits[i]) : 0 };
+        ratePerThousand, price: splits[i] && fullPvTierPrice != null ? roundMoney(fullPvTierPrice * splits[i] / pv.quantity) : 0 };
     }) : [];
     const families = comuni.reduce((n, c) => n + c.families, 0);
+    const priced = Boolean(splits && municipalities.every(c => c.tier));
+    const subtotal = priced ? roundMoney(municipalities.reduce((n, c) => n + c.price, 0)) : null;
+    // Minimo una sola volta PER PV. Se un PV tocca fasce differenti, vale
+    // il minimo piu' alto fra quelle con almeno un volantino assegnato.
+    const minimum = priced ? Math.max(0, ...municipalities.filter(c => c.quantity > 0).map(c => TERRITORY_MINIMUMS[c.tier] ?? 0)) : null;
+    const minimumAdjustment = priced ? roundMoney(Math.max(0, minimum - subtotal)) : null;
     return { id: pv.id, name: pv.name, label: pv.label, quantity: pv.quantity, families,
-      municipalities, distributionPrice: splits && municipalities.every(c => c.tier) ? roundMoney(municipalities.reduce((n, c) => n + c.price, 0)) : null,
+      municipalities, minimum, minimumAdjustment,
+      distributionPrice: priced ? roundMoney(subtotal + minimumAdjustment) : null,
       capacityWarning: families < pv.quantity ? `${pv.name}: ${pv.quantity.toLocaleString('it-IT')} volantini richiesti ma solo ${families.toLocaleString('it-IT')} famiglie uniche assegnate. Riduci i volantini o amplia la zona.` : null };
   });
   if (rows.some(r => r.distributionPrice === null)) issues.push('Almeno un PV non ha famiglie assegnate: prezzo non calcolabile senza inventare una ripartizione.');

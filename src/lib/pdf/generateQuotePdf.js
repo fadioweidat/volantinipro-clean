@@ -511,9 +511,11 @@ function renderPdf(model) {
     for (const pv of model.pointOfSaleBreakdown.rows) {
       w.ensure(58);
       paragraph(w, `${pv.name}: ${formatNumberIT(pv.quantity)} volantini, ${formatNumberIT(pv.families)} famiglie uniche, distribuzione ${formatCurrencyIT(pv.distributionPrice)}.`);
-      table(w, ["Comune", "Famiglie uniche", "Volantini", "Fascia", "Prezzo"], pv.municipalities.map(c => [
-        c.name, formatNumberIT(c.families), formatNumberIT(c.quantity), c.tier, formatCurrencyIT(c.price),
-      ]), [140, 91, 78, 120, 82]);
+      table(w, ["Comune", "Famiglie", "Volantini", "Fascia", "EUR/1.000 PV", "Prezzo"], pv.municipalities.map(c => [
+        c.name, formatNumberIT(c.families), formatNumberIT(c.quantity), c.tier,
+        formatCurrencyIT(c.ratePerThousand), formatCurrencyIT(c.price),
+      ]), [110, 75, 67, 97, 80, 82]);
+      if (pv.minimumAdjustment > 0) paragraph(w, `Adeguamento al minimo del PV (una sola volta): ${formatCurrencyIT(pv.minimumAdjustment)}.`);
     }
     for (const warning of model.pointOfSaleBreakdown.capacityWarnings || []) paragraph(w, `ATTENZIONE: ${warning}`);
   }

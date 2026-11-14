@@ -140,7 +140,8 @@ test("UI, payload DB e PDF condividono lo stesso totale e il PDF è valido", () 
   assert.match(step4, /pricing: \{[\s\S]*?\btotal,[\s\S]*?\bgrandTotal,[\s\S]*?printing: printingExtra \? \{/);
   assert.match(step4, /metadata: \{[\s\S]{0,40}grand_total: grandTotal,/);
   assert.match(step4, /const distributionExtras = selectedExtras\.filter\(e => e\.id !== "printing"\)/);
-  assert.match(step4, /extras: distributionExtras, distributionZones: distributionZonesForPricing/);
+  assert.match(step4, /extras: distributionExtras,[\s\S]*?baseCostOverride: isMultiZoneQuote && multiPvPlan\?\.ready \? multiPvPlan\.distributionTotal : null/);
+  assert.match(step4, /distributionZones: isMultiZoneQuote \? null : distributionZonesForPricing/);
   assert.match(step4, /quantityIsSufficient == null \? null/);
   assert.match(step4, /coverageStatus: quantityIsSufficient == null \? "unavailable"/);
 

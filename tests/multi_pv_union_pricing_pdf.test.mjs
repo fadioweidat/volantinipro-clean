@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { buildMultiPvTerritoryPlan, splitIntegerProportionally } from '../src/lib/step2/multiPvTerritoryPlan.js';
 import { buildMultiZoneDistributionZones, buildPointOfSalePricing, buildMultiZoneCampaignZonesPayload, buildMultiZoneMetadata, summarizeCampaignZones } from '../src/lib/step2/campaignZonesModel.js';
 import { calculateQuotePricing } from '../src/lib/quotePricing.js';
+import { calculateDistributionZonePrice, calculateMultiZoneDistributionPrice } from '../src/lib/pricing/distributionPricing.js';
 import { generateQuotePdfBytes } from '../src/lib/pdf/generateQuotePdf.js';
 import { classifyMunicipalityForPrice } from '../src/lib/step2/municipalityPricingTier.js';
 import { selectCampaignStep3Summary } from '../src/lib/step3/campaignStep3Summary.js';
@@ -92,7 +93,12 @@ test('two PV × two municipalities price independently by municipality tier; PDF
   assert.equal(plan.rows.length, 2);
   for (const row of plan.rows) {
     assert.equal(row.municipalities.reduce((n, c) => n + c.quantity, 0), row.quantity);
-    assert.equal(row.distributionPrice, Math.round(row.municipalities.reduce((n, c) => n + c.price, 0) * 100) / 100);
+    assert.equal(row.distributionPrice, Math.round((row.municipalities.reduce((n, c) => n + c.price, 0) + row.minimumAdjustment) * 100) / 100);
+    for (const comune of row.municipalities) {
+      const fullPvTierPrice = calculateDistributionZonePrice(comune.tier, row.quantity);
+      assert.equal(comune.price, Math.round(fullPvTierPrice * comune.quantity / row.quantity * 100) / 100);
+      assert.equal(comune.ratePerThousand, fullPvTierPrice * 1000 / row.quantity);
+    }
   }
   assert.deepEqual([...new Set(plan.rows.flatMap(r => r.municipalities.map(c => c.name)))].sort(), ['Baranzate', 'Milano']);
   assert.notEqual(plan.distributionTotal, 700, 'not 2 × single-Milano price');
@@ -102,8 +108,10 @@ test('two PV × two municipalities price independently by municipality tier; PDF
   const step3 = selectCampaignStep3Summary({ type: 'd2d', campaignZones: originalPVs });
   assert.equal(step3.priceVerified, true);
   assert.equal(step3.distributionSubtotal, plan.distributionTotal, 'Step3 and Step4 must have the SAME commercial price');
-  const priced = calculateQuotePricing({ quantity: 20000, pricePerThousand: 35, distributionZones: buildMultiZoneDistributionZones(withPlan) });
+  const priced = calculateQuotePricing({ quantity: 20000, pricePerThousand: 35, baseCostOverride: plan.distributionTotal });
   assert.equal(priced.baseCost, plan.distributionTotal);
+  assert.notEqual(calculateMultiZoneDistributionPrice(plan.distributionZones).distributionSubtotal, plan.distributionTotal,
+    'Legacy multi-comune and per-PV weighted pricing are separate commercial rules');
   assert.equal(buildMultiZoneCampaignZonesPayload(withPlan).reduce((n, r) => n + r.quantity, 0), 20000);
   assert.equal(buildMultiZoneMetadata(withPlan).capacity_deduplicated, true);
   const bytes = generateQuotePdfBytes({ service: 'Door to Door', generatedAt: '2026-11-14T12:00:00Z', campaign: { quantity: 20000 },
@@ -131,7 +139,7 @@ test('ten PV remain deterministic, unique families bounded by territory, 100k un
   assert.ok(plan.distributionTotal > 3500);
   const reverse = buildMultiPvTerritoryPlan(summary(...[...ten].reverse()));
   assert.equal(reverse.totalFamilies, plan.totalFamilies, 'PV order must not alter unique families');
-  const priced = calculateQuotePricing({ quantity: 100000, pricePerThousand: 35, distributionZones: plan.distributionZones });
+  const priced = calculateQuotePricing({ quantity: 100000, pricePerThousand: 35, baseCostOverride: plan.distributionTotal });
   assert.equal(priced.baseCost, plan.distributionTotal);
   const pdf = generateQuotePdfBytes({ service: 'Door to Door', generatedAt: '2026-11-14T12:00:00Z',
     campaign: { quantity: 100000, format: 'A5' }, area: { mainArea: 'Milano e Baranzate' },
@@ -142,8 +150,18 @@ test('ten PV remain deterministic, unique families bounded by territory, 100k un
   const pdfText = new TextDecoder('windows-1252').decode(pdf);
   for (let i = 1; i <= 10; i++) assert.match(pdfText, new RegExp(`PV ${i}[: ]`));
   assert.match(pdfText, /Baranzate/);
-  assert.match(pdfText, /Famiglie uniche/);
+  assert.match(pdfText, /famiglie uniche/);
+  assert.match(pdfText, /EUR\/1.000 PV/);
   if (process.env.VOLANTINIPRO_QA_PDF_EXPORT) writeFileSync(process.env.VOLANTINIPRO_QA_PDF_EXPORT, pdf);
+});
+
+test('traditional client-selected multi-comune still charges a minimum PER comune', () => {
+  assert.equal(calculateMultiZoneDistributionPrice([
+    { territory: 'MILANO_CORE', quantity: 1 },
+    { territory: 'HINTERLAND_DENSE', quantity: 1 },
+  ]).distributionSubtotal, 260);
+  const step4 = readFileSync(new URL('../src/pages/public/configurator/Step4.jsx', import.meta.url), 'utf8');
+  assert.match(step4, /baseCostOverride: isMultiZoneQuote && multiPvPlan\?\.ready \? multiPvPlan\.distributionTotal : null/);
 });
 
 test('missing full-territory geometry or household total fails closed rather than printing misleading figures', () => {
