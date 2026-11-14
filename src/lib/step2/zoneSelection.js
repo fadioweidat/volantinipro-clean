@@ -32,6 +32,7 @@ export function resolveZoneAutoSelection({
   availableIds,
   prevAvailableIds,
   currentSelected,
+  forceAllAvailable = false,
 }) {
   const prevArr = Array.isArray(currentSelected) ? currentSelected : [];
 
@@ -45,9 +46,19 @@ export function resolveZoneAutoSelection({
 
   const validPrev = prevArr.filter((id) => availableSet.has(id));
 
-  // Conta la lista precedente per intero: se la selezione la copriva era
-  // automatica, anche quando la lista corrente e' piu' corta o diversa
-  // (Tutto Milano -> Raggio: 88 NIL selezionati, 27 ancora nel raggio).
+  // Il raggio automatico rappresenta TUTTI i territori intersecati. Durante
+  // 3 km -> 1 km -> 3 km gli effetti asincroni possono far sembrare la
+  // selezione automatica del raggio piccolo un sottoinsieme "manuale" di
+  // quello grande: il riepilogo mostrava 8 comuni ma sommava solo alcune NIL
+  // (31.749 famiglie invece di 89.633 sullo stesso raggio). Non applicare la
+  // logica di preservazione dei sottoinsiemi al raggio automatico; la modalita'
+  // NIL/manuale continua a usare le regole originali qui sotto.
+  if (forceAllAvailable) {
+    const alreadyAll = prevArr.length === avail.length &&
+      prevArr.every((id) => availableSet.has(id));
+    return alreadyAll ? currentSelected : avail;
+  }
+
   const coveredAllPrevious =
     prevAvail.length > 0 &&
     prevAvail.every((id) => prevArr.includes(id));

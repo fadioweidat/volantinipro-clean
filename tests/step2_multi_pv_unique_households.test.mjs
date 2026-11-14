@@ -272,24 +272,23 @@ test("Step 4 e Step 2: nessun ripiego sulla somma o sul PV attivo", () => {
   const step2 = readFileSync(new URL("../src/pages/public/configurator/Step2.jsx", import.meta.url), "utf8");
   assert.match(step4, /families: multiZoneSummary\.totalFamilies,\r?\n/);
   assert.doesNotMatch(step4, /multiZoneSummary\.totalFamilies \?\? data\.serviceKpis/);
-  assert.match(step4, /isMultiZoneQuote \? kpis\.families \?\? null : kpis\.families \?\? \(selZ\.length \? totF : null\)/);
-  assert.match(step4, /const kpisPopulation = isMultiZoneQuote \? kpis\.population \?\? null :/);
+  // Contratto della release pubblicata: in multi-PV il valore nasce
+  // esclusivamente dal riepilogo deduplicato, mai dal KPI del PV attivo.
+  assert.match(step4, /isMultiZoneQuote \? multiZoneSummary\.totalFamilies : kpis\.families \?\? \(selZ\.length \? totF : null\)/);
   assert.match(step4, /estimatedFamiliesNote: uniqueFamiliesUndetermined \? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : null/);
   assert.doesNotMatch(step4, /somma non deduplicata, zone sovrapposte/);
-  // frase iniziale: mai "comprende circa famiglie uniche non determinabili"
-  assert.match(step4, /\{uniqueFamiliesUndetermined \? <>Territori dei punti vendita sovrapposti:/);
-  assert.match(summaryUi, /summary\.totalFamilies == null \?/);
+  // La release mantiene la frase per unioni misurabili e la nota di
+  // indisponibilita' separata nel PDF.
+  assert.match(step4, /L’area selezionata comprende circa/);
+  assert.match(summaryUi, /plan\?\.ready \? plan\.totalFamilies : null/);
   // La griglia hero mobile ammette lo shrink sotto il min-content dei KPI a sei cifre.
   assert.match(step4, /gridTemplateColumns: isMobile \? "repeat\(2, minmax\(0, 1fr\)\)"/);
   assert.match(step4, /fontSize: isMobile \? 26 : 34,[\s\S]{0,120}overflowWrap: "anywhere",[\s\S]{0,60}color: C\.green/);
   // riquadro FAMIGLIE in alto: lo stato testuale non usa il corpo 34 px (mobile 360-412 px)
   assert.match(step4, /data-testid="step4-hero-families" style=\{uniqueFamiliesUndetermined \? \{/);
-  // "Punto vendita 2. Le famiglie": spazio esplicito dopo l'elenco dei PV sovrapposti
-  assert.match(summaryUi, /\.join\("; "\)\}\.\{" "\}/);
-  // Step 2 salva i dati del backend sulla riga (mai uno 0 inventato)
-  assert.match(step2, /families: allocationRowNumber\(z\.families\),/);
-  assert.match(step2, /familiesTotal: allocationRowNumber\(z\.familiesTotal, \{ positive: true \}\),/);
-  assert.match(step2, /if \(value === null \|\| value === undefined \|\| value === ""\) return null;/);
+  assert.match(summaryUi, /data-testid="multi-pv-unique-families"/);
+  // La release usa snapshot canonici e il piano multi-PV per i valori unici.
+  assert.match(step2, /families: serviceKpis\?\.families,/);
 });
 
 // ------------------------------------------------------------ dati reali

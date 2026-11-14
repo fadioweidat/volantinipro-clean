@@ -43,7 +43,7 @@ export function Step3({
   const [activeCalZoneId, setActiveCalZoneId] = useState(data.activeZoneId || data.campaignZones?.[0]?.id);
   // FASE 3A: riepilogo campagna multi-PV letto SOLO da campaignZones[] (mai dai
   // mirror del PV attivo ne' dagli snapshot legacy di Step2). Sola lettura.
-  const campaignSummary = useMemo(() => selectCampaignStep3Summary(data), [data.campaignZones, data.type]);
+  const campaignSummary = useMemo(() => selectCampaignStep3Summary(data), [data.campaignZones, data.type, data.multiPvManualOwners]);
   const [selDays, setSelDays] = useState([]);
   const [showZoneDetails, setShowZoneDetails] = useState(false);
   const [navError, setNavError] = useState("");
@@ -1241,9 +1241,9 @@ function Step3CampaignSummary({ summary, isMobile }) {
     label: "Volantini totali",
     value: formatIntegerIT(summary.totalQuantity)
   }, ...(summary.distributionSubtotal != null ? [{
-    label: "Distribuzione",
-    value: `da ${formatQuoteCurrency(summary.distributionSubtotal)}`
-  }] : [])];
+    label: "Distribuzione (base)",
+    value: formatQuoteCurrency(summary.distributionSubtotal)
+  }] : summary.isMultiPointOfSale ? [{ label: "Distribuzione (base)", value: "Da verificare" }] : [])];
   return <section aria-label="Riepilogo campagna" data-testid="step3-campaign-summary" style={{
     background: "rgba(255,255,255,0.035)",
     borderRadius: 20,
@@ -1365,7 +1365,7 @@ function Step3CampaignSummary({ summary, isMobile }) {
             color: "rgba(255,255,255,0.55)"
           }}>volantini</span>
               {row.distributionPrice != null && <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.55)", marginTop: 3 }}>
-                Base {formatQuoteCurrency(row.distributionPrice)}
+                {summary.priceVerified ? 'Fasce dei comuni' : 'Base'} {formatQuoteCurrency(row.distributionPrice)}
               </span>}
             </div>
           </li>)}

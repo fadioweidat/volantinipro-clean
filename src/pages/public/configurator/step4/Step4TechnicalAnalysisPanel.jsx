@@ -65,7 +65,7 @@ export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setSh
             }}>
                   {[{
                 label: "Famiglie operative stimate",
-                val: familiesDisplay ?? formatNumber(estimatedFamiliesForSummary, "—"),
+                val: formatNumber(estimatedFamiliesForSummary, "—"),
                 sub: ISTAT_HOUSEHOLDS_SHORT,
                 c: C.green,
                 tip: "Stima del fabbisogno e delle famiglie raggiungibili nell'area selezionata su base geografica."

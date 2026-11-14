@@ -356,9 +356,11 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           setData(result?.sources || result?.metadata ? result : null);
           setDataKey(fetchKey);
         } else {
-          appliedKeyRef.current = fetchKey;
-          // Milano: NIL allineati al dato ISTAT del comune (741.887 famiglie), idempotente.
-          setData(normalizeMilanoNilAnalysis(result));
+          if (appliedKeyRef.current !== fetchKey) {
+            appliedKeyRef.current = fetchKey;
+            // Milano: NIL allineati al dato ISTAT del comune (741.887 famiglie), idempotente.
+            setData(normalizeMilanoNilAnalysis(result));
+          }
           setDataKey(fetchKey);
           setError(null);
           debugStep2('[ZONE_ANALYSIS_APPLIED]', { requestId, municipality });

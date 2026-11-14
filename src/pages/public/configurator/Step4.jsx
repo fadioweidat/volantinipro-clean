@@ -14,9 +14,7 @@ import { formatAreaKm2, formatNumber, formatPaperWeight } from "../../../lib/uti
 import { formatCoverageProportion } from "../../../lib/step2/buildStep2ViewModel.js";
 import { Step4MultiZoneSummary } from "./step4/Step4MultiZoneSummary.jsx";
 import { buildMultiZoneCampaignZonesPayload, buildMultiZoneDistributionZones, buildMultiZoneMetadata, buildPointOfSalePricing, flattenMultiZoneAllocation, summarizeCampaignZones, getCampaignMunicipalityNames } from "../../../lib/step2/campaignZonesModel.js";
-import { UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL } from "../../../lib/step2/uniqueHouseholds.js";
-import { countTerritories, isNilTerritoryRow, territoryTypeLabel } from "../../../lib/step2/territoryCounts.js";
-import { averageUnitPrice, resolveQuoteStatus } from "../../../lib/quoteStatus.js";
+import { buildMultiPvTerritoryPlan } from "../../../lib/step2/multiPvTerritoryPlan.js";
 import { getServiceAccent } from "../../../lib/services/service-config.js";
 import { getZoneFullCoverageFlyers } from "../../../lib/doorToDoorCoverage.js";
 import { MONTHS_SHORT, QUOTE_PRICES } from "../../../lib/appConstants.js";
@@ -45,7 +43,7 @@ import { buildQuoteAssistantStep4Context } from "../../../ai/context/buildQuoteA
 import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
-import { buildOnProjectPayload } from "../../../lib/business/businessOnProject.js";
+import { buildOnProjectPayload, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
 import { Step4BusinessRequest } from "./step4/Step4BusinessRequest.jsx";
 import { ISTAT_HOUSEHOLDS_SHORT } from "../../../lib/istatCitation.js";
 
@@ -86,7 +84,19 @@ export function Step4({
   // derivano da TUTTE le zone (prima: solo dalla zona attiva, le altre erano
   // scartate in silenzio). Con una sola zona isMultiZoneQuote e' false e ogni
   // valore sotto resta identico al contratto single-zone di produzione.
-  const multiZoneSummary = useMemo(() => summarizeCampaignZones(data.campaignZones), [data.campaignZones]);
+  const rawMultiZoneSummary = useMemo(() => summarizeCampaignZones(data.campaignZones), [data.campaignZones]);
+  const multiPvPlan = useMemo(() => rawMultiZoneSummary.isMultiZone
+    ? buildMultiPvTerritoryPlan(rawMultiZoneSummary, data.multiPvManualOwners || {})
+    : null, [rawMultiZoneSummary, data.multiPvManualOwners]);
+  const multiZoneSummary = useMemo(() => !multiPvPlan ? rawMultiZoneSummary : {
+    ...rawMultiZoneSummary,
+    territoryPlan: multiPvPlan,
+    totalFamilies: multiPvPlan.ready ? multiPvPlan.totalFamilies : null,
+    totalPopulation: null,
+    totalRequiredFlyers: multiPvPlan.ready ? Math.ceil(multiPvPlan.totalFamilies * 1.1) : null,
+    capacityDeduplicated: multiPvPlan.ready,
+    capacityStatus: multiPvPlan.ready ? 'unique_union_estimate' : 'territory_data_unavailable',
+  }, [rawMultiZoneSummary, multiPvPlan]);
   const isMultiZoneQuote = !isQuick && svcType === "d2d" && multiZoneSummary.isMultiZone;
   // FASE 2: prezzo distribuzione per punto vendita dallo stesso motore della campagna.
   const multiZonePosPricing = useMemo(() => isMultiZoneQuote ? buildPointOfSalePricing(multiZoneSummary) : null, [isMultiZoneQuote, multiZoneSummary]);
@@ -512,9 +522,15 @@ export function Step4({
   });
   const printPriceKnown = printQuote.customerPrice != null;
   const printingEstimatedPrice = printPriceKnown ? printQuote.customerPrice : 0;
-  const pricing = isHandToHandQuote
+  const pricing = isMultiZoneQuote && !multiPvPlan?.ready
+    ? { baseCost: null, smartPairingDiscount: null, urgencySurcharge: null, subtotalBeforePlan: null, planDiscountAmount: null, extraCost: null, total: null }
+    : isHandToHandQuote
     ? calculateHandToHandPricing({ operatorHours: h2hOperatorHours, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras })
-    : calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
+    : calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras,
+        // Il multi-PV usa il prezzo gia' calcolato per PV (minimo una sola
+        // volta); il motore multi-comune tradizionale rimane invariato.
+        baseCostOverride: isMultiZoneQuote && multiPvPlan?.ready ? multiPvPlan.distributionTotal : null,
+        distributionZones: isMultiZoneQuote ? null : distributionZonesForPricing });
   const h2hQuoteDetail = isHandToHandQuote ? {
     calculation: describeHandToHandCalculation(pricing.operatorHours),
     operators: pricing.operators,
@@ -536,7 +552,7 @@ export function Step4({
   const graphicLinePrice = computeGraphicEstimate({ artworkRequired, artworkSelected });
   // Riepilogo prezzi (ticket §3): Distribuzione + Stampa + Grafica + Extra.
   // `total` = distribuzione + extra distribuzione (motore invariato).
-  const grandTotal = Number((total + printingLinePrice + graphicLinePrice).toFixed(2));
+  const grandTotal = total == null ? null : Number((total + printingLinePrice + graphicLinePrice).toFixed(2));
   const assistantContext = buildQuoteAssistantStep4Context(data, {
     distributionBase: baseCost,
     smartPairingDiscount,
@@ -584,9 +600,13 @@ export function Step4({
   const coverageBlocked = false;
   // Multi-zona: mai inviare una campagna con zone incomplete o con un
   // servizio per cui l'aggregazione multi-zona non esiste ancora.
-  const multiZoneBlocked = multiZoneUnsupported || isMultiZoneQuote && !multiZoneSummary.allZonesReady;
-  const canConfirm = isB2B ? Boolean(hasZones) : Boolean(svcType && flyerQty != null && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked && !multiZoneBlocked);
-  const confirmProblem = multiZoneUnsupported ? "Più zone disponibili solo per Door to Door" : isMultiZoneQuote && !multiZoneSummary.allZonesReady ? `Completa ${multiZoneSummary.incompleteZones.map(z => z.label).join(", ")} nello Step 2` : !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
+  const multiZoneBlocked = multiZoneUnsupported || isMultiZoneQuote && (!multiZoneSummary.allZonesReady || !multiPvPlan?.ready);
+  // Business e' una richiesta "Su progetto": la mappa e' facoltativa.
+  // Lo Step 1 raccoglie gia' il comune/la zona testuale e le altre risposte;
+  // non richiedere selectedComuni o POI soltanto per abilitare l'invio.
+  const businessMissing = isB2B ? businessMissingAnswers(data) : [];
+  const canConfirm = isB2B ? businessMissing.length === 0 : Boolean(svcType && flyerQty != null && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked && !multiZoneBlocked);
+  const confirmProblem = isB2B ? businessMissing[0]?.label || "" : multiZoneUnsupported ? "Più zone disponibili solo per Door to Door" : isMultiZoneQuote && !multiZoneSummary.allZonesReady ? `Completa ${multiZoneSummary.incompleteZones.map(z => z.label).join(", ")} nello Step 2` : isMultiZoneQuote && !multiPvPlan?.ready ? `Dati territoriali insufficienti: ${(multiPvPlan?.issues || []).slice(0, 2).join(' · ')}` : !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
   const pairingMonth = data.selectedMonth?.month ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getMonth() : new Date().getMonth());
   const pairingYear = data.selectedMonth?.year ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getFullYear() : new Date().getFullYear());
   const pairsData = realStep3Pairs;
@@ -603,12 +623,11 @@ export function Step4({
   const nonEmpty = arr => arr.filter(x => x && x.v !== undefined && x.v !== null && x.v !== "" && x.v !== "-");
   const kpis = isMultiZoneQuote ? {
     ...(data.serviceKpis || {}),
-    // Famiglie e persone UNICHE dei PV (uniqueHouseholds.js): null quando non
-    // determinabili. Mai la somma dei PV, mai il PV attivo come ripiego.
+    // Somme di zona: esatte solo per zone disgiunte (capacityStatus).
     families: multiZoneSummary.totalFamilies,
-    pop: multiZoneSummary.totalPopulation,
-    population: multiZoneSummary.totalPopulation,
-    recommendedFlyers: multiZoneSummary.totalRequiredFlyers ?? data.serviceKpis?.recommendedFlyers,
+    pop: null,
+    population: null,
+    recommendedFlyers: multiZoneSummary.totalRequiredFlyers,
     coverage: multiZoneSummary.totalRequiredFlyers > 0 ? Math.min(100, Math.round(multiZoneSummary.totalQuantity / multiZoneSummary.totalRequiredFlyers * 100)) : null,
     comuniCount: getCampaignMunicipalityNames(data.campaignZones).length || null
   } : singlePointOfSale ? {
@@ -627,7 +646,7 @@ export function Step4({
   const zoneAllocs = isMultiZoneQuote ? flattenMultiZoneAllocation(multiZoneSummary) : singlePointOfSale ? singlePointOfSale.allocation : data.zonesAllocation || [];
   const plannedGpsPoints = data.operationalWaypoints || data.gpsPlannedPoints || data.metadata?.operational_waypoints || [];
   const allocatedRequirement = zoneAllocs.length ? zoneAllocs.reduce((a, z) => a + Number(z.requiredFlyers ?? 0), 0) : null;
-  const requiredQty = isMultiZoneQuote ? multiZoneSummary.totalRequiredFlyers ?? allocatedRequirement : singlePointOfSale ? singlePointOfSale.requiredFlyers ?? allocatedRequirement : data.searchMode === "municipality" ? kpis.recommendedFlyers ?? data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? allocatedRequirement : data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? kpis.recommendedFlyers ?? allocatedRequirement;
+  const requiredQty = isMultiZoneQuote ? multiZoneSummary.totalRequiredFlyers : singlePointOfSale ? singlePointOfSale.requiredFlyers ?? allocatedRequirement : data.searchMode === "municipality" ? kpis.recommendedFlyers ?? data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? allocatedRequirement : data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? kpis.recommendedFlyers ?? allocatedRequirement;
   const rawRemainingQty = flyerQty == null || requiredQty == null ? null : flyerQty - requiredQty;
   const remainingQty = isMultiZoneQuote || singlePointOfSale ? rawRemainingQty == null ? null : Math.max(0, rawRemainingQty) : data.remainingFlyers ?? data.remainingQuantity ?? Math.max(0, rawRemainingQty);
   const missingQty = rawRemainingQty == null ? null : Math.max(0, -rawRemainingQty);
@@ -691,11 +710,8 @@ export function Step4({
   // zoneAllocs, quel nome specifico va preferito; con piu' zone (incl.
   // "Milano completo") il comportamento resta invariato.
   const mainAreaLabel = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones).join(" + ") || "Aree selezionate" : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
-  const estimatedFamiliesForSummary = svcType === "d2d" ? isMultiZoneQuote ? kpis.families ?? null : kpis.families ?? (selZ.length ? totF : null) : null;
-  // Multi-PV: se le famiglie uniche non sono determinabili lo si dice, senza numero.
-  const uniqueFamiliesUndetermined = svcType === "d2d" && isMultiZoneQuote && estimatedFamiliesForSummary == null;
-  const familiesDisplay = uniqueFamiliesUndetermined ? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : formatNumber(estimatedFamiliesForSummary, "—");
-  const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
+  const estimatedFamiliesForSummary = svcType === "d2d" ? isMultiZoneQuote ? multiZoneSummary.totalFamilies : kpis.families ?? (selZ.length ? totF : null) : null;
+  const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : isMultiZoneQuote ? null : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
   const fallbackCoverageText = (kpis.coverage ?? avgCov) == null ? "—" : `${kpis.coverage ?? avgCov}%`;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).
   // Display-only override on the sufficient-coverage message — never fed back
@@ -719,6 +735,11 @@ export function Step4({
     const pts = k.split("-");
     return `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1])]}`;
   }).join(" – ") : "Nessuna data selezionata";
+  // Step 1 saves a preferred start date. It is not a confirmed Step 3 slot,
+  // but suppressing it made the Step 4 period appear to have been lost.
+  const preferredPeriodLabel = /^\d{4}-\d{2}-\d{2}$/.test(data.startDate || "")
+    ? `${data.startDate.slice(8, 10)}/${data.startDate.slice(5, 7)}/${data.startDate.slice(0, 4)} (preferita, da confermare)`
+    : "Da definire con il team";
   const serviceExtras = distributionExtras.map(e => ({
     l: e.label,
     v: e.price > 0 ? `+${eur(e.price)}` : e.isUrgent ? "Incluso in urgenza" : "Incluso",
@@ -752,21 +773,16 @@ export function Step4({
     d: "Quanto sono precisi i dati mostrati. Più alto = stime più accurate.",
     src: "Analisi interna"
   }];
-  const kpisPopulation = isMultiZoneQuote ? kpis.population ?? null : kpis.population ?? kpis.pop ?? (totP || null);
-  // Conteggi territoriali con la stessa definizione di Step 2 (territoryCounts.js):
-  // comuni distinti (i NIL valgono Milano), NIL di Milano e righe sono tre
-  // unita' diverse e non si sommano. Solo per raggio/multi-PV con righe reali.
-  const territoryCounts = isMultiZoneQuote
-    ? (() => {
-      const rows = flattenMultiZoneAllocation(multiZoneSummary);
-      const nilKeys = new Set(rows.filter(isNilTerritoryRow).map(r => String(r.nilCode ?? r.nil_code ?? r.name)));
-      const names = getCampaignMunicipalityNames(data.campaignZones);
-      return { municipalityNames: names, municipalityCount: names.length, nilCount: nilKeys.size, territoryCount: null };
-    })()
-    : !isMunicipalityMode && data.areaMode !== "cap" && zoneAllocs.length > 0 ? countTerritories(zoneAllocs) : null;
-  const summaryMunicipalityNames = territoryCounts ? territoryCounts.municipalityNames : selectedZoneNames;
-  const summaryMunicipalityCount = summaryMunicipalityNames.length || null;
-  const kpisComuniCount = territoryCounts ? territoryCounts.municipalityCount || null : kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
+  const kpisPopulation = kpis.population ?? kpis.pop ?? (totP || null);
+  const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
+  // Nel raggio il numero di comuni coinvolti non e' quello dei comuni scelti
+  // come centro (spesso 1: Milano). Step 2 salva la conta delle intersezioni
+  // reali in comuniNelRaggio; deve vincere sul KPI generico delle selezioni.
+  // In una campagna multi-PV questo valore top-level appartiene SOLO al PV
+  // attivo: non deve prevalere sull'unione dei comuni di tutti i PV.
+  const radiusCommunesCount = !isMultiZoneQuote && data.areaMode === "radius" && Number(data.comuniNelRaggio) > 0 ? Number(data.comuniNelRaggio) : null;
+  const summaryMunicipalityCount = radiusCommunesCount ?? (summaryMunicipalityNames.length || null);
+  const kpisComuniCount = radiusCommunesCount ?? kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
   const d2dAreaKm2 = kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null);
   const d2dAvgDensity = d2dAreaKm2 && kpisPopulation ? Math.round(kpisPopulation / d2dAreaKm2) : null;
   const d2dSummarySources = data.sources?.length ? data.sources : [];
@@ -775,7 +791,7 @@ export function Step4({
       title: "Output Door to Door",
       fields: [{
         l: "Famiglie operative stimate",
-        v: familiesDisplay,
+        v: formatNumber(estimatedFamiliesForSummary, "—"),
         src: ISTAT_HOUSEHOLDS_SHORT,
         c: "#22C55E"
       }, {
@@ -1017,7 +1033,7 @@ export function Step4({
   if (svcType === "d2d") {
     serviceSummaryConfig.admin = [{
       l: "Famiglie stimate",
-      v: familiesDisplay,
+      v: formatNumber(estimatedFamiliesForSummary, "—"),
       src: ISTAT_HOUSEHOLDS_SHORT
     }, {
       l: "Popolazione stimata",
@@ -1031,23 +1047,11 @@ export function Step4({
       l: "Densità media",
       v: d2dAvgDensity ? `${formatNumber(d2dAvgDensity)} ab./km²` : null,
       src: ISTAT_HOUSEHOLDS_SHORT
-    }, ...(territoryCounts ? [{
-      l: "Comuni coinvolti",
-      v: territoryCounts.municipalityCount ? formatNumber(territoryCounts.municipalityCount) : null,
-      src: "Dati geografici / PostGIS"
     }, {
-      l: "NIL di Milano nel raggio",
-      v: territoryCounts.nilCount ? formatNumber(territoryCounts.nilCount) : null,
-      src: "Comune di Milano - NIL"
-    }, {
-      l: "Territori nel raggio (NIL + comuni)",
-      v: territoryCounts.territoryCount ? formatNumber(territoryCounts.territoryCount) : null,
-      src: "Dati geografici / PostGIS"
-    }] : [{
       l: `${step4TerritoryPluralLabel} nel raggio`,
       v: kpisComuniCount != null ? formatNumber(kpisComuniCount) : null,
       src: "Dati geografici / PostGIS"
-    }])];
+    }];
     serviceSummaryConfig.sources = d2dSummarySources;
   }
   const fieldCard = ({
@@ -1239,7 +1243,22 @@ export function Step4({
     quantityExplanation: quantityIsSufficient == null ? "Copertura e fabbisogno non disponibili: completa l'analisi territoriale nello Step 2." : quantityIsSufficient ? coverageStrategy === "extra_frequency" && hasSurplusQty ? "Il comune selezionato risulta coperto al 100%. La quantità eccedente sarà utilizzata per rinforzare la distribuzione nelle zone a maggiore densità o secondo passaggio operativo." : "La quantità consigliata copre l'area selezionata. Eventuali volantini residui possono essere usati per ampliare il raggio, aggiungere comuni vicini o mantenere una scorta operativa." : `La quantità inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT", {
       useGrouping: true
     })} volantini per raggiungere la copertura stimata.`,
-    municipalities: pdfMunicipalities,
+    municipalities: isMultiZoneQuote && multiPvPlan?.ready
+      ? multiPvPlan.rows.flatMap(pv => pv.municipalities.map(c => ({
+        name: `${pv.name} / ${c.name}`,
+        status: 'Territorio assegnato',
+        estimatedFlyers: c.quantity,
+        coveragePct: c.families > 0 ? Math.min(100, Math.round(c.quantity / c.families * 100)) : null,
+        contributionPct: pv.quantity > 0 ? Math.round(c.quantity / pv.quantity * 100) : null,
+      })))
+      : isMultiZoneQuote ? [] : pdfMunicipalities,
+    pointOfSaleBreakdown: isMultiZoneQuote && multiPvPlan?.ready ? {
+      method: multiPvPlan.method,
+      totalFamilies: multiPvPlan.totalFamilies,
+      overlapCells: multiPvPlan.overlapCells,
+      capacityWarnings: multiPvPlan.capacityWarnings,
+      rows: multiPvPlan.rows,
+    } : null,
     scores: (serviceSummaryConfig.scores || []).filter(s => s?.v != null).map(s => ({
       label: s.l,
       value: s.v,
@@ -1351,6 +1370,10 @@ export function Step4({
   };
   function handleDownloadPdf() {
     if (pdfBusy) return;
+    if (isMultiZoneQuote && !multiPvPlan?.ready) {
+      setPdfError('Dati territoriali mancanti: impossibile creare un PDF con importi non verificati.');
+      return;
+    }
     console.info("[QUOTE_PDF_BUTTON_CLICKED]", {
       area: mainAreaLabel
     });
@@ -1480,7 +1503,7 @@ export function Step4({
         title: `Campagna Preventivo (${clientForm.nome})`,
         service_type: svcType,
         status: "pending_review",
-        city_name: data.cityName || data.searchedLocation || mainAreaLabel,
+        city_name: isB2B ? data.businessZone || data.cityName || mainAreaLabel : data.cityName || data.searchedLocation || mainAreaLabel,
         zone_ids: isMultiZoneQuote ? [...new Set(multiZoneSummary.zones.flatMap(z => z.source?.selected || []))] : zones,
         campaignZones: campaignZonesPayload,
         flyer_quantity: flyerQty,
@@ -1683,7 +1706,14 @@ export function Step4({
       }}>{sub}</div>
       </div>
     </div>;
-  if (isB2B) return <Step4BusinessRequest data={data} clientForm={clientForm} setClientForm={setClientForm} canConfirm={canConfirm} confirmProblem={confirmProblem} savingCampaign={savingCampaign} saveError={campaignSaveError} saveNotice={saveSlowNotice || confirmSyncStatus} sent={sent} onConfirm={handleConfirmCampaign} onBack={onBack} onViewMap={() => onNav?.("step2")} onHome={() => onNav?.("home")} />;
+  if (isB2B) return <Step4BusinessRequest data={data} clientForm={clientForm} setClientForm={setClientForm} canConfirm={canConfirm} confirmProblem={confirmProblem} savingCampaign={savingCampaign} saveError={campaignSaveError} saveNotice={saveSlowNotice || confirmSyncStatus} sent={sent} onConfirm={handleConfirmCampaign} onBack={onBack} onViewMap={area => {
+    if (area) {
+      const hasCoordinates = Number.isFinite(Number(area.lat)) && Number.isFinite(Number(area.lng)) && area.lat != null && area.lng != null;
+      const mapCity = hasCoordinates ? { ...area, label: area.label || area.name } : null;
+      setData(prev => ({ ...prev, city: mapCity, cityName: area.name, searchedLocation: area.name, selectedComuni: mapCity ? [mapCity] : [], selectedSearchPoint: null, searchMode: "municipality", zones: [], selectedZones: [], campaignZones: [], activeZoneId: null }));
+    }
+    onNav?.("step2");
+  }} onHome={() => onNav?.("home")} />;
   return <div style={{
     maxWidth: 1200,
     margin: "0 auto",
@@ -1892,13 +1922,10 @@ export function Step4({
         lineHeight: 1.65,
         maxWidth: 680
       }}>
-            {uniqueFamiliesUndetermined ? <>Territori dei punti vendita sovrapposti:{" "}
+            L’area selezionata comprende circa{" "}
             <strong style={{
           color: C.green
-        }}>{UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL.toLowerCase()}</strong></> : <>L’area selezionata comprende circa{" "}
-            <strong style={{
-          color: C.green
-        }}>{`${familiesDisplay} famiglie${isMultiZoneQuote && multiZoneSummary.capacityDeduplicated ? " uniche (aree sovrapposte contate una volta)" : ""}`}</strong></>}
+        }}>{formatNumber(estimatedFamiliesForSummary, "—")} famiglie{isMultiZoneQuote ? " (uniche stimate, unione dei raggi)" : ""}</strong>
             {selectedZoneNames.length > 1 && <>{" "}nelle aree di <strong style={{
             color: col
           }}>{selectedZoneNames.length} {isMultiZoneQuote ? "punti vendita" : "comuni"}</strong></>}
@@ -2323,7 +2350,9 @@ export function Step4({
             }, isH2H && {
               icon: "",
               l: "Punti operativi",
-              v: data.operationalPoints?.length || 1,
+              // Lo Step 1 definisce il solo punto centrale del raggio;
+              // i punti effettivamente presidiati sono i POI assegnati nello Step 2.
+              v: Array.isArray(data.selectedOperationalPois) ? data.selectedOperationalPois.length : data.operationalPoints?.length ?? "Da selezionare",
               c: C.blue
             }, isH2H && {
               icon: "",
@@ -2407,7 +2436,10 @@ export function Step4({
           padding: "18px"
         }}>
             {secHead("2", "Famiglie e copertura", "Quante persone raggiungerai con questa campagna", sectionAccent)}
-            {isMultiZoneQuote && <Step4MultiZoneSummary summary={multiZoneSummary} posPricing={multiZonePosPricing} campaignTotal={total} campaignQuantity={flyerQty} />}
+            {isMultiZoneQuote && <Step4MultiZoneSummary summary={multiZoneSummary} posPricing={multiZonePosPricing} campaignTotal={total} campaignQuantity={flyerQty} onOwnerChange={(key, id) => setData(prev => ({
+              ...prev,
+              multiPvManualOwners: { ...(prev.multiPvManualOwners || {}), [key]: id || undefined },
+            }))} />}
             {isQuick ? <div style={{
             padding: "14px",
             borderRadius: 10,
@@ -2435,13 +2467,13 @@ export function Step4({
                 icon: "home",
                 l: "Famiglie stimate nell'area",
                 sub: ISTAT_HOUSEHOLDS_SHORT,
-                v: familiesDisplay,
+                v: formatNumber(estimatedFamiliesForSummary, "—"),
                 c: C.green
               }, {
                 icon: "family",
                 l: "Persone stimate",
                 sub: kpisPopulation != null ? ISTAT_HOUSEHOLDS_SHORT : "Stima su famiglie (coefficiente medio)",
-                v: formatNumber(kpisPopulation ?? (isMultiZoneQuote ? null : Math.round((kpis.families ?? totF) * 2.4)), "—"),
+                v: formatNumber(kpisPopulation ?? Math.round((kpis.families ?? totF) * 2.4), "—"),
                 c: C.white
               }, {
                 icon: "pin",
@@ -2931,6 +2963,7 @@ export function Step4({
             nonEmpty={nonEmpty}
             selDays={selDays}
             selectedDatesLabel={selectedDatesLabel}
+            preferredPeriodLabel={preferredPeriodLabel}
             urgencySurchargePctLabel={urgencySurchargePctLabel}
             sent={sent}
             disc={disc}
@@ -3111,6 +3144,7 @@ export function Step4({
               svcType={svcType}
               kpis={kpis}
               totF={totF}
+              isMultiZoneQuote={isMultiZoneQuote}
               printingExtra={printingExtra}
               printingEstimatedPrice={printingEstimatedPrice}
               printPriceKnown={printPriceKnown}

@@ -45,15 +45,16 @@ test("conteggi: stessa definizione di Step 2 (NIL raccolti in Milano + ogni comu
   const step2 = read("../src/pages/public/configurator/Step2.jsx");
   assert.match(step2, /const id = isMilanoNil \? "milano-nil-total" : zone\.id;/);
   // multi-PV a raggio: i NIL valgono Milano a qualunque livello di analisi
-  const pv = { searchMode: "address", selectedComuni: [{ name: "Milano" }], kpiSnapshot: { analysisLevel: "nil" }, allocation: ROWS };
+  // Il contratto produzione conserva i comuni realmente intersecati nello snapshot del PV.
+  // Le righe NIL non sono un sostituto affidabile della lista canonica dei comuni.
+  const pv = { searchMode: "address", selectedComuni: [{ name: "Milano" }], kpiSnapshot: { analysisLevel: "nil", areaMode: "radius", municipalityNames: ["Milano", ...COMUNI] }, allocation: ROWS };
   assert.deepEqual(getCampaignMunicipalityNames([pv]), ["Milano", ...COMUNI]);
 });
 
 test("Step 4: comuni coinvolti dalle righe territoriali, non da selectedComuni (era 1)", () => {
-  assert.match(step4, /: !isMunicipalityMode && data\.areaMode !== "cap" && zoneAllocs\.length > 0 \? countTerritories\(zoneAllocs\) : null;/);
-  assert.match(step4, /const summaryMunicipalityNames = territoryCounts \? territoryCounts\.municipalityNames : selectedZoneNames;/);
-  assert.match(step4, /l: "NIL di Milano nel raggio",/);
-  assert.match(step4, /l: "Territori nel raggio \(NIL \+ comuni\)",/);
+  assert.match(step4, /const summaryMunicipalityNames = isMultiZoneQuote \? getCampaignMunicipalityNames\(data\.campaignZones\) : selectedZoneNames;/);
+  assert.match(step4, /const radiusCommunesCount = !isMultiZoneQuote && data\.areaMode === "radius"/);
+  assert.match(step4, /const summaryMunicipalityCount = radiusCommunesCount \?\? \(summaryMunicipalityNames\.length \|\| null\)/);
   assert.match(step4, /type: territoryTypeLabel\(row\.alloc \|\| row\),/);
 });
 

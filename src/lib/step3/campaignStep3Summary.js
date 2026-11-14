@@ -14,6 +14,7 @@
 // buildMultiZoneDistributionZones -> calculateQuotePricing) e il prezzo per
 // PV arriva da buildPointOfSalePricing, lo stesso usato dal riepilogo Step4.
 import { buildMultiZoneDistributionZones, buildPointOfSalePricing, summarizeCampaignZones } from "../step2/campaignZonesModel.js";
+import { buildMultiPvTerritoryPlan } from '../step2/multiPvTerritoryPlan.js';
 import { calculateQuotePricing } from "../quotePricing.js";
 import { QUOTE_PRICES } from "../appConstants.js";
 import { formatIntegerIT } from "../utils/format.js";
@@ -33,13 +34,16 @@ function territoryLabelFor(zone) {
  * gli altri servizi distributionSubtotal resta null (Step4 blocca il
  * multi-PV non D2D) e la UI non mostra un prezzo.
  */
-export function buildCampaignStep3Summary(campaignZones, { serviceType = "d2d" } = {}) {
+export function buildCampaignStep3Summary(campaignZones, { serviceType = "d2d", manualOwners = {} } = {}) {
   const summary = summarizeCampaignZones(campaignZones);
   const priced = serviceType === "d2d" && summary.zoneCount > 0;
-  const posPricing = priced ? buildPointOfSalePricing(summary) : null;
+  const plan = priced && summary.isMultiZone ? buildMultiPvTerritoryPlan(summary, manualOwners) : null;
+  const priceVerified = Boolean(plan?.ready);
+  const posPricing = priced && !summary.isMultiZone ? buildPointOfSalePricing(summary) : null;
   const priceById = new Map((posPricing?.rows || []).map(r => [r.id, r.distributionPrice]));
+  if (priceVerified) plan.rows.forEach(row => priceById.set(row.id, row.distributionPrice));
   const distributionSubtotal = priced
-    ? calculateQuotePricing({
+    ? summary.isMultiZone ? priceVerified ? plan.distributionTotal : null : calculateQuotePricing({
         quantity: summary.totalQuantity,
         pricePerThousand: QUOTE_PRICES[serviceType] || 18.5,
         distributionZones: buildMultiZoneDistributionZones(summary),
@@ -50,6 +54,8 @@ export function buildCampaignStep3Summary(campaignZones, { serviceType = "d2d" }
     isMultiPointOfSale: summary.isMultiZone,
     totalQuantity: summary.totalQuantity,
     distributionSubtotal,
+    priceVerified,
+    pricingIssues: plan?.issues || [],
     overlapPresent: summary.hasOverlap,
     capacityDeduplicated: summary.capacityDeduplicated,
     rows: summary.zones.map(z => ({
@@ -67,7 +73,7 @@ export function buildCampaignStep3Summary(campaignZones, { serviceType = "d2d" }
  * tipo di servizio campagna. Volutamente cieco a ogni mirror del PV attivo.
  */
 export function selectCampaignStep3Summary(data) {
-  return buildCampaignStep3Summary(data?.campaignZones, { serviceType: data?.type || "d2d" });
+  return buildCampaignStep3Summary(data?.campaignZones, { serviceType: data?.type || "d2d", manualOwners: data?.multiPvManualOwners || {} });
 }
 
 /** Etichetta compatta header: "5 PV · 64.390 volantini". */

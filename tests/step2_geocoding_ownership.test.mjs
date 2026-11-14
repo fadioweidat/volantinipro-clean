@@ -35,6 +35,9 @@ test('late geocoding from PV2 is discarded after switching to PV1, without trans
     await page.goto(origin + '/configuratore?step=2', { waitUntil: 'domcontentloaded' });
     const selector = 'input[placeholder="Cerca un indirizzo o un altro comune"]';
     await page.waitForSelector(selector); await page.type(selector, 'Via Torino STALE, Milano');
+    // Public Nominatim is no longer an autocomplete provider. A real explicit
+    // submission starts the request that must not leak across PV switches.
+    await page.keyboard.press('Enter');
     const deadline = Date.now() + 15000;
     while (!delayedRequest && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
     assert.ok(delayedRequest, 'Geocoding must actually be in flight before switching');

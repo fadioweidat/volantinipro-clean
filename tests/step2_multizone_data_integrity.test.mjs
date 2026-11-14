@@ -235,7 +235,7 @@ test("F. empty / incomplete / unconfirmed zone is flagged and blocks the quote",
   assert.ok(s.incompleteZones[0].issues.includes("territorio_mancante"));
   assert.deepEqual(s.incompleteZones[1].issues, ["configurazione_non_confermata"]);
   // Step4 refuses to confirm, Step2 refuses to continue
-  assert.match(step4, /const multiZoneBlocked = multiZoneUnsupported \|\| isMultiZoneQuote && !multiZoneSummary\.allZonesReady;/);
+  assert.match(step4, /const multiZoneBlocked = multiZoneUnsupported \|\| isMultiZoneQuote && \(!multiZoneSummary\.allZonesReady \|\| !multiPvPlan\?\.ready\);/);
   assert.match(step4, /&& !coverageBlocked && !multiZoneBlocked\);/);
   assert.match(step2, /Completa \$\{getCampaignZoneQuoteLabel\(blockingCampaignZone, blockingCampaignZoneIndex\)\} per continuare/);
   // readiness is persisted from the active zone's own gate only

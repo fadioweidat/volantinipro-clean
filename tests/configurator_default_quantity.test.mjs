@@ -1,6 +1,5 @@
-// Step 1 starts at 10.000 as a placeholder. If the customer never chose a
-// quantity, Step 2 (D2D) uses the recommended quantity of the territory; a
-// quantity chosen in Step 1 or decided in Step 2 is never overwritten.
+// Step 1 starts at 10.000 as a proposal. Step 2 may recommend another
+// quantity but must not silently overwrite the visible Step 1 amount.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -31,14 +30,11 @@ test("every Step 1 quantity control marks the quantity as chosen", () => {
   assert.equal((step1.match(/quantitySource: "customer"/g) || []).length, 4, "chips, slider, manual input change and blur");
 });
 
-test("Step 2 adopts the recommended quantity only for a default quantity, D2D, one point of sale, settled analysis, no decision", () => {
-  const effect = step2.slice(step2.indexOf("const recommendedForDefaultQuantity"), step2.indexOf("// ── RESIDUO NIL"));
-  assert.match(effect, /if \(data\.quantitySource !== "default"\) return;/);
-  assert.match(effect, /if \(!isResidentialStep2 \|\| !analysisOwnedByActiveZone \|\| apiLoading \|\| apiPending \|\| !hasUsableAllocationData\) return;/);
-  assert.match(effect, /data\.campaignZones\.length : 0\) > 1\) return;/);
-  assert.match(effect, /if \(coverageDecision\) return;/);
-  assert.match(effect, /setAvailableFlyers\(recommendedForDefaultQuantity\);/);
-  assert.match(effect, /qty: recommendedForDefaultQuantity,/);
+test("Step 2 keeps the visible 10.000 until the customer chooses an amount", () => {
+  const gate = step2.slice(step2.indexOf("// Keep the displayed Step 1 quantity"), step2.indexOf("// ── RESIDUO NIL"));
+  assert.doesNotMatch(gate, /setAvailableFlyers\(|setData\(/);
+  assert.match(step2, /function selectCoverageQuantityDecision\(nextDecision\)/);
+  assert.match(step2, /markQuantityChosenByCustomer\(\)/);
 });
 
 test("quantity decisions in Step 2 become the customer's choice", () => {

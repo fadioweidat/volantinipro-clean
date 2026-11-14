@@ -1,5 +1,5 @@
-import { textWidth, wrapToWidth } from "./pdfTextMetrics.js";
 import { ISTAT_REFERENCE_DATE, PDF_HOUSEHOLDS_SOURCE_NOTE } from "../istatCitation.js";
+import { textWidth, wrapToWidth } from "./pdfTextMetrics.js";
 
 const PAGE = { w: 595.28, h: 841.89, margin: 42 };
 const COLORS = {
@@ -160,6 +160,7 @@ export function mapQuoteDataToPdfModel(input) {
     area: data.area || {},
     outputs: data.outputs || {},
     municipalities: data.municipalities || [],
+    pointOfSaleBreakdown: data.pointOfSaleBreakdown || null,
     scores: data.scores || [],
     adminInfo: data.adminInfo || [],
     aiAnalysis: data.aiAnalysis || { enabled: false },
@@ -588,6 +589,22 @@ function renderPdf(model) {
     }), hasTypes ? [138, 54, 132, 58, 66, 63] : [150, 150, 80, 70, 61]);
   } else {
     paragraph(w, "Dettaglio comuni non disponibile.");
+  }
+
+  if (model.pointOfSaleBreakdown?.rows?.length) {
+    section(w, "3A. Prezzo per PV e comune", "Quantita ripartite per famiglie uniche assegnate; prezzi per fascia comunale");
+    paragraph(w, model.pointOfSaleBreakdown.method);
+    paragraph(w, `Totale famiglie uniche stimate: ${formatNumberIT(model.pointOfSaleBreakdown.totalFamilies)}. Aree sovrapposte assegnate a un solo PV.`);
+    for (const pv of model.pointOfSaleBreakdown.rows) {
+      w.ensure(58);
+      paragraph(w, `${pv.name}: ${formatNumberIT(pv.quantity)} volantini, ${formatNumberIT(pv.families)} famiglie uniche, distribuzione ${formatCurrencyIT(pv.distributionPrice)}.`);
+      table(w, ["Comune", "Famiglie", "Volantini", "Fascia", "EUR/1.000 PV", "Prezzo"], pv.municipalities.map(c => [
+        c.name, formatNumberIT(c.families), formatNumberIT(c.quantity), c.tier,
+        formatCurrencyIT(c.ratePerThousand), formatCurrencyIT(c.price),
+      ]), [110, 75, 67, 97, 80, 82]);
+      if (pv.minimumAdjustment > 0) paragraph(w, `Adeguamento al minimo del PV (una sola volta): ${formatCurrencyIT(pv.minimumAdjustment)}.`);
+    }
+    for (const warning of model.pointOfSaleBreakdown.capacityWarnings || []) paragraph(w, `ATTENZIONE: ${warning}`);
   }
 
   section(w, "4. Indicatori servizio", "KPI operativi della stima");
