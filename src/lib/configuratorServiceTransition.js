@@ -25,6 +25,13 @@ const TERRITORY_AND_PLANNING_FIELDS = {
   fullCoverageFlyers: null,
   missingFlyers: null,
   remainingFlyers: null,
+  // I mirror della quantita' sono calcolati nello Step 2 per il servizio
+  // precedente. Se restano valorizzati, prevalgono sulla nuova scelta Step 1
+  // (es. Business 3.000 -> Hand to Hand 5.000 ma Step 2 usa ancora 3.000).
+  insertedFlyersOriginal: null,
+  originalFlyerQuantity: null,
+  availableFlyers: null,
+  flyerQuantityFromStep1: null,
   coverageDecision: null,
   coverageStrategy: null,
   selectedDates: [],

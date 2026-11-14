@@ -42,7 +42,7 @@ import { buildQuoteAssistantStep4Context } from "../../../ai/context/buildQuoteA
 import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
-import { buildOnProjectPayload } from "../../../lib/business/businessOnProject.js";
+import { buildOnProjectPayload, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
 import { Step4BusinessRequest } from "./step4/Step4BusinessRequest.jsx";
 import { ISTAT_HOUSEHOLDS_SHORT } from "../../../lib/istatCitation.js";
 
@@ -583,8 +583,12 @@ export function Step4({
   // Multi-zona: mai inviare una campagna con zone incomplete o con un
   // servizio per cui l'aggregazione multi-zona non esiste ancora.
   const multiZoneBlocked = multiZoneUnsupported || isMultiZoneQuote && !multiZoneSummary.allZonesReady;
-  const canConfirm = isB2B ? Boolean(hasZones) : Boolean(svcType && flyerQty != null && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked && !multiZoneBlocked);
-  const confirmProblem = multiZoneUnsupported ? "Più zone disponibili solo per Door to Door" : isMultiZoneQuote && !multiZoneSummary.allZonesReady ? `Completa ${multiZoneSummary.incompleteZones.map(z => z.label).join(", ")} nello Step 2` : !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
+  // Business e' una richiesta "Su progetto": la mappa e' facoltativa.
+  // Lo Step 1 raccoglie gia' il comune/la zona testuale e le altre risposte;
+  // non richiedere selectedComuni o POI soltanto per abilitare l'invio.
+  const businessMissing = isB2B ? businessMissingAnswers(data) : [];
+  const canConfirm = isB2B ? businessMissing.length === 0 : Boolean(svcType && flyerQty != null && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked && !multiZoneBlocked);
+  const confirmProblem = isB2B ? businessMissing[0]?.label || "" : multiZoneUnsupported ? "Più zone disponibili solo per Door to Door" : isMultiZoneQuote && !multiZoneSummary.allZonesReady ? `Completa ${multiZoneSummary.incompleteZones.map(z => z.label).join(", ")} nello Step 2` : !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
   const pairingMonth = data.selectedMonth?.month ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getMonth() : new Date().getMonth());
   const pairingYear = data.selectedMonth?.year ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getFullYear() : new Date().getFullYear());
   const pairsData = realStep3Pairs;
@@ -713,6 +717,11 @@ export function Step4({
     const pts = k.split("-");
     return `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1])]}`;
   }).join(" – ") : "Nessuna data selezionata";
+  // Step 1 saves a preferred start date. It is not a confirmed Step 3 slot,
+  // but suppressing it made the Step 4 period appear to have been lost.
+  const preferredPeriodLabel = /^\d{4}-\d{2}-\d{2}$/.test(data.startDate || "")
+    ? `${data.startDate.slice(8, 10)}/${data.startDate.slice(5, 7)}/${data.startDate.slice(0, 4)} (preferita, da confermare)`
+    : "Da definire con il team";
   const serviceExtras = distributionExtras.map(e => ({
     l: e.label,
     v: e.price > 0 ? `+${eur(e.price)}` : e.isUrgent ? "Incluso in urgenza" : "Incluso",
@@ -748,8 +757,12 @@ export function Step4({
   }];
   const kpisPopulation = kpis.population ?? kpis.pop ?? (totP || null);
   const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
-  const summaryMunicipalityCount = summaryMunicipalityNames.length || null;
-  const kpisComuniCount = kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
+  // Nel raggio il numero di comuni coinvolti non e' quello dei comuni scelti
+  // come centro (spesso 1: Milano). Step 2 salva la conta delle intersezioni
+  // reali in comuniNelRaggio; deve vincere sul KPI generico delle selezioni.
+  const radiusCommunesCount = data.areaMode === "radius" && Number(data.comuniNelRaggio) > 0 ? Number(data.comuniNelRaggio) : null;
+  const summaryMunicipalityCount = radiusCommunesCount ?? (summaryMunicipalityNames.length || null);
+  const kpisComuniCount = radiusCommunesCount ?? kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
   const d2dAreaKm2 = kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null);
   const d2dAvgDensity = d2dAreaKm2 && kpisPopulation ? Math.round(kpisPopulation / d2dAreaKm2) : null;
   const d2dSummarySources = data.sources?.length ? data.sources : [];
@@ -1429,7 +1442,7 @@ export function Step4({
         title: `Campagna Preventivo (${clientForm.nome})`,
         service_type: svcType,
         status: "pending_review",
-        city_name: data.cityName || data.searchedLocation || mainAreaLabel,
+        city_name: isB2B ? data.businessZone || data.cityName || mainAreaLabel : data.cityName || data.searchedLocation || mainAreaLabel,
         zone_ids: isMultiZoneQuote ? [...new Set(multiZoneSummary.zones.flatMap(z => z.source?.selected || []))] : zones,
         campaignZones: campaignZonesPayload,
         flyer_quantity: flyerQty,
@@ -1632,7 +1645,14 @@ export function Step4({
       }}>{sub}</div>
       </div>
     </div>;
-  if (isB2B) return <Step4BusinessRequest data={data} clientForm={clientForm} setClientForm={setClientForm} canConfirm={canConfirm} confirmProblem={confirmProblem} savingCampaign={savingCampaign} saveError={campaignSaveError} saveNotice={saveSlowNotice || confirmSyncStatus} sent={sent} onConfirm={handleConfirmCampaign} onBack={onBack} onViewMap={() => onNav?.("step2")} onHome={() => onNav?.("home")} />;
+  if (isB2B) return <Step4BusinessRequest data={data} clientForm={clientForm} setClientForm={setClientForm} canConfirm={canConfirm} confirmProblem={confirmProblem} savingCampaign={savingCampaign} saveError={campaignSaveError} saveNotice={saveSlowNotice || confirmSyncStatus} sent={sent} onConfirm={handleConfirmCampaign} onBack={onBack} onViewMap={area => {
+    if (area) {
+      const hasCoordinates = Number.isFinite(Number(area.lat)) && Number.isFinite(Number(area.lng)) && area.lat != null && area.lng != null;
+      const mapCity = hasCoordinates ? { ...area, label: area.label || area.name } : null;
+      setData(prev => ({ ...prev, city: mapCity, cityName: area.name, searchedLocation: area.name, selectedComuni: mapCity ? [mapCity] : [], selectedSearchPoint: null, searchMode: "municipality", zones: [], selectedZones: [], campaignZones: [], activeZoneId: null }));
+    }
+    onNav?.("step2");
+  }} onHome={() => onNav?.("home")} />;
   return <div style={{
     maxWidth: 1200,
     margin: "0 auto",
@@ -2256,7 +2276,9 @@ export function Step4({
             }, isH2H && {
               icon: "",
               l: "Punti operativi",
-              v: data.operationalPoints?.length || 1,
+              // Lo Step 1 definisce il solo punto centrale del raggio;
+              // i punti effettivamente presidiati sono i POI assegnati nello Step 2.
+              v: Array.isArray(data.selectedOperationalPois) ? data.selectedOperationalPois.length : data.operationalPoints?.length ?? "Da selezionare",
               c: C.blue
             }, isH2H && {
               icon: "",
@@ -2863,6 +2885,7 @@ export function Step4({
             nonEmpty={nonEmpty}
             selDays={selDays}
             selectedDatesLabel={selectedDatesLabel}
+            preferredPeriodLabel={preferredPeriodLabel}
             urgencySurchargePctLabel={urgencySurchargePctLabel}
             sent={sent}
             disc={disc}

@@ -47,6 +47,24 @@ test("cambio D2D/H2H/Business conserva Step 1 e azzera esclusivamente territorio
   assert.equal(after.serviceKpis, null);
 });
 
+test("cambio Business -> Hand to Hand non usa la vecchia quantita' dello Step 2", () => {
+  const before = {
+    type: "b2b", qty: 3000, flyerQuantity: 3000,
+    businessMaterialQuantity: 3000,
+    insertedFlyersOriginal: 3000, originalFlyerQuantity: 3000,
+    availableFlyers: 3000, flyerQuantityFromStep1: 3000,
+  };
+  const next = applyConfiguratorServiceChange(before, "h2h");
+  assert.equal(next.qty, 3000, "la scelta cliente rimane finche' non viene modificata");
+  assert.equal(next.insertedFlyersOriginal, null);
+  assert.equal(next.originalFlyerQuantity, null);
+  assert.equal(next.availableFlyers, null);
+  assert.equal(next.flyerQuantityFromStep1, null);
+  const edited = { ...next, qty: 5000, flyerQuantity: 5000 };
+  const actualStep2Quantity = Number(edited.insertedFlyersOriginal || edited.originalFlyerQuantity || edited.flyerQuantity || edited.qty || 10000);
+  assert.equal(actualStep2Quantity, 5000);
+});
+
 test("Step 2 non fabbrica zone se il backend non restituisce breakdown", () => {
   assert.deepEqual(apiToZones({ values: { famiglie_stimate: 1000 }, comuni_breakdown: [] }, { name: "Milano" }), []);
 });
