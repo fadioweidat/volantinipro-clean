@@ -2272,7 +2272,9 @@ export function Step4({
             }, isH2H && {
               icon: "",
               l: "Punti operativi",
-              v: data.operationalPoints?.length || 1,
+              // Lo Step 1 definisce il solo punto centrale del raggio;
+              // i punti effettivamente presidiati sono i POI assegnati nello Step 2.
+              v: Array.isArray(data.selectedOperationalPois) ? data.selectedOperationalPois.length : data.operationalPoints?.length ?? "Da selezionare",
               c: C.blue
             }, isH2H && {
               icon: "",

@@ -59,6 +59,8 @@ test("Presentation keeps preferred Step 1 date and discloses distribution-only m
   assert.match(plan, /preferredPeriodLabel/);
   assert.match(pricing, /stampa esclusa/);
   assert.match(pricing, /non deduplicata/);
+  assert.match(step4, /Array\.isArray\(data\.selectedOperationalPois\) \? data\.selectedOperationalPois\.length : data\.operationalPoints\?\.length/,
+    "Hand to Hand operative point count must use assigned POIs, not the Step 1 radius center");
 });
 
 test("Business POIs never inherit the chosen municipality label without spatial evidence", () => {
