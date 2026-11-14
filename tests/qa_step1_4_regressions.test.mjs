@@ -90,3 +90,8 @@ test("Business Su progetto: request is confirmable with Step 1 answers and no op
   assert.match(step4, /const canConfirm = isB2B \? businessMissing\.length === 0/);
   assert.match(step4, /city_name: isB2B \? data\.businessZone/);
 });
+
+test("The Step 1 visible quantity ignores stale Business material quantity after switching to H2H", () => {
+  const step1 = read("src/pages/public/configurator/Step1.jsx");
+  assert.match(step1, /isB2B \? data\.businessMaterialQuantity : data\.qty/);
+});

@@ -797,7 +797,7 @@ export function Step1({
     label: `Con la stampa la distribuzione può iniziare dal ${formatDateDisplay(printMinStart)}`
   }].filter(Boolean);
   const canContinueStep1 = step1Issues.length === 0 && !resolvingOperationalLocation;
-  const quantityValue = Math.max(0, Number(data.businessMaterialQuantity ?? data.qty ?? 0) || 0);
+  const quantityValue = Math.max(0, Number((isB2B ? data.businessMaterialQuantity : data.qty) ?? 0) || 0);
   const quantityFeedback = quantityValue >= 1000 ? {
     label: "Quantità valida per procedere",
     text: "La copertura reale verrà calcolata automaticamente nello Step 2.",
