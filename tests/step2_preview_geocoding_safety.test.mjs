@@ -8,6 +8,10 @@ const repoFile = path => new URL(`../${path}`, import.meta.url);
 test('Milano civic searches accept only the requested street and number', () => {
   const exact = { street: 'Corso Buenos Aires', houseNumber: '10', placeType: 'address' };
   assert.equal(requestedCivicNumber('Corso Buenos Aires 10, Milano'), '10');
+  assert.equal(requestedCivicNumber('Corso Buenos Aires 10 Milano 20124'), '10');
+  assert.equal(matchesRequestedCivic('Corso Buenos Aires 10 Milano 20124', exact), true);
+  assert.equal(requestedCivicNumber('Viale Certosa 330 Milano'), '330');
+  assert.equal(requestedCivicNumber('Milano 20124'), null);
   assert.equal(matchesRequestedCivic('Corso Buenos Aires 10, Milano', exact), true);
   assert.equal(matchesRequestedCivic('Corso Buenos Aires 10, Milano', { ...exact, houseNumber: '11' }), false);
   assert.equal(matchesRequestedCivic('Corso Buenos Aires 10, Milano', { ...exact, street: 'Galleria Buenos Aires' }), false);
@@ -36,4 +40,10 @@ test('Milano radius label reflects the real geocoded origin', async () => {
   assert.match(source, /centerLabel \|\|/);
   assert.match(source, /nessun numero civico verificato/);
   assert.doesNotMatch(source, /address\?\.label \|\| "Centro del Comune di Milano"/);
+});
+
+test('switching points of sale restores the selected exact address in the editable field', async () => {
+  const source = await readFile(repoFile('src/pages/public/configurator/Step2.jsx'), 'utf8');
+  assert.match(source, /if \(isZoneSwitch\) \{\s*\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*setSearch\(activeZone\.selectedSearchPoint\?\.label \|\| activeZone\.cityName/);
+  assert.match(source, /setGeocodeSuggestions\(\[\]\);\s*setDropOpen\(false\);/);
 });

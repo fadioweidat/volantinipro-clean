@@ -864,7 +864,12 @@ export function Step2({
 
       // Update local states
       if (isZoneSwitch) {
-        setSearch(activeZone.cityName || resolvedCity?.name || "");
+        // Preserve the exact address in the editable search field when moving
+        // between points of sale. Restoring just "Milano" hides the selected
+        // civic even though the saved radius still uses its coordinates.
+        setSearch(activeZone.selectedSearchPoint?.label || activeZone.cityName || resolvedCity?.name || "");
+        setGeocodeSuggestions([]);
+        setDropOpen(false);
       }
       setCity(resolvedCity);
       setSelectedComuni(prev => isZoneSwitch ? activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []) : prev && prev.length > 0 ? prev : activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []));
