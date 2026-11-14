@@ -24,7 +24,8 @@ import {
 import { getBusinessDefaultCopies } from "../../lib/business/business-config.js";
 import { calculateQuotePricing } from "../../lib/quotePricing.js";
 import { QUOTE_PRICES } from "../../lib/appConstants.js";
-import { resolveConfiguratorDistributionZones } from "../../lib/pricing/resolveConfiguratorDistributionZones.js";
+import { buildQuickQuoteDistributionZones } from "../../lib/quickQuote/quickQuoteDistributionZones.js";
+import { calculateDistributionZonePrice } from "../../lib/pricing/distributionPricing.js";
 import { formatOperationalMarginNote } from "../../lib/doorToDoorCoverage.js";
 import { submitPublicCampaign } from "../../lib/supabaseClient.js";
 import { sendQuoteAdminNotification, sendQuoteCustomerConfirmation } from "../../api/sendEmailConferma.js";
@@ -423,7 +424,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // tutti i comuni (progressive loading, sez. 3): basta una quantita'
   // effettiva valida, gia' derivata solo da comuni "matched" a monte.
   const canPrice = isH2HQuick ? hasComuni : service === "d2d"
-    ? (!territorialLoading && effectiveQuantity != null && effectiveQuantity > 0 && hasComuni && !territorialError)
+    ? (!territorialLoading && effectiveQuantity != null && effectiveQuantity > 0 && hasComuni && !territorialError
+      && (comuni.length < 2 || (campaign.allMatched && campaign.breakdown.every((b) => Number(b.recommendedQuantity) > 0))))
     : (hasComuni && effectiveQuantity != null && effectiveQuantity > 0);
 
   const urgency = TIMING_OPTIONS.find((t) => t.id === timing)?.urgency || "normal";
@@ -455,15 +457,22 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   const pricePerThousand = QUOTE_PRICES[service] || 18.5;
   const pricingQty = effectiveQuantity || 0;
   const extraLineItems = extraIds.map((id) => ({ id, price: registryById[id]?.price || 0 }));
-  // P0 WIRING REALE sezione 6 — griglia territoriale attiva per D2D SOLO
-  // quando un singolo comune reale e' selezionato (Quick Quote non
-  // raccoglie una quantita' per-comune quando ne sono selezionati piu' di
-  // uno, vedi audit: mai inventare una ripartizione qui). Con un solo
-  // comune, questo produce esattamente lo stesso prezzo di Step4 per lo
-  // stesso input (stessa classifyTerritory, stesso calculateQuotePricing).
-  const quickDistributionZones = service === "d2d" && comuni.length === 1 && pricingQty > 0
-    ? resolveConfiguratorDistributionZones({ selectedComuni: comuni }, pricingQty).zones
+  // Griglia territoriale D2D (listino) anche con piu' comuni (2026-11-14):
+  // ogni comune e' prezzato con il listino sulla sua quantita' e i prezzi si
+  // sommano, come nello Step 4 (stessa resolveConfiguratorDistributionZones,
+  // stesso calculateMultiZoneDistributionPrice dentro calculateQuotePricing).
+  // Prima, con piu' comuni, si applicava la tariffa fissa QUOTE_PRICES.d2d a
+  // tutta la quantita'. La quantita' per comune viene dalla ripartizione gia'
+  // mostrata (campaign.breakdown), proporzionale al fabbisogno.
+  const quickZones = service === "d2d"
+    ? buildQuickQuoteDistributionZones({ comuni, breakdown: campaign.breakdown, quantity: pricingQty, allMatched: campaign.allMatched })
     : null;
+  // D2D con piu' comuni senza ripartizione affidabile: canPrice resta false
+  // (vedi sopra), mai la tariffa fissa al posto del listino.
+  const quickDistributionZones = quickZones?.priceable ? quickZones.zones : null;
+  const quickPerComunePrices = quickZones?.priceable && quickZones.multi
+    ? quickZones.perComune.map((z) => ({ ...z, price: calculateDistributionZonePrice(z.territory, z.quantity) }))
+    : [];
   const quickPricing = isH2HQuick
     ? calculateHandToHandPricing({ operatorHours: h2hOperatorHours, urgency, extras: extraLineItems })
     : calculateQuotePricing({
@@ -559,10 +568,13 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     const materialStatus = printed === "true" ? "già stampato" : "Da produrre";
     const extraLabels = extraIds.map((id) => registryById[id]?.head || id);
 
+    // Quantita' reale di ogni comune (la stessa usata per il prezzo), non
+    // piu' parti uguali.
+    const quantityByComune = new Map((quickZones?.perComune || []).map((z) => [z.name, z.quantity]));
     const campaignZonesPayload = comuni.length > 0
       ? comuni.map((c, idx) => ({
           municipality: c.name,
-          quantity: Math.round(effectiveQuantity / Math.max(1, comuni.length)),
+          quantity: quantityByComune.get(c.name) ?? Math.round(effectiveQuantity / Math.max(1, comuni.length)),
           priority: idx + 1,
           lat: c.lat || 0,
           lng: c.lng || 0,
@@ -687,7 +699,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               label: `Distribuzione ${serviceLabel}`,
               detail: h2hQuickDetail ? h2hQuickDetail.calculation : `${n(effectiveQuantity)} volantini`,
               quantity: effectiveQuantity,
-              ...(h2hQuickDetail ? { quantityLabel: h2hQuickDetail.label, unitPrice: H2H_HOURLY_RATE_EUR, unitPriceLabel: `${money(H2H_HOURLY_RATE_EUR)}/ora` } : { unitPrice: pricePerThousand / 1000 }),
+              ...(h2hQuickDetail ? { quantityLabel: h2hQuickDetail.label, unitPrice: H2H_HOURLY_RATE_EUR, unitPriceLabel: `${money(H2H_HOURLY_RATE_EUR)}/ora` } : { unitPrice: quickDistributionZones && effectiveQuantity > 0 ? Math.round((baseCost / effectiveQuantity) * 10000) / 10000 : pricePerThousand / 1000 }),
               total: baseCost,
             },
             ...(urgencySurcharge > 0 ? [{ label: `Maggiorazione urgenza (+${urgencySurchargePctLabel}%)`, quantity: null, unitPrice: null, total: urgencySurcharge }] : []),
@@ -696,7 +708,11 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
           extras: extraIds.map((id) => ({ label: registryById[id]?.head, amount: registryById[id]?.price || 0, status: "Selezionato" })),
           discounts: [],
           total: totalAmount,
-          notes: h2hQuickDetail ? [`Volantini stimati: circa ${n(h2hQuickDetail.range.min)}–${n(h2hQuickDetail.range.max)} (${H2H_FLYERS_ESTIMATE_NOTE}).`, ...(h2hQuickDetail.travel ? [`${H2H_TRAVEL_NOTE}: il totale non lo comprende.`] : [])] : [],
+          notes: h2hQuickDetail
+            ? [`Volantini stimati: circa ${n(h2hQuickDetail.range.min)}–${n(h2hQuickDetail.range.max)} (${H2H_FLYERS_ESTIMATE_NOTE}).`, ...(h2hQuickDetail.travel ? [`${H2H_TRAVEL_NOTE}: il totale non lo comprende.`] : [])]
+            : quickPerComunePrices.length > 1
+              ? [`Distribuzione per comune (listino): ${quickPerComunePrices.map((z) => `${z.name} ${n(z.quantity)} pz ${money(z.price)}`).join(" · ")}.`]
+              : [],
         },
         sources: campaign.allMatched ? ["Analisi territoriale GIS/NIL"] : [],
       };
@@ -1546,6 +1562,16 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                       <span>{h2hQuickDetail ? `Distribuzione: ${h2hQuickDetail.calculation}` : `Distribuzione (${n(effectiveQuantity)} pz)`}</span>
                       <span>{money(baseCost)}</span>
                     </div>
+                    {quickPerComunePrices.length > 1 && (
+                      <div data-testid="quick-quote-per-comune-prices" style={{ display: "flex", flexDirection: "column", gap: 3, paddingLeft: 10 }}>
+                        {quickPerComunePrices.map((z) => (
+                          <div key={z.name} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.5)" }}>
+                            <span>{z.name} ({n(z.quantity)} pz)</span>
+                            <span>{money(z.price)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {h2hQuickDetail && (
                       <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.5)", lineHeight: 1.5 }}>
                         Volantini stimati: circa {n(h2hQuickDetail.range.min)}–{n(h2hQuickDetail.range.max)}, secondo luogo e orario.{h2hQuickDetail.travel ? ` ${H2H_TRAVEL_NOTE}: il totale non lo comprende.` : ""}
