@@ -42,7 +42,7 @@ import { buildQuoteAssistantStep4Context } from "../../../ai/context/buildQuoteA
 import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
-import { buildOnProjectPayload } from "../../../lib/business/businessOnProject.js";
+import { buildOnProjectPayload, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
 import { Step4BusinessRequest } from "./step4/Step4BusinessRequest.jsx";
 import { ISTAT_HOUSEHOLDS_SHORT } from "../../../lib/istatCitation.js";
 
@@ -583,8 +583,12 @@ export function Step4({
   // Multi-zona: mai inviare una campagna con zone incomplete o con un
   // servizio per cui l'aggregazione multi-zona non esiste ancora.
   const multiZoneBlocked = multiZoneUnsupported || isMultiZoneQuote && !multiZoneSummary.allZonesReady;
-  const canConfirm = isB2B ? Boolean(hasZones) : Boolean(svcType && flyerQty != null && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked && !multiZoneBlocked);
-  const confirmProblem = multiZoneUnsupported ? "Più zone disponibili solo per Door to Door" : isMultiZoneQuote && !multiZoneSummary.allZonesReady ? `Completa ${multiZoneSummary.incompleteZones.map(z => z.label).join(", ")} nello Step 2` : !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
+  // Business e' una richiesta "Su progetto": la mappa e' facoltativa.
+  // Lo Step 1 raccoglie gia' il comune/la zona testuale e le altre risposte;
+  // non richiedere selectedComuni o POI soltanto per abilitare l'invio.
+  const businessMissing = isB2B ? businessMissingAnswers(data) : [];
+  const canConfirm = isB2B ? businessMissing.length === 0 : Boolean(svcType && flyerQty != null && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked && !multiZoneBlocked);
+  const confirmProblem = isB2B ? businessMissing[0]?.label || "" : multiZoneUnsupported ? "Più zone disponibili solo per Door to Door" : isMultiZoneQuote && !multiZoneSummary.allZonesReady ? `Completa ${multiZoneSummary.incompleteZones.map(z => z.label).join(", ")} nello Step 2` : !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
   const pairingMonth = data.selectedMonth?.month ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getMonth() : new Date().getMonth());
   const pairingYear = data.selectedMonth?.year ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getFullYear() : new Date().getFullYear());
   const pairsData = realStep3Pairs;
@@ -1434,7 +1438,7 @@ export function Step4({
         title: `Campagna Preventivo (${clientForm.nome})`,
         service_type: svcType,
         status: "pending_review",
-        city_name: data.cityName || data.searchedLocation || mainAreaLabel,
+        city_name: isB2B ? data.businessZone || data.cityName || mainAreaLabel : data.cityName || data.searchedLocation || mainAreaLabel,
         zone_ids: isMultiZoneQuote ? [...new Set(multiZoneSummary.zones.flatMap(z => z.source?.selected || []))] : zones,
         campaignZones: campaignZonesPayload,
         flyer_quantity: flyerQty,

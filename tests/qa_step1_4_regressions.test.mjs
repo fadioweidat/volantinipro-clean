@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { businessGeocodeMatchesZone, parseBusinessMapAreas } from "../src/lib/business/businessMapAreas.js";
+import { businessMissingAnswers, buildOnProjectPayload } from "../src/lib/business/businessOnProject.js";
 import { canContinueHandToHand } from "../src/lib/step2/operationalContinueGate.js";
 
 const read = p => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
@@ -66,4 +67,24 @@ test("Business POIs never inherit the chosen municipality label without spatial 
   assert.match(step2, /return isBusinessStep2 \? null : singleComuneLabel/);
   const panel = read("src/pages/public/configurator/step2/Step2PoiAssignmentPanel.jsx");
   assert.match(panel, /poiLoading \? "Caricamento luoghi…"/);
+});
+
+test("Business Su progetto: request is confirmable with Step 1 answers and no optional map", () => {
+  const request = {
+    businessZone: "Milano, Cormano e Bresso",
+    distributionTargets: ["business", "professional_services"],
+    businessMaterialQuantity: 3000,
+    campaignPeriodPreset: "asap",
+    hasFlyers: "yes",
+  };
+  assert.deepEqual(businessMissingAnswers(request), []);
+  const payload = buildOnProjectPayload({ city_name: request.businessZone, campaignZones: [], metadata: {} }, request);
+  assert.equal(payload.city_name, request.businessZone);
+  assert.deepEqual(payload.campaignZones, []);
+  assert.equal(payload.metadata.business_request.businessZone, request.businessZone);
+  assert.equal(payload.total_amount, null);
+  const step4 = read("src/pages/public/configurator/Step4.jsx");
+  assert.match(step4, /const businessMissing = isB2B \? businessMissingAnswers\(data\) : \[\]/);
+  assert.match(step4, /const canConfirm = isB2B \? businessMissing\.length === 0/);
+  assert.match(step4, /city_name: isB2B \? data\.businessZone/);
 });
