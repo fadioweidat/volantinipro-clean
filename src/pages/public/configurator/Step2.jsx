@@ -5276,7 +5276,8 @@ export function Step2({
     areaMode,
     analysisLevel: activeAnalysisLevel,
     radiusCenter: isRadiusMode ? radiusCenter : null,
-    radiusKm: isRadiusMode ? radiusKm : null
+    radiusKm: isRadiusMode ? radiusKm : null,
+    municipalityNames: isRadiusMode ? radiusMunicipalityRows.map(row => row.name) : null
   });
   const activeZoneHasTerritory = searchMode === "cap" ? selectedCaps.length > 0 : Boolean(city);
   const activeZoneReadyForQuote = Boolean(activeZoneQuoteReady && activeZoneHasTerritory && !gisLoading && !apiLoading);

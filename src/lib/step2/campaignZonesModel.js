@@ -53,7 +53,7 @@ function haversineKm(a, b) {
  * Snapshot KPI/capacita' minimo e deterministico della zona attiva.
  * Solo scalari canonici: niente oggetti transitori (apiData, geometrie).
  */
-export function buildZoneKpiSnapshot({ serviceKpis = {}, requiredFlyers = null, finalFlyers = null, areaMode = null, analysisLevel = null, radiusCenter = null, radiusKm = null } = {}) {
+export function buildZoneKpiSnapshot({ serviceKpis = {}, requiredFlyers = null, finalFlyers = null, areaMode = null, analysisLevel = null, radiusCenter = null, radiusKm = null, municipalityNames = null } = {}) {
   const kpis = serviceKpis || {};
   const center = radiusCenter && finite(radiusCenter.lat) !== null && finite(radiusCenter.lng) !== null
     ? { lat: Number(radiusCenter.lat), lng: Number(radiusCenter.lng), label: radiusCenter.label || null }
@@ -67,6 +67,12 @@ export function buildZoneKpiSnapshot({ serviceKpis = {}, requiredFlyers = null, 
     requiredFlyers: finite(requiredFlyers),
     finalFlyers: finite(finalFlyers),
     comuniCount: finite(kpis.comuniCount),
+    // In modalità Raggio lo Step 2 conosce i comuni realmente intersecati.
+    // Salvare i nomi per PV permette allo Step 4 di fare l'unione corretta:
+    // la sola selectedComuni contiene il comune di partenza (es. Milano).
+    municipalityNames: Array.isArray(municipalityNames)
+      ? [...new Map(municipalityNames.map(name => String(name || '').trim()).filter(Boolean).map(name => [normalizeKey(name), name])).values()]
+      : null,
     analysisLevel: analysisLevel || kpis.analysisLevel || null,
     areaMode: areaMode || null,
     center,
@@ -124,11 +130,14 @@ function municipalityNames(zone) {
 export function getCampaignMunicipalityNames(zones = []) {
   const names = new Map();
   for (const zone of zones) {
+    const radiusMunicipalities = zone.searchMode === 'address' && zone.kpiSnapshot?.areaMode === 'radius'
+      && Array.isArray(zone.kpiSnapshot?.municipalityNames)
+      ? zone.kpiSnapshot.municipalityNames : [];
     const municipalRows = zone.searchMode === 'address' && zone.kpiSnapshot?.analysisLevel === 'comune'
       ? getCampaignZoneAllocation(zone) : [];
     const explicit = Array.isArray(zone.selectedMunicipalities) && zone.selectedMunicipalities.length
       ? zone.selectedMunicipalities : zone.selectedComuni || [];
-    const candidates = municipalRows.length ? municipalRows : explicit.length ? explicit : [zone.city || zone.cityName];
+    const candidates = radiusMunicipalities.length ? radiusMunicipalities : municipalRows.length ? municipalRows : explicit.length ? explicit : [zone.city || zone.cityName];
     for (const candidate of candidates) {
       const name = String(typeof candidate === 'string' ? candidate : candidate?.name || candidate?.label || '').trim();
       const key = name.replace(/\s*\([A-Z]{2}\)\s*$/i, '').trim().toLowerCase();

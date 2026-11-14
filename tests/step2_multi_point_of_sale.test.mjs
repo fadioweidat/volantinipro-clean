@@ -120,6 +120,24 @@ test("municipality counts distinguish PV and NIL from unique municipalities", ()
   assert.deepEqual(getCampaignMunicipalityNames([PV1, PV3]), ['Milano', 'Monza']);
   assert.deepEqual(getCampaignMunicipalityNames([PV4]), ['Cormano', 'Cusano Milanino']);
   assert.deepEqual(getCampaignMunicipalityNames([{ allocation: [row('BRUZZANO', 10000)] }]), []);
+  const certosaRadius = {
+    ...secondMilano,
+    searchMode: 'address',
+    kpiSnapshot: buildZoneKpiSnapshot({
+      areaMode: 'radius',
+      analysisLevel: 'nil',
+      municipalityNames: ['Milano', 'Baranzate', 'Novate Milanese', 'Pero', 'Rho']
+    })
+  };
+  assert.deepEqual(getCampaignMunicipalityNames([PV1, certosaRadius]),
+    ['Milano', 'Baranzate', 'Novate Milanese', 'Pero', 'Rho'],
+    'PV centered in Milano must include all real intersected comuni, never five NIL or just Milano');
+  assert.deepEqual(getCampaignMunicipalityNames([certosaRadius, {
+    ...certosaRadius,
+    id: 'other_radius',
+    kpiSnapshot: buildZoneKpiSnapshot({ areaMode: 'radius', municipalityNames: ['milano', 'Pero', 'Settimo Milanese'] })
+  }]), ['Milano', 'Baranzate', 'Novate Milanese', 'Pero', 'Rho', 'Settimo Milanese'],
+  'all PV municipality lists must be unioned and deduplicated');
 });
 
 test("manual NIL labels ignore stale full-city allocation and removed selections", () => {
