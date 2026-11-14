@@ -2763,8 +2763,12 @@ export function Step2({
       availableIds,
       prevAvailableIds,
       currentSelected: prev,
+      // In Raggio automatico tutte le zone disponibili sono selezionate:
+      // non confondere l'auto-selezione del raggio precedente con una scelta
+      // manuale. Le NIL selezionate esplicitamente restano preservate.
+      forceAllAvailable: isRadiusMode && !nilManualMode,
     }));
-  }, [hasUsefulApiZones, zonesInRadius, nilManualMode, isComuneMode, isResidentialStep2, requestedAnalysisLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasUsefulApiZones, zonesInRadius, nilManualMode, isComuneMode, isRadiusMode, isResidentialStep2, requestedAnalysisLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Anteprima NIL per indirizzo Milano non ancora confermato (es. Via Brera):
   // calcolata prima di selZones per consentire al calcolo coperture/KPI e alla
