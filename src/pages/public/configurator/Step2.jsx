@@ -2103,7 +2103,14 @@ export function Step2({
       if (mapboxToken) {
         try {
           const mapboxTypes = searchIntent.intent === "address" || pointSearchIntent ? "address,poi,place,locality,neighborhood" : "place,locality,neighborhood";
-          const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(search)}.json?access_token=${mapboxToken}&country=IT&types=${mapboxTypes}&language=it&limit=8`);
+          // After Mapbox URL permissions are updated, old unauthorized GETs
+          // can still be cached under the exact original query URL. Supply
+          // the country context in the geocoder request (not in the UI input)
+          // to obtain the verified Italian civic result without making the
+          // visitor type ", Italia" manually.
+          const mapboxQuery = searchIntent.intent === "address" && !/\bitalia\b/i.test(search)
+            ? `${search.trim().replace(/,\s*$/, "")}, Italia` : search;
+          const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(mapboxQuery)}.json?access_token=${mapboxToken}&country=IT&types=${mapboxTypes}&language=it&limit=8`);
           const d = await r.json();
           if (cancelled) return;
           if (d.features?.length) {

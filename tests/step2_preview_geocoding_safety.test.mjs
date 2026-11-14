@@ -35,6 +35,14 @@ test('address autocomplete never calls public Nominatim while typing', async () 
   assert.match(panel, /searchNominatimOnSubmit\?\.\(search\)/);
 });
 
+test('Mapbox resolves a normal Italian address without requiring the user to type Italia', async () => {
+  const source = await readFile(repoFile('src/pages/public/configurator/Step2.jsx'), 'utf8');
+  assert.match(source, /const mapboxQuery = searchIntent\.intent === "address"/);
+  assert.match(source, /\$\{search\.trim\(\)\.replace\(\/,\\s\*\$\/, ""\)\}, Italia/);
+  assert.match(source, /encodeURIComponent\(mapboxQuery\)/);
+  assert.doesNotMatch(source, /setSearch\(mapboxQuery\)/);
+});
+
 test('Milano radius label reflects the real geocoded origin', async () => {
   const source = await readFile(repoFile('src/pages/public/configurator/step2/MilanoCoverageModeChooser.jsx'), 'utf8');
   assert.match(source, /centerLabel \|\|/);
