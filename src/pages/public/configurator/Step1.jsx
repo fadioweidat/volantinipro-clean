@@ -1,5 +1,5 @@
 import { doorToDoorRangeBeforeZone } from "../../../lib/pricing/step1Estimate.js";
-import { BUSINESS_CONFIRMATION, ON_PROJECT_LABEL, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
+import { BUSINESS_CONFIRMATION, BUSINESS_MACRO_TARGETS, ON_PROJECT_LABEL, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
 import { H2H_FLYERS_ESTIMATE_NOTE, H2H_HOURLY_RATE_EUR, H2H_TRAVEL_NOTE, calculateHandToHandPricing, describeHandToHandCalculation, handToHandFlyersRange, handToHandOperatorHours, formatFlyersRange } from "../../../lib/pricing/handToHandPricing.js";
 import { PRINT_TIMING_NOTE, earliestStartWithPrint, isPeriodPresetUnavailableWithPrint } from "../../../lib/printLeadTime.js";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -9,6 +9,7 @@ import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import { AnimatePresence, motion } from "framer-motion";
 
 import BusinessStep1Config from "../../../components/business/BusinessStep1Config.jsx";
+import { businessGeocodeMatchesZone, knownBusinessMapCity, parseBusinessMapAreas } from "../../../lib/business/businessMapAreas.js";
 import {
   BUSINESS_TARGET_OPTIONS,
   BUSINESS_OBJECTIVES,
@@ -610,27 +611,24 @@ export function Step1({
       }
       setOperationalLocationError("");
       const materialQuantity = data.businessDefinitionMode === "activities" ? 0 : Math.max(0, Number(data.businessMaterialQuantity || 0));
+      const requestedZone = String(data.businessZone || "").trim();
+      const businessMapAreas = parseBusinessMapAreas(requestedZone);
       setResolvingOperationalLocation(true);
-      let resolvedBusinessArea;
-      try {
-        resolvedBusinessArea = await geocodePromoterAssignment({
-          location: String(data.businessZone || "").trim(),
-          pointType: ""
-        });
-      } catch (error) {
-        const diagnosticCode = error?.message || "BUSINESS_AREA_NOT_FOUND";
-        setOperationalLocationError(`Non riesco a trovare il comune o la zona Business. Controlla il nome e riprova. Codice: ${diagnosticCode}`);
-        document.getElementById("business-starting-area")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-        setResolvingOperationalLocation(false);
-        return;
+      let businessCity = businessMapAreas.length > 1 ? null : knownBusinessMapCity(requestedZone);
+      // Geocode a single area only. Multi-comune input is a valid lead, but
+      // Nominatim cannot convert it into an honest single map center.
+      if (!businessCity && businessMapAreas.length === 0) {
+        try {
+          const resolved = await geocodePromoterAssignment({ location: requestedZone, pointType: "" });
+          const candidate = resolved.parentCity;
+          if (businessGeocodeMatchesZone(requestedZone, candidate?.name || candidate?.label)) {
+            businessCity = { ...candidate, label: candidate.label || candidate.name };
+          }
+        } catch {
+          // Business is an on-project lead: an unresolved map is optional and
+          // must not block the request or substitute another municipality.
+        }
       }
-      const businessCity = {
-        ...resolvedBusinessArea.parentCity,
-        label: resolvedBusinessArea.parentCity?.label || resolvedBusinessArea.parentCity?.name
-      };
       setData(prev => ({
         ...prev,
         qty: materialQuantity,
@@ -641,9 +639,10 @@ export function Step1({
         timeSlot: null,
         serviceDurationHours: null,
         city: businessCity,
-        cityName: businessCity.label || businessCity.name || "",
-        searchedLocation: businessCity.label || businessCity.name || "",
-        selectedComuni: [businessCity],
+        cityName: businessCity?.label || businessCity?.name || "",
+        searchedLocation: businessCity?.label || businessCity?.name || "",
+        selectedComuni: businessCity ? [businessCity] : [],
+        businessMapAreas,
         selectedSearchPoint: null,
         searchMode: "municipality",
         zones: [],
@@ -822,12 +821,12 @@ export function Step1({
   const b2bTargetLabel = (() => {
     if (!b2bTargets.length) return "Da selezionare";
     if (b2bTargets.includes("all")) return "Selezione generale";
-    if (b2bTargets.length <= 2) {
-      return b2bTargets
-        .map(t => (t === "altro" && data.businessOtherTarget ? `Altro (${data.businessOtherTarget})` : BUSINESS_TARGET_OPTIONS.find(o => o.value === t)?.label || t))
-        .join(", ");
-    }
-    return `${b2bTargets.length} categorie selezionate`;
+    // "Uffici e studi" expands to two internal target values. The client
+    // selected one macro-category, not two separate categories.
+    const macros = BUSINESS_MACRO_TARGETS.filter(macro => macro.values.some(value => b2bTargets.includes(value)));
+    const remaining = b2bTargets.filter(target => !macros.some(macro => macro.values.includes(target)));
+    const labels = [...macros.map(macro => macro.label), ...remaining.map(target => target === "altro" && data.businessOtherTarget ? `Altro (${data.businessOtherTarget})` : BUSINESS_TARGET_OPTIONS.find(option => option.value === target)?.label || target)];
+    return labels.length <= 2 ? labels.join(", ") : `${labels.length} categorie selezionate`;
   })();
 
   const b2bMacroObj = { display_material: "coupons", other: "information" }[data.businessCampaignObjective] || data.businessCampaignObjective;

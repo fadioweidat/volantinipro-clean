@@ -27,6 +27,7 @@ import { buildOperationalAdvice, D2D_DAILY_CAPACITY, estimateOperationalDays, H2
 import { buildPromoterAssignments } from "../../../lib/step1/promoterAssignments.js";
 import { buildStep2ToStep3Payload, buildStep2TruthModel } from "../../../lib/step2/buildStep2TruthModel.js";
 import { buildStep2ViewModel, getCoverageStatus } from "../../../lib/step2/buildStep2ViewModel.js";
+import { canContinueHandToHand } from "../../../lib/step2/operationalContinueGate.js";
 import { BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS, businessCategoryLabel, businessOptionLabel, calculateBusinessMaterials, calculateBusinessOperationalPlan, getBusinessCopiesForPoi, resolveVerifiedCompetitorCount } from "../../../lib/business/business-config.js";
 import { CAP_LOMBARDIA } from "../../../lib/step2/capLombardia.js";
 import { checkMilanoTerritory } from "../../../lib/step2/milanoTerritoryHelper.js";
@@ -1670,13 +1671,16 @@ export function Step2({
     const boundaries = Array.isArray(municipalityBoundary) ? municipalityBoundary.filter(b => b?.geometry) : municipalityBoundary?.geometry ? [municipalityBoundary] : [];
     const singleComuneLabel = isComuneMode && (city?.label || city?.name) || (boundaries.length === 1 ? boundaries[0]?.name : null) || null;
     return poi => {
-      if (boundaries.length > 1 && Number.isFinite(Number(poi?.lat)) && Number.isFinite(Number(poi?.lng))) {
+      if (boundaries.length > 0 && poi?.lat != null && poi?.lng != null && Number.isFinite(Number(poi.lat)) && Number.isFinite(Number(poi.lng))) {
         const match = boundaries.find(b => geoJsonContainsPoint(b.geometry, Number(poi.lat), Number(poi.lng)));
         if (match?.name) return match.name;
+        // Never label a point outside the actual polygon with the selected
+        // town merely because the Overpass radius/bbox also returned it.
+        if (isBusinessStep2) return "Fuori dal comune selezionato";
       }
-      return singleComuneLabel;
+      return isBusinessStep2 ? null : singleComuneLabel;
     };
-  }, [municipalityBoundary, isComuneMode, city]);
+  }, [municipalityBoundary, isComuneMode, city, isBusinessStep2]);
   const visiblePoisForAssignment = useMemo(() => {
     const query = normalizeTerritoryName(poiListSearch);
     return pois.filter(poi => {
@@ -3524,31 +3528,9 @@ export function Step2({
   const finalFlyersRounded = Math.round(Number(finalFlyers || 0));
   const hasUsableAllocationData = isResidentialStep2 ? selZones.some(zone => !zone?.isFallback && Number(zone?.families || 0) > 0 && getZoneFullCoverageFlyers(zone) > 0) : isMovementStep2 ? selectedOperationalPois.length > 0 || step1OperationalPoints.length > 0 : selectedOperationalPois.length > 0;
   const allocationStatus = hasUsableAllocationData && assignedFlyersTotal === finalFlyersRounded ? "success" : "pending";
-  // Quantity the customer never chose (Step 1 placeholder 10.000): use the
-  // recommended quantity of the selected territory instead. Only D2D with a
-  // single point of sale, only once the analysis of this territory settled and
-  // before any quantity decision in Step 2; a quantity typed or picked by the
-  // customer (quantitySource "customer") is never touched.
-  const recommendedForDefaultQuantity = Math.round(Number(requiredFlyers) || 0);
-  useEffect(() => {
-    if (data.quantitySource !== "default") return;
-    if (!isResidentialStep2 || !analysisOwnedByActiveZone || apiLoading || apiPending || !hasUsableAllocationData) return;
-    if ((Array.isArray(data.campaignZones) ? data.campaignZones.length : 0) > 1) return;
-    if (coverageDecision) return;
-    if (!(recommendedForDefaultQuantity > 0)) return;
-    if (Math.round(Number(availableFlyers) || 0) === recommendedForDefaultQuantity && Number(data.qty) === recommendedForDefaultQuantity) return;
-    setAvailableFlyers(recommendedForDefaultQuantity);
-    setData(prev => ({
-      ...prev,
-      qty: recommendedForDefaultQuantity,
-      flyerQuantity: recommendedForDefaultQuantity,
-      flyerQuantityFromStep1: recommendedForDefaultQuantity,
-      insertedFlyersOriginal: recommendedForDefaultQuantity,
-      originalFlyerQuantity: recommendedForDefaultQuantity,
-      availableFlyers: recommendedForDefaultQuantity
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.quantitySource, isResidentialStep2, analysisOwnedByActiveZone, apiLoading, apiPending, hasUsableAllocationData, data.campaignZones?.length, coverageDecision, recommendedForDefaultQuantity]);
+  // Keep the displayed Step 1 quantity (even the initial 10.000 placeholder)
+  // until the customer explicitly chooses "Mantieni", "Adatta" or manual.
+  // A recommended quantity is advice, not permission to change the order.
   // ── RESIDUO NIL (ticket "residuo non allocato") ───────────────────────────
   // Nessuna nuova formula: il residuo e' quanto della quantita' NON copre il
   // fabbisogno pieno delle NIL selezionate, letto da zonesAllocation (stessa
@@ -5231,8 +5213,20 @@ export function Step2({
   const operationalSelectionReady = isResidentialStep2 || isMovementStep2 && (pois.length > 0 ? selectedOperationalPois.length > 0 : step1OperationalPoints.length > 0) || isBusinessStep2 && selectedOperationalPois.length > 0;
   const residualDecisionMade = nilResidualContext && Boolean(coverageStrategy) && String(coverageStrategy).startsWith("residual_");
   const residualBlocksContinue = residualDecisionPending;
-  // Gate della zona ATTIVA: formula di produzione invariata.
-  const activeZoneQuoteReady = isBusinessStep2 ? activeZoneSelfReady && operationalSelectionReady && !gisLoading && !gisTimedOut : !residualBlocksContinue && (residualDecisionMade || !step2ViewModel.ctaDisabled) && activeZoneSelfReady && operationalSelectionReady && (residualDecisionMade || coverageDecisionReady) && (residualDecisionMade || !coverageDecisionRequired || allocationStatus === "success");
+  // Gate della zona ATTIVA: D2D conserva il vincolo territoriale, H2H usa i
+  // punti operativi (non il fabbisogno residenziale), Business usa i POI.
+  const activeZoneQuoteReady = isBusinessStep2 ? activeZoneSelfReady && operationalSelectionReady && !gisLoading && !gisTimedOut : isMovementStep2 ? canContinueHandToHand({
+    hasTerritory: Boolean(city),
+    zoneReady: activeZoneSelfReady,
+    pointsFound: pois.length,
+    pointsSelected: selectedOperationalPois.length,
+    step1Points: step1OperationalPoints.length,
+    radiusMode: isRadiusMode,
+    radiusConfirmed: radiusSelectionConfirmed,
+    radiusKm,
+    radiusCenter,
+    loading: poiLoading
+  }) : !residualBlocksContinue && (residualDecisionMade || !step2ViewModel.ctaDisabled) && activeZoneSelfReady && operationalSelectionReady && (residualDecisionMade || coverageDecisionReady) && (residualDecisionMade || !coverageDecisionRequired || allocationStatus === "success");
   // FASE 1 MULTI-ZONE: ogni zona NON attiva deve essere stata validata con lo
   // stesso gate mentre era attiva (readyForQuote, scritto sotto). Con una sola
   // zona otherCampaignZones e' vuoto -> canContinueCalendar === gate di produzione.
@@ -5279,7 +5273,7 @@ export function Step2({
     ? `Completa ${getCampaignZoneQuoteLabel(blockingCampaignZone, blockingCampaignZoneIndex)} per continuare`
     : residualBlocksContinue
     ? (coverageStrategy === "residual_manual" ? "Seleziona una zona sulla mappa" : "Scegli dove assegnare i volantini residui")
-    : (residualDecisionMade ? "Continua allo Step 3" : (step2ViewModel.ctaLabel || "Continua allo Step 3"));
+    : (isMovementStep2 && canContinueCalendar ? "Continua allo Step 3" : residualDecisionMade ? "Continua allo Step 3" : (step2ViewModel.ctaLabel || "Continua allo Step 3"));
 
   const assistantSnapshot = buildTerritorialAiSnapshot({
     truthModel: step2TruthModel,
@@ -5934,6 +5928,7 @@ export function Step2({
         poiComuneResolver={poiComuneResolver}
         poiListSearch={poiListSearch}
         poiRequestFailed={poiRequestFailed}
+        poiLoading={poiLoading}
         pois={pois}
         rebalanceSelectedPois={rebalanceSelectedPois}
         retryPoi={retryPoi}
@@ -6030,7 +6025,7 @@ export function Step2({
           col={col}
           continueLabel={continueLabel}
           step2ConfigReady={step2ConfigReady}
-          coverageDecisionReady={coverageDecisionReady}
+          coverageDecisionReady={isMovementStep2 || coverageDecisionReady}
           finalFlyersRounded={finalFlyersRounded}
           h2hMainOutputs={h2hMainOutputs}
           handleNext={handleNext}

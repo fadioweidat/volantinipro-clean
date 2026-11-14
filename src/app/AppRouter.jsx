@@ -76,8 +76,8 @@ const SupplierDashboard = lazy(() => import("../pages/supplier/SupplierDashboard
 // per riferimento tra una campagna e l'altra.
 function createEmptyConfiguratorData() {
   return {
-    // quantitySource "default": 10.000 is a placeholder the customer never chose;
-    // Step 2 (D2D) replaces it with the recommended quantity of the territory.
+    // quantitySource "default": 10.000 is an initial proposal; Step 2 shows
+    // recommendations separately and never changes the displayed order silently.
     type: null, activityType: "", activityNote: "", qty: 10000, quantitySource: "default",
     hasFlyers: "yes", flyerFormat: "a5", flyerWeight: "130", extraServices: [], printGramm: "130", printSide: "fronte", printColor: "cmyk",
     // STAMPA e GRAFICA sono scelte separate e persistite separatamente:

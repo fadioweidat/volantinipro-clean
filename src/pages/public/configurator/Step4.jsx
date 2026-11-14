@@ -713,6 +713,11 @@ export function Step4({
     const pts = k.split("-");
     return `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1])]}`;
   }).join(" – ") : "Nessuna data selezionata";
+  // Step 1 saves a preferred start date. It is not a confirmed Step 3 slot,
+  // but suppressing it made the Step 4 period appear to have been lost.
+  const preferredPeriodLabel = /^\d{4}-\d{2}-\d{2}$/.test(data.startDate || "")
+    ? `${data.startDate.slice(8, 10)}/${data.startDate.slice(5, 7)}/${data.startDate.slice(0, 4)} (preferita, da confermare)`
+    : "Da definire con il team";
   const serviceExtras = distributionExtras.map(e => ({
     l: e.label,
     v: e.price > 0 ? `+${eur(e.price)}` : e.isUrgent ? "Incluso in urgenza" : "Incluso",
@@ -1632,7 +1637,14 @@ export function Step4({
       }}>{sub}</div>
       </div>
     </div>;
-  if (isB2B) return <Step4BusinessRequest data={data} clientForm={clientForm} setClientForm={setClientForm} canConfirm={canConfirm} confirmProblem={confirmProblem} savingCampaign={savingCampaign} saveError={campaignSaveError} saveNotice={saveSlowNotice || confirmSyncStatus} sent={sent} onConfirm={handleConfirmCampaign} onBack={onBack} onViewMap={() => onNav?.("step2")} onHome={() => onNav?.("home")} />;
+  if (isB2B) return <Step4BusinessRequest data={data} clientForm={clientForm} setClientForm={setClientForm} canConfirm={canConfirm} confirmProblem={confirmProblem} savingCampaign={savingCampaign} saveError={campaignSaveError} saveNotice={saveSlowNotice || confirmSyncStatus} sent={sent} onConfirm={handleConfirmCampaign} onBack={onBack} onViewMap={area => {
+    if (area) {
+      const hasCoordinates = Number.isFinite(Number(area.lat)) && Number.isFinite(Number(area.lng)) && area.lat != null && area.lng != null;
+      const mapCity = hasCoordinates ? { ...area, label: area.label || area.name } : null;
+      setData(prev => ({ ...prev, city: mapCity, cityName: area.name, searchedLocation: area.name, selectedComuni: mapCity ? [mapCity] : [], selectedSearchPoint: null, searchMode: "municipality", zones: [], selectedZones: [], campaignZones: [], activeZoneId: null }));
+    }
+    onNav?.("step2");
+  }} onHome={() => onNav?.("home")} />;
   return <div style={{
     maxWidth: 1200,
     margin: "0 auto",
@@ -2863,6 +2875,7 @@ export function Step4({
             nonEmpty={nonEmpty}
             selDays={selDays}
             selectedDatesLabel={selectedDatesLabel}
+            preferredPeriodLabel={preferredPeriodLabel}
             urgencySurchargePctLabel={urgencySurchargePctLabel}
             sent={sent}
             disc={disc}

@@ -18,6 +18,7 @@ function amountLabel(data) {
 
 /** Fine del percorso Business: riepilogo delle risposte e invio, senza prezzo. */
 export function Step4BusinessRequest({ data, clientForm, setClientForm, canConfirm, confirmProblem, savingCampaign, saveError, saveNotice, sent, onConfirm, onBack, onViewMap, onHome }) {
+  const mapAreas = Array.isArray(data.businessMapAreas) ? data.businessMapAreas : [];
   const rows = [
     ["Comune o zona", data.businessZone || data.cityName || "Da definire"],
     ["Attività da raggiungere", targetsLabel(data.distributionTargets)],
@@ -53,9 +54,19 @@ export function Step4BusinessRequest({ data, clientForm, setClientForm, canConfi
         <p style={{ margin: "12px 0 0", fontSize: 13, lineHeight: 1.5, color: "rgba(255,255,255,.72)" }}>{BUSINESS_CONFIRMATION}.</p>
       </div>
 
-      <button type="button" onClick={onViewMap} style={{ width: "100%", padding: 12, marginBottom: 14, borderRadius: 10, border: "1px solid rgba(255,255,255,.18)", background: "transparent", color: "#fff", fontFamily: FONT, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
-        Vedi le attività sulla mappa (facoltativo)
-      </button>
+      {mapAreas.length > 1 ? (
+        <div style={{ ...panelStyle, marginBottom: 14 }}>
+          <strong style={{ fontSize: 14 }}>Mappa facoltativa — scegli un comune</strong>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,.7)", lineHeight: 1.5 }}>Hai richiesto più comuni. La mappa mostra un comune alla volta: seleziona quello che vuoi esplorare. La richiesta originale resta invariata.</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {mapAreas.map(area => <button key={area.name} type="button" onClick={() => onViewMap(area)} style={{ padding: "9px 12px", borderRadius: 9, background: "rgba(167,139,250,.12)", color: "#E9D5FF", border: "1px solid rgba(167,139,250,.4)", cursor: "pointer", fontFamily: FONT }}>{area.name}</button>)}
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => onViewMap(mapAreas[0] || null)} style={{ width: "100%", padding: 12, marginBottom: 14, borderRadius: 10, border: "1px solid rgba(255,255,255,.18)", background: "transparent", color: "#fff", fontFamily: FONT, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+          {data.city ? "Vedi le attività sulla mappa (facoltativo)" : "Scegli il comune sulla mappa (facoltativo)"}
+        </button>
+      )}
 
       <div style={{ ...panelStyle, display: "grid", gap: 10 }}>
         <h2 style={{ fontSize: 16, margin: "0 0 4px" }}>I tuoi dati</h2>
