@@ -11,10 +11,11 @@ const read = (p) => fs.readFileSync(path.join(root, p), "utf8");
 const HOME = read("src/pages/public/HomePage.jsx");
 
 // ── Ordine sezioni homepage ────────────────────────────────────────────────
-test("HomePage: ordine sezioni Hero -> Perché -> Come funziona -> Servizi -> GPS -> Smart Pairing -> Dashboard -> Business -> FAQ -> Contatti -> CTA -> Footer", () => {
+// Ordine del design attuale (aggiornato 2026-11-15, nessuna modifica al codice homepage).
+test("HomePage: ordine sezioni Hero -> Quantità -> Come funziona -> GPS -> Perché -> Fattibilità -> Servizi -> Smart Pairing -> Dashboard -> Business -> FAQ -> Contatti -> CTA -> Footer", () => {
   const order = [
-    "VolantiniProHeroMap", "WhyDifferentSection", "HowItWorksSection",
-    "ServicesSection", "GpsLiveSection", "SmartPairingSection", "DashboardClienteSection",
+    "VolantiniProHeroMap", "QuantityValueSection", "HowItWorksSection", "GpsLiveSection",
+    "WhyDifferentSection", "FeasibilitySection", "ServicesSection", "SmartPairingSection", "DashboardClienteSection",
     "EnterpriseSection", "FAQSection", "ContattiSection", "FinalCtaSection", "Footer",
   ];
   const positions = order.map((name) => {
@@ -37,21 +38,23 @@ test("HomePage: sezioni duplicate rimosse (Tecnologia, Risultati, Cosa ricevi, P
 });
 
 // ── Nuove sezioni: GPS Live reale ───────────────────────────────────────────
-test("GpsLiveSection: mappa/percorso/marker/stato/avanzamento/foto/timeline, non un grafico a linea generico", () => {
+// Design attuale: storia con foto operatore, telefono con mappa dimostrativa
+// (zona, percorso, punti GPS, foto di prova) e tre servizi, GPS e foto come extra.
+test("GpsLiveSection: mappa dimostrativa con zona/percorso/punti GPS/foto, GPS e foto come servizi aggiuntivi, non un grafico a linea generico", () => {
   const src = read("src/components/home/GpsLiveSection.jsx");
   assert.match(src, /id="gps-live"/);
+  assert.match(src, /aria-label="Mappa dimostrativa con zona, percorso e punti GPS"/);
   assert.match(src, /polygon/); // area campagna
   assert.match(src, /motion\.path/); // percorso GPS che si disegna
-  assert.match(src, /marker operatore|<circle cx="292" cy="66"/i); // marker operatore
-  assert.match(src, /In distribuzione|status/i); // stato attività
-  assert.match(src, /Aggiornato \d/); // ultimo aggiornamento
-  assert.match(src, /Avanzamento/); // avanzamento %
-  assert.match(src, /Foto ricevute|📍/); // foto ricevute
-  assert.match(src, /timeline/i);
+  assert.match(src, /<circle key=\{`\$\{cx\}-\$\{cy\}`\}/); // punti GPS sul percorso
+  assert.match(src, /Foto della distribuzione/); // foto di prova sul telefono
+  for (const t of ["Foto geolocalizzate", "Percorso GPS", "Report per Comune"]) assert.match(src, new RegExp(t));
+  assert.equal((src.match(/Servizio aggiuntivo:/g) || []).length, 2); // GPS e foto: extra a pagamento
   assert.match(src, /Anteprima dimostrativa/); // dataset demo dichiarato esplicitamente
   assert.doesNotMatch(src, /d="M20 150 L70 120/); // NON il vecchio grafico a linea generico
-  // layout desktop 35-40% testo / 60-65% visual
-  assert.match(src, /minmax\(0,38%\) minmax\(0,62%\)/);
+  // layout desktop: storia | telefono 258px | servizi
+  const css = read("src/components/home/homepage-visual-review.css");
+  assert.match(css, /\.vpg-inner \{[^}]*grid-template-columns:minmax\(0,1\.43fr\) 258px minmax\(0,\.87fr\)/);
   assert.match(src, /useReducedMotion/);
 });
 
@@ -84,15 +87,18 @@ test("DashboardClienteSection: 4 callout + mockup (report PDF, foto geolocalizza
 });
 
 // ── Come funziona: stepper orizzontale/verticale ────────────────────────────
-test("HowItWorksSection: id=come-funziona, 4 step invariati, timeline orizzontale desktop / verticale mobile", () => {
+// Design attuale: 5 step dal territorio al report.
+test("HowItWorksSection: id=come-funziona, 5 step, timeline orizzontale desktop / verticale mobile", () => {
   const src = read("src/components/home/HowItWorksSection.jsx");
   assert.match(src, /id="come-funziona"/);
-  for (const t of ["Configura", "Analizza il territorio", "Personalizza", "Preventivo"]) {
-    assert.match(src, new RegExp(t));
-  }
+  const titles = [...src.matchAll(/title: '([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(titles, ["Scegli il territorio", "Ottieni il preventivo", "Conferma l’ordine", "Distribuzione sul campo", "Verifica GPS e report"]);
   const styles = read("src/components/home/process-feasibility.css");
+  const review = read("src/components/home/homepage-visual-review.css");
   assert.match(src, /className="vpp-steps"/);
-  assert.match(styles, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(src, /className="vpp-section vpp-process vpq-process"/);
+  assert.match(review, /\.vpq-process \.vpp-steps \{ grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/); // orizzontale
+  assert.match(review, /\.vpq-process \.vpp-steps \{ grid-template-columns:minmax\(0,1fr\)/); // verticale mobile
   assert.match(styles, /@media\(max-width:520px\)/);
   assert.match(styles, /prefers-reduced-motion:reduce/);
 
@@ -116,10 +122,13 @@ test("HomePage monta ContattiSection (WhatsApp + Email) prima della CTA finale",
 
 // ── Responsive: hook useIsMobile / breakpoint coerenti nelle nuove sezioni ──
 test("Nuove sezioni: responsive via CSS media query (niente breakpoint diversi senza motivo)", () => {
-  for (const file of ["GpsLiveSection.jsx", "SmartPairingSection.jsx", "DashboardClienteSection.jsx"]) {
+  for (const file of ["SmartPairingSection.jsx", "DashboardClienteSection.jsx"]) {
     const src = read(`src/components/home/${file}`);
     assert.match(src, /@media \(max-width: 900px\)/);
   }
+  // GpsLiveSection: stili in homepage-visual-review.css, stesso breakpoint 900px.
+  const css = read("src/components/home/homepage-visual-review.css");
+  assert.match(css, /@media \(max-width: 900px\) \{[^@]*\.vpg-inner \{/);
 });
 
 // ── prefers-reduced-motion ──────────────────────────────────────────────────
