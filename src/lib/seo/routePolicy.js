@@ -17,7 +17,7 @@ export const metaByPage = {
     "Volantinaggio e distribuzione volantini | VolantiniPro",
     // Prezzo minimo dal motore (TERRITORY_MINIMUMS, Milano città = €120): stesso
     // testo statico di index.html, verificato da tests/seo_technical.test.mjs.
-    `Distribuzione volantini a Milano e in Lombardia: prezzi chiari da ${formatEuro(getDoorToDoorCampaignMinimum())}, dati ISTAT reali e tracciamento GPS. Calcola il preventivo online e scarica il PDF.`,
+    `Distribuzione volantini a Milano e in Lombardia: prezzi chiari da ${formatEuro(getDoorToDoorCampaignMinimum())}, dati ISTAT reali e tracciamento GPS opzionale. Calcola il preventivo online e scarica il PDF.`,
   ],
   quick: [
     "Preventivo rapido distribuzione volantini | VolantiniPro",

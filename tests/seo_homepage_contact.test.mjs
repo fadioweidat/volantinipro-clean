@@ -10,13 +10,16 @@ import { SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL_HREF } from "../src/lib/contac
 
 const root = path.resolve(import.meta.dirname, "..");
 const read = (p) => fs.readFileSync(path.join(root, p), "utf8");
-const HOME_DESCRIPTION = "Distribuzione volantini a Milano e in Lombardia: prezzi chiari da €120, dati ISTAT reali e tracciamento GPS. Calcola il preventivo online e scarica il PDF.";
+const HOME_DESCRIPTION = "Distribuzione volantini a Milano e in Lombardia: prezzi chiari da €120, dati ISTAT reali e tracciamento GPS opzionale. Calcola il preventivo online e scarica il PDF.";
 
 test("homepage description: 'da €120' è il minimo reale del motore (Milano città)", () => {
   assert.equal(TERRITORY_MINIMUMS[TERRITORY_TIERS.MILANO_CORE], 120);
   assert.equal(calculateDistributionZonePrice(TERRITORY_TIERS.MILANO_CORE, 1), 120);
   assert.equal(Math.min(...Object.values(TERRITORY_MINIMUMS)), 120);
   assert.equal(metaByPage.home[1], HOME_DESCRIPTION);
+  // GPS e' un extra a pagamento: "tracciamento GPS" sempre seguito da "opzionale".
+  assert.match(metaByPage.home[1], /tracciamento GPS opzionale/);
+  assert.doesNotMatch(metaByPage.home[1], /tracciamento GPS(?! opzionale)/);
 });
 
 test("index.html: description, og e twitter uguali alla policy; nessun telefono nella description", () => {
