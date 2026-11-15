@@ -1,21 +1,19 @@
 import { CITY_SLUGS, PRICES_PATH, PRICES_PAGE_KEY, cityPageKey, cityPath } from './seoLandingRoutes.js';
-import { cityFacts, formatEuro, formatInt } from './cityPagesData.js';
+import { formatEuro } from './cityPagesData.js';
+import { cityMetaDescription, cityMetaTitle } from './cityMetaCopy.js';
 import { getDoorToDoorCampaignMinimum, getStartingPricePerThousand } from '../pricing/homepagePricing.js';
 
 export const SITE_URL = 'https://www.volantinipro.it';
 
-// Pagine citta': numeri ISTAT e prezzo dal motore, mai scritti a mano.
-const cityMeta = (slug) => {
-  const f = cityFacts(slug);
-  return [
-    `Distribuzione volantini ${f.at} | VolantiniPro`,
-    `Volantinaggio ${f.at}: ${formatInt(f.households)} famiglie ISTAT, quantità consigliata e prezzi reali (10.000 volantini ${formatEuro(f.price10000)}, IVA esclusa). GPS e foto extra.`,
-  ];
-};
+// Pagine citta' (tabella v2 approvata 2026-11-15): numeri ISTAT e prezzo dal
+// motore, mai scritti a mano. Regole in cityMetaCopy.js.
+const cityMeta = (slug) => [cityMetaTitle(slug), cityMetaDescription(slug)];
 export const metaByPage = {
   home: [
     "Volantinaggio e distribuzione volantini | VolantiniPro",
-    "Distribuzione volantini: calcola subito il preventivo online e scarica il PDF. Scegli anche il preventivo rapido o il ricontatto telefonico.",
+    // Prezzo minimo dal motore (TERRITORY_MINIMUMS, Milano città = €120): stesso
+    // testo statico di index.html, verificato da tests/seo_technical.test.mjs.
+    `Distribuzione volantini a Milano e in Lombardia: prezzi chiari da ${formatEuro(getDoorToDoorCampaignMinimum())}, dati ISTAT reali e tracciamento GPS opzionale. Calcola il preventivo online e scarica il PDF.`,
   ],
   quick: [
     "Preventivo rapido distribuzione volantini | VolantiniPro",
@@ -40,8 +38,8 @@ export const metaByPage = {
     "Distribuzione volantini nelle cassette postali di condomini e zone residenziali, con analisi territoriale e report finale. Tracking GPS come servizio aggiuntivo.",
   ],
   "service-hand-to-hand": [
-    "Distribuzione Volantini Hand to Hand | VolantiniPro",
-    "Distribuzione volantini a mano in punti ad alto passaggio pedonale, con POI strategici e report finale. Tracking GPS come servizio aggiuntivo.",
+    "Volantinaggio Hand to Hand e distribuzione a mano",
+    "Distribuzione volantini a mano in punti ad alto passaggio pedonale, con POI strategici e report finale. Tracking GPS opzionale.",
   ],
   "service-business": [
     "Distribuzione Volantini Business | VolantiniPro",
@@ -52,10 +50,7 @@ export const metaByPage = {
     `Quanto costa distribuire volantini: porta a porta da ${formatEuro(getStartingPricePerThousand('d2d'))} ogni 1.000 per grandi quantità, minimo da ${formatEuro(getDoorToDoorCampaignMinimum())} a campagna. Prezzi per 5.000 e 10.000, IVA esclusa.`,
   ],
   ...Object.fromEntries(CITY_SLUGS.map((slug) => [cityPageKey(slug), cityMeta(slug)])),
-  "milano-landing": [
-    "Volantinaggio Milano e distribuzione volantini | VolantiniPro",
-    "Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business. Analisi territoriale e preventivo online; tracking GPS e prove fotografiche come servizi aggiuntivi.",
-  ],
+  "milano-landing": cityMeta("milano"),
 };
 export const SEO_ROUTES = [
  ['/', 'home'], ['/servizi/door-to-door','service-door-to-door'], ['/servizi/hand-to-hand','service-hand-to-hand'], ['/servizi/business','service-business'], ['/distribuzione-volantini-milano','milano-landing'], ['/preventivo','preventivo'], ['/preventivo-rapido','quick'], ['/consulente','consultant'], ['/privacy','privacy'], ['/termini','terms'], ['/cookie-policy','cookie'],
