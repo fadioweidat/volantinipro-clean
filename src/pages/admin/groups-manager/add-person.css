@@ -1,0 +1,10 @@
+.admin-home__dialog-backdrop{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.75)}
+.admin-home__dialog{width:min(100%,460px);padding:24px;border:1px solid #374151;border-radius:14px;background:#111d30;box-shadow:0 20px 50px rgba(0,0,0,.5);color:#fff}
+.admin-home__dialog h3{margin:0 0 12px;font-size:19px}
+.admin-home__dialog p{color:#bbc5d4;font-size:13px;line-height:1.5}
+.admin-home__dialog label{display:block;margin:18px 0 6px;font-size:12px;font-weight:700}
+.admin-home__dialog select{width:100%;min-height:44px;padding:8px;border:1px solid #475569;border-radius:8px;background:#0a151f;color:#fff}
+.admin-home__dialog-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:22px}
+.admin-home__dialog-actions button{min-height:42px;padding:0 13px;border:1px solid #475569;border-radius:8px;background:#263447;color:#fff;cursor:pointer}
+.admin-home__dialog-actions button:last-child{background:#e8571a;border-color:#e8571a;font-weight:800}
+.admin-home__dialog-actions button:disabled{opacity:.5;cursor:not-allowed}
