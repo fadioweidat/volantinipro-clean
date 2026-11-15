@@ -27,5 +27,6 @@ test('every one of 35 public SEO routes serves its own prerendered HTML before a
 test('homepage advertises a stable favicon for search crawlers', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /<link rel="icon" type="image\/png" sizes="192x192" href="\/favicon.png" \/>/);
-  assert.match(html, /<link rel="icon" type="image\/svg\+xml" href="\/favicon.svg" \/>/);
+  // Un solo favicon canonico PNG (4561ee9): favicon.svg resta come file ma non e' linkato.
+  assert.doesNotMatch(html, /<link rel="icon" type="image\/svg\+xml"/);
 });

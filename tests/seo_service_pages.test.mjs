@@ -75,7 +75,7 @@ test("SeoMeta.jsx: title/description unici per le 3 pagine servizio, diversi tra
   const titles = new Set([
     "Distribuzione Volantini con GPS e Report | VolantiniPro",
     "Distribuzione Volantini Door to Door | VolantiniPro",
-    "Distribuzione Volantini Hand to Hand | VolantiniPro",
+    "Volantinaggio Hand to Hand e distribuzione a mano",
     "Distribuzione Volantini Business | VolantiniPro",
   ]);
   assert.equal(titles.size, 4, "i 4 title (home + 3 servizi) devono essere tutti diversi tra loro");

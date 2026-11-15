@@ -17,6 +17,12 @@ const rawWhatsApp = String(env.VITE_SUPPORT_WHATSAPP || "").replace(/[^\d]/g, ""
 export const SUPPORT_WHATSAPP = rawWhatsApp.length >= 8 ? rawWhatsApp : null;
 export const HAS_SUPPORT_WHATSAPP = SUPPORT_WHATSAPP != null;
 
+// Telefono ufficiale VolantiniPro (indicato dal titolare il 2026-11-15):
+// footer, pagina Contatti e JSON-LD Organization. Mai nella meta description.
+export const SUPPORT_PHONE_DISPLAY = "+39 351 767 3737";
+export const SUPPORT_PHONE_E164 = "+393517673737";
+export const SUPPORT_PHONE_TEL_HREF = `tel:${SUPPORT_PHONE_E164}`;
+
 // Invio richiesta grafica via backend (Edge Function `send-graphic-request` +
 // Resend). Flag FRONTEND non-segreto: NON è la RESEND_API_KEY, che resta solo
 // server-side. Quando è attivo e Supabase è configurato, la card "Servizio

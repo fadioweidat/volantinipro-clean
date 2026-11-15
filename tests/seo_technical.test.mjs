@@ -46,7 +46,7 @@ test("index.html: title/description/canonical/OG/Twitter/JSON-LD statici present
   const src = read("index.html");
   assert.match(src, /<html lang="it">/);
   assert.match(src, /<title>Volantinaggio e distribuzione volantini \| VolantiniPro<\/title>/);
-  assert.match(src, /<meta name="description" content="Distribuzione volantini: calcola subito il preventivo online e scarica il PDF\. Scegli anche il preventivo rapido o il ricontatto telefonico\." \/>/);
+  assert.match(src, /<meta name="description" content="Distribuzione volantini a Milano e in Lombardia: prezzi chiari da €120, dati ISTAT reali e tracciamento GPS opzionale. Calcola il preventivo online e scarica il PDF\." \/>/);
   assert.match(src, /<link rel="canonical" href="https:\/\/www\.volantinipro\.it\/" \/>/);
   assert.match(src, /<meta property="og:title" content="Volantinaggio e distribuzione volantini \| VolantiniPro" \/>/);
   assert.match(src, /<meta property="og:description"/);
@@ -98,7 +98,7 @@ test('SEO metadata policy keeps canonical host stable and private paths noindex'
 
 test("SeoMeta.jsx: nessun dato di contatto hardcoded, riusa contactConfig.js", () => {
   const src = read("src/layouts/public/SeoMeta.jsx");
-  assert.match(src, /import \{ SUPPORT_EMAIL, SUPPORT_WHATSAPP \} from "\.\.\/\.\.\/lib\/contactConfig\.js"/);
+  assert.match(src, /import \{ SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY \} from "\.\.\/\.\.\/lib\/contactConfig\.js"/);
   assert.doesNotMatch(src, /"info@volantinipro\.it"/);
   assert.doesNotMatch(src, /3517673737/);
 });

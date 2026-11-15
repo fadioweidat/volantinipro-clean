@@ -47,15 +47,17 @@ test("buildInfoWhatsAppUrl: wa.me col numero configurato + testo encodato, oppur
 });
 
 // ── ContattiSection ───────────────────────────────────────────────────────
-test("ContattiSection: SOLO 2 CTA — WhatsApp + Email; nessun 'Chiedi all'AI' nella sezione", () => {
+test("ContattiSection: 3 CTA — WhatsApp + Telefono + Email; nessun 'Chiedi all'AI' nella sezione", () => {
   const src = read("src/components/home/ContattiSection.jsx");
   assert.match(src, /id="contatti"/);
   assert.match(src, /Serve una mano\?/);
   assert.match(src, /Hai dubbi sul preventivo, sulla distribuzione o sui servizi\? Contatta direttamente VolantiniPro\./);
-  // esattamente 2 CtaButton principali: WhatsApp + Scrivici via Email
+  // 3 CtaButton: WhatsApp + Chiama (telefono ufficiale, 2026-11-15) + Email
   const ctaLabels = [...src.matchAll(/label="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(ctaLabels, ["WhatsApp", "Scrivici via Email"]);
-  assert.equal((src.match(/<CtaButton\b/g) || []).length, 2);
+  assert.deepEqual(ctaLabels, ["WhatsApp", "Chiama", "Scrivici via Email"]);
+  assert.equal((src.match(/<CtaButton\b/g) || []).length, 3);
+  assert.match(src, /href=\{SUPPORT_PHONE_TEL_HREF\}/);
+  assert.doesNotMatch(src, /tel:\+?\d/);
   // AI rimossa da questa sezione
   assert.doesNotMatch(src, /Chiedi all[’']AI/);
   assert.doesNotMatch(src, /Assistente configuratore/);

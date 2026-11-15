@@ -243,3 +243,5 @@ tests/step4_render_runtime.test.mjs
 tests/gps_admin_real_names_contract.test.mjs
 tests/auth_redirect_preview_qa.test.mjs
 tests/dual_role_admin_customer.test.mjs
+tests/seo_homepage_contact.test.mjs
+tests/seo_city_meta_v2.test.mjs

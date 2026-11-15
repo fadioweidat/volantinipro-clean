@@ -1,3 +1,4 @@
+import { SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL_HREF } from "../../lib/contactConfig.js";
 import { BUSINESS_RESPONSE_TIME } from "../../lib/business/businessOnProject.js";
 import { useState } from "react";
 import { TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
@@ -187,6 +188,12 @@ export default function ConsultantPage({ onStart, data }) {
           </h1>
           <p style={{ fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.52)", maxWidth: 660, lineHeight: 1.65 }}>
             Raccontaci la campagna e ti ricontattiamo per costruire una proposta operativa sulla tua zona.
+          </p>
+          <p style={{ fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.72)", marginTop: 14 }}>
+            Preferisci chiamare?{" "}
+            <a href={SUPPORT_PHONE_TEL_HREF} data-testid="consultant-phone" style={{ color: C.orange, fontWeight: 800, textDecoration: "none", display: "inline-block", padding: "10px 0" }}>
+              {SUPPORT_PHONE_DISPLAY}
+            </a>
           </p>
         </div>
 

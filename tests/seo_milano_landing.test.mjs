@@ -55,11 +55,13 @@ test("robots.txt: /distribuzione-volantini-milano non è bloccato (nessun Disall
 });
 
 // ── SeoMeta.jsx: metadata esatti dal ticket, robots index/follow, JSON-LD ──
-test("SeoMeta.jsx: title/description esatti dal ticket per 'milano-landing'", () => {
+test("routePolicy: 'milano-landing' usa la tabella v2 delle pagine città (2026-11-15)", async () => {
   const src = read("src/lib/seo/routePolicy.js");
-  assert.match(src, /"milano-landing":\s*\[/);
-  assert.match(src, /Volantinaggio Milano e distribuzione volantini \| VolantiniPro/);
-  assert.match(src, /Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business\. Analisi territoriale e preventivo online; tracking GPS e prove fotografiche come servizi aggiuntivi\./);
+  assert.match(src, /"milano-landing": cityMeta\("milano"\)/);
+  const { getRouteMetadata } = await import("../src/lib/seo/routePolicy.js");
+  const m = getRouteMetadata("/distribuzione-volantini-milano");
+  assert.equal(m.title, "Volantinaggio e distribuzione volantini a Milano");
+  assert.match(m.description, /^Volantinaggio a Milano: 5\.000 volantini porta a porta €210 \+ IVA\. .*741\.887 famiglie \(ISTAT, famiglie al 31\/12\/2024\)/);
 });
 
 test("SeoMeta.jsx: 'milano-landing' è in BREADCRUMB_PAGES e riceve FAQPage/Service da CONTENT_PAGES (nessun LocalBusiness)", () => {
