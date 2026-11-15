@@ -24,6 +24,7 @@ import {
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { ExtraNotIncludedCard } from "./src/components/customer/ExtraNotIncludedCard.jsx";
+import AdminAreaSwitch from "./src/components/customer/AdminAreaSwitch.jsx";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { buildCustomerDashboardMetrics, buildCustomerDashboardNotes, buildDistributionProgress } from "./src/lib/customerDashboardMetrics.js";
 import { getFinalCoverage } from "./src/lib/services/coverage-adjustments-api.js";
@@ -5130,6 +5131,14 @@ export function LoginPage({
             onNav("admin");
             return;
           }
+          if (loginIntentIsAdmin) {
+            // Un tentativo Admin non deve mai degradare silenziosamente alla
+            // Dashboard Cliente: potrebbe nascondere un errore della RPC o
+            // un ruolo non autorizzato dietro un login apparentemente valido.
+            setSessionCheck("ready");
+            setAuthError({ message: "Accesso Admin non verificato. Controlla il ruolo dell'account oppure riprova l'accesso amministratore." });
+            return;
+          }
           // Intento di login Fornitore: torna su /supplier. SupplierGuard
           // decide poi se mostrare la dashboard o il rifiuto (role != supplier
           // o status != verified) secondo la logica esistente — qui NON si
@@ -5560,6 +5569,8 @@ export function DashboardPage({
             fontWeight: 800
           }}>{session ? "Sessione attiva" : "Accesso richiesto"}</div>
           </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {session && <AdminAreaSwitch onNav={onNav} />}
           <button onClick={session ? logout : () => onNav("login")} style={{
           minHeight: 44,
           padding: "0 16px",
@@ -5572,6 +5583,7 @@ export function DashboardPage({
           fontWeight: 700,
           cursor: "pointer"
         }}>{session ? "Logout" : "Accedi"}</button>
+          </div>
         </div>
 
         {error && <div role="alert" style={{
