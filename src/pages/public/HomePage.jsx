@@ -5,6 +5,7 @@ import { C, F, x, w, j, T, z, R } from "../../lib/constants.js";
 import KpiTooltip from "../../components/ui/KpiTooltip.jsx";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
 import ServicesSection from "../../components/home/ServicesSection.jsx";
+import NearbyCityLinks from "../../components/common/NearbyCityLinks.jsx";
 import EnterpriseSection from "../../components/home/EnterpriseSection.jsx";
 import FAQSection from "../../components/home/FAQSection.jsx";
 import Footer from "../../components/home/Footer.jsx";
@@ -244,6 +245,10 @@ export function HomePage({
       onConfigure: (service) => n(service ? `preventivo?service=${service}` : "preventivo"),
       onBusiness: () => goToBusinessRequest(n),
       onServiceLink: (pageKey) => n(pageKey)
+    }), _jsx("section", {
+      "aria-label": "Distribuzione volantini nei comuni vicini a Milano",
+      style: { background: "#0B1020", padding: "8px 28px 40px", textAlign: "center" },
+      children: _jsx(NearbyCityLinks, { onNav: n, style: { maxWidth: 900, margin: "0 auto" } })
     }), _jsx(SmartPairingSection, {
       onConfigure: () => n("preventivo")
     }), _jsx(DashboardClienteSection, {

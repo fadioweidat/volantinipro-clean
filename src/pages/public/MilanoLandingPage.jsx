@@ -4,6 +4,7 @@ import { C, F } from "../../lib/constants.js";
 import Button from "../../components/ui/Button.jsx";
 import { milanoLandingContent as content } from "../../lib/seo/milanoLandingContent.js";
 import { BusinessRequestLink, CityNumbersSection, CityPriceTable } from "./SeoLandingPages.jsx";
+import NearbyCityLinks from "../../components/common/NearbyCityLinks.jsx";
 
 // TICKET — SEO LOCAL PAGE PILOTA MILANO: unica pagina locale pilota
 // (/distribuzione-volantini-milano), stesso meccanismo di route reale delle
@@ -125,6 +126,11 @@ export function MilanoLandingPage({ onNav }) {
             )}
           </section>
         ))}
+
+        {/* Link interni ai comuni confinanti (SEO 2026-11-15). */}
+        <section style={{ marginBottom: 34 }}>
+          <NearbyCityLinks onNav={onNav} intro="Fuori dai confini del comune:" />
+        </section>
 
         {/* FAQ brevi e reali — visibili senza interazione, per crawler/AI search */}
         <section style={{ marginBottom: 40 }}>
