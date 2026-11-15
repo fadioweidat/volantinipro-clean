@@ -42,9 +42,11 @@ const OPENERS = [
 ];
 const FACTS = [
   (v) => `Circa ${withArticle(v.S)} delle ${v.N} famiglie (${CITY_META_ISTAT_CITATION}).`,
-  (v) => `${v.N} famiglie (${CITY_META_ISTAT_CITATION}), ${v.D} per km².`,
+  (v) => `${v.N} famiglie (${CITY_META_ISTAT_CITATION}), ${v.D} famiglie per km².`,
   (v) => `Circa ${v.A} km² serviti, ${v.N} famiglie (${CITY_META_ISTAT_CITATION}).`,
 ];
+// Dato 1 senza densita': usato solo se la frase con "famiglie per km²" supera 155 caratteri.
+const FACT_WITHOUT_DENSITY = (v) => `${v.N} famiglie (${CITY_META_ISTAT_CITATION}).`;
 const CLOSINGS = ["Preventivo online.", "Preventivo e PDF online.", ""];
 
 // [apertura, dato, chiusura] per comune: tutte diverse fra loro.
@@ -76,8 +78,12 @@ export function cityMetaDescription(slug) {
   const f = cityFacts(slug);
   const v = descriptionValues(f);
   if (coversWholeCityBelowQuantity(f)) {
-    return `Volantinaggio ${f.at}: tutto il comune con ${formatInt(f.wholeCityFlyers)} volantini a ${formatEuro(f.price(f.wholeCityFlyers))} + IVA. ${FACTS[1](v)}`;
+    const opener = `Volantinaggio ${f.at}: tutto il comune con ${formatInt(f.wholeCityFlyers)} volantini a ${formatEuro(f.price(f.wholeCityFlyers))} + IVA.`;
+    const full = `${opener} ${FACTS[1](v)}`;
+    return full.length <= DESCRIPTION_MAX ? full : `${opener} ${FACT_WITHOUT_DENSITY(v)}`;
   }
   const [o, k, c] = DESCRIPTION_VARIANT[slug];
-  return `${OPENERS[o](v)} ${FACTS[k](v)} ${CLOSINGS[c]}`.trim();
+  const full = `${OPENERS[o](v)} ${FACTS[k](v)} ${CLOSINGS[c]}`.trim();
+  if (full.length <= DESCRIPTION_MAX || k !== 1) return full;
+  return `${OPENERS[o](v)} ${FACT_WITHOUT_DENSITY(v)} ${CLOSINGS[c]}`.trim();
 }

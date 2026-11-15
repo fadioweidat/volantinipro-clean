@@ -42,6 +42,9 @@ for (const slug of SLUGS) {
       assert.ok(description.includes("5.000 volantini"));
       assert.ok(description.includes(formatEuro(calculateDistributionZonePrice(tier, 5000))), `${slug} prezzo 5.000`);
     }
+    // Densita': sempre "N famiglie per km²", mai un numero nudo "per km²".
+    assert.doesNotMatch(description, /(?<!famiglie) per km²/);
+    if (/per km²/.test(description)) assert.match(description, /\d famiglie per km²/);
     assert.doesNotMatch(`${title} ${description}`, /garantit|certificat|esatt/i);
     if (/\b(GPS|foto)/i.test(description)) assert.match(description, /opzional/i);
   });
