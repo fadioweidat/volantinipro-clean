@@ -1,3 +1,5 @@
+import { selectAuthRedirectOrigin } from "./authRedirectOrigin.js";
+
 // Base URL per link destinati ad un ALTRO dispositivo (es. telefono del
 // driver via WhatsApp), non per link aperti nello stesso browser che li
 // genera. window.location.origin e' sbagliato ogni volta che l'Admin lavora
@@ -44,20 +46,20 @@ export function getAuthRedirectBase() {
   const currentOrigin =
     typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
 
-  if (import.meta.env.DEV) {
-    return currentOrigin || configured;
-  }
-
-  // Produzione.
-  if (configured) return configured;
+  // La Preview QA deve restare sul proprio URL fisso per mantenere il
+  // context=admin e la sessione nello stesso origin del login iniziale.
+  // Negli altri ambienti VITE_PUBLIC_APP_URL continua ad avere priorita'.
+  const selectedOrigin = selectAuthRedirectOrigin({
+    currentOrigin,
+    configuredOrigin: configured,
+    isDev: import.meta.env.DEV,
+  });
+  if (selectedOrigin) return selectedOrigin;
   // VITE_PUBLIC_APP_URL assente in produzione e' un errore di configurazione:
   // l'origin corrente in prod E' comunque il dominio pubblico, meglio quello
   // di una stringa vuota che romperebbe signInWithOtp.
-  if (currentOrigin) {
-    console.warn("[AUTH_REDIRECT_BASE_MISSING_PUBLIC_APP_URL]", {
-      hint: "Imposta VITE_PUBLIC_APP_URL (dominio pubblico) nell'ambiente Production.",
-    });
-    return currentOrigin;
-  }
+  console.warn("[AUTH_REDIRECT_BASE_MISSING_PUBLIC_APP_URL]", {
+    hint: "Imposta VITE_PUBLIC_APP_URL (dominio pubblico) nell'ambiente Production.",
+  });
   return "";
 }

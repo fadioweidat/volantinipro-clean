@@ -66,28 +66,18 @@ test("il path del magic link resta /auth/callback (Admin: + ?context=admin)", ()
 
 // --- helper getAuthRedirectBase: regola prod vs dev -------------------
 
-test("getAuthRedirectBase: in DEV ritorna window.location.origin", () => {
-  assert.match(AUTH_BASE_BODY, /if\s*\(\s*import\.meta\.env\.DEV\s*\)/, "deve ramificare su import.meta.env.DEV");
-  // Nel ramo DEV compare currentOrigin (derivato da window.location.origin).
-  const devBranch = AUTH_BASE_BODY.slice(AUTH_BASE_BODY.indexOf("import.meta.env.DEV"));
-  assert.match(devBranch, /return\s+currentOrigin/, "il ramo DEV deve tornare l'origin corrente");
+test("getAuthRedirectBase: passa origin corrente e flag DEV al selettore verificato", () => {
+  assert.match(AUTH_BASE_BODY, /selectAuthRedirectOrigin\(\{[\s\S]*isDev:\s*import\.meta\.env\.DEV/, "deve passare DEV al selettore");
   assert.match(AUTH_BASE_BODY, /currentOrigin\s*=[\s\S]*window\.location\.origin/,
     "currentOrigin deve derivare da window.location.origin");
 });
 
-test("getAuthRedirectBase: in PRODUZIONE usa VITE_PUBLIC_APP_URL e mai window.location.origin come valore primario", () => {
+test("getAuthRedirectBase: passa VITE_PUBLIC_APP_URL al selettore, senza URL hardcoded", () => {
   assert.match(AUTH_BASE_BODY, /const configured =[\s\S]*import\.meta\.env\.VITE_PUBLIC_APP_URL/,
     "configured deve derivare da VITE_PUBLIC_APP_URL");
-  // Dopo il ramo DEV, la produzione ritorna `configured` prima di qualunque
-  // fallback su currentOrigin.
-  const prodPart = AUTH_BASE_BODY.slice(AUTH_BASE_BODY.indexOf("import.meta.env.DEV"));
-  assert.match(prodPart, /if \(configured\) return configured/, "la produzione deve tornare VITE_PUBLIC_APP_URL");
-  const idxConfiguredReturn = prodPart.indexOf("if (configured) return configured");
-  const idxOriginFallback = prodPart.indexOf("return currentOrigin", idxConfiguredReturn);
-  assert.ok(idxOriginFallback === -1 || idxConfiguredReturn < idxOriginFallback,
-    "in produzione currentOrigin e' solo un fallback DOPO configured");
-  // Quel fallback e' segnalato come errore di configurazione.
-  assert.match(prodPart, /AUTH_REDIRECT_BASE_MISSING_PUBLIC_APP_URL/);
+  assert.match(AUTH_BASE_BODY, /configuredOrigin:\s*configured/, "deve passare la configurazione al selettore");
+  assert.match(AUTH_BASE_BODY, /return selectedOrigin/, "deve usare l'origin selezionato");
+  assert.match(AUTH_BASE_BODY, /AUTH_REDIRECT_BASE_MISSING_PUBLIC_APP_URL/);
 });
 
 test("getAuthRedirectBase: nessun dominio / IP / porta hardcoded", () => {
