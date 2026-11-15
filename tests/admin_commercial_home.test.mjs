@@ -176,7 +176,7 @@ test('analytics non riceve PII: sanitizeMetadata scarta chiavi/valori PII; track
   const requests = [];
   process.env.VITE_SUPABASE_URL = 'https://example.invalid';
   process.env.VITE_SUPABASE_ANON_KEY = 'anon';
-  globalThis.window = { localStorage: store(), sessionStorage: store(), location: { origin: 'https://vp.test', pathname: '/consulente', search: '', hostname: 'vp.test' } };
+  globalThis.window = { localStorage: store(), sessionStorage: store(), location: { origin: 'https://www.volantinipro.it', pathname: '/consulente', search: '', hostname: 'www.volantinipro.it' } };
   globalThis.document = { referrer: '' };
   globalThis.fetch = async (url, options) => { requests.push({ url: String(url), body: JSON.parse(options.body) }); return { ok: true }; };
   try {
@@ -184,13 +184,17 @@ test('analytics non riceve PII: sanitizeMetadata scarta chiavi/valori PII; track
     trackConsultationRequested();
     await new Promise((resolve) => setTimeout(resolve, 25));
     assert.equal(requests.length, 1);
-    assert.match(requests[0].url, /^https:\/\/vp\.test\/api\/track$/, 'solo il tracker anonimo, mai un host reale');
+    assert.equal(requests[0].url, 'https://www.volantinipro.it/api/track', 'solo il tracker first-party autorizzato');
     const payload = requests[0].body;
     assert.equal(payload.event_name, 'consultation_requested');
     assert.deepEqual(payload.metadata, {});
     const serialized = JSON.stringify(payload);
     assert.doesNotMatch(serialized, /"(email|telefono|phone|nome|name|latitude|longitude|lat|lng|ip)"/i);
     assert.doesNotMatch(serialized, /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+    globalThis.window.location = { origin: 'https://volantinipro-git-preview-qa-fenicesp-gmailcoms-projects.vercel.app', pathname: '/consulente', search: '', hostname: 'volantinipro-git-preview-qa-fenicesp-gmailcoms-projects.vercel.app' };
+    trackConsultationRequested();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.equal(requests.length, 1, 'la preview non deve inviare eventi al database di produzione');
   } finally {
     for (const [key, value] of Object.entries({ window: prev.window, document: prev.document, fetch: prev.fetch })) {
       if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
