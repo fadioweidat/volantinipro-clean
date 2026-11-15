@@ -6,6 +6,7 @@ const C_ORANGE = "#E8571A";
 const GRAD = "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)";
 
 import { Logo } from "../common/Logo.jsx";
+import { SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL_HREF } from "../../lib/contactConfig.js";
 import { PRICES_PATH, SERVED_CITIES, SERVED_ZONE_GROUPS } from "../../lib/seo/seoLandingRoutes.js";
 
 function SocialIcon({ type }) {
@@ -96,6 +97,12 @@ export default function Footer({ onNav, onHowItWorks }) {
             <p style={{ marginTop: 24, fontSize: 15, lineHeight: 1.6, color: "#94A3B8", maxWidth: 300 }}>
               Distribuzione volantini intelligente per il B2B italiano.
             </p>
+            <address style={{ fontStyle: "normal", display: "grid", gap: 6, margin: "0 0 20px" }}>
+              <a href={SUPPORT_PHONE_TEL_HREF} data-testid="footer-phone" style={{ ...footerLinkStyle, color: "#F8FAFC", fontWeight: 700, minHeight: 44, display: "inline-flex", alignItems: "center" }}>
+                Tel. {SUPPORT_PHONE_DISPLAY}
+              </a>
+              <a href={`mailto:${SUPPORT_EMAIL}`} style={footerLinkStyle}>{SUPPORT_EMAIL}</a>
+            </address>
             <div style={{ display: "flex", gap: 12 }}>
               {["instagram", "linkedin", "youtube"].map((type) => (
                 <button

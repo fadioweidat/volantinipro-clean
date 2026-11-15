@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import {
   SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  SUPPORT_PHONE_TEL_HREF,
   buildInfoWhatsAppUrl,
   buildInfoMailtoUrl,
 } from "../../lib/contactConfig.js";
@@ -63,7 +65,7 @@ function CtaButton({ href, onClick, primary, icon, label, sub, mobile }) {
 }
 
 // Sezione "Serve una mano?" — contatto diretto con VolantiniPro: SOLO
-// WhatsApp + Email. WhatsApp mostrato quando il numero è configurato
+// WhatsApp + Telefono + Email. WhatsApp mostrato quando il numero è configurato
 // (VITE_SUPPORT_WHATSAPP, nessun numero inventato). Email: sempre, verso
 // l'indirizzo ufficiale. (L'AI sarà negli Step del preventivo, non qui.)
 export default function ContattiSection() {
@@ -114,6 +116,7 @@ export default function ContattiSection() {
           {whatsappUrl ? (
             <CtaButton mobile={isMobile} primary href={whatsappUrl} icon={<WhatsAppIcon size={isMobile ? 22 : 20} />} label="WhatsApp" sub="Risposta rapida" />
           ) : null}
+          <CtaButton mobile={isMobile} href={SUPPORT_PHONE_TEL_HREF} icon="📞" label="Chiama" sub={SUPPORT_PHONE_DISPLAY} />
           <CtaButton mobile={isMobile} href={buildInfoMailtoUrl()} icon="✉️" label="Scrivici via Email" sub={SUPPORT_EMAIL} />
         </div>
       </motion.div>

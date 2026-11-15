@@ -1,6 +1,6 @@
 import { SITE_URL, getRouteMetadata } from '../../lib/seo/routePolicy.js';
 import React, { useEffect } from "react";
-import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "../../lib/contactConfig.js";
+import { SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "../../lib/contactConfig.js";
 import { faqs } from "../../components/home/FAQSection.jsx";
 import { services } from "../../components/home/ServicesSection.jsx";
 import { SERVICE_PAGE_CONTENT } from "../../lib/seo/servicePagesContent.js";
@@ -100,16 +100,9 @@ function organizationJsonLd(siteUrl) {
     url: siteUrl,
     logo: `${siteUrl}/favicon.png`,
     email: SUPPORT_EMAIL,
+    telephone: SUPPORT_PHONE_DISPLAY,
     vatID: "IT04856200615",
   };
-  // Stesso numero già usato per i CTA WhatsApp del sito (contactConfig.js,
-  // solo se configurato via env — nessun numero inventato qui). Formattato
-  // leggibile "+39 351 767 3737" a partire dalle sole cifre (prefisso 39 +
-  // 3 + 3 + 4 cifre).
-  const phoneMatch = SUPPORT_WHATSAPP && /^39(\d{3})(\d{3})(\d{4})$/.exec(SUPPORT_WHATSAPP);
-  if (phoneMatch) {
-    org.telephone = `+39 ${phoneMatch[1]} ${phoneMatch[2]} ${phoneMatch[3]}`;
-  }
   return org;
 }
 
