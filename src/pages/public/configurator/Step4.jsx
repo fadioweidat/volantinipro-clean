@@ -34,6 +34,7 @@ import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
 import { useCliente } from "../../../hooks/useCliente.js";
 import { calculateQuotePricing, formatQuoteCurrency, resolveQuoteQuantity } from "../../../lib/quotePricing.js";
 import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
+import { withAllocationForQuantity } from "../../../lib/pricing/rescaleZonesAllocation.js";
 import { URGENCY_SURCHARGE_PCT } from "../../../lib/pricing/distributionPricing.js";
 import { computeGraphicEstimate, GRAPHIC_SERVICE_PRICE } from "../../../lib/pricing/graphicPricing.js";
 import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "../../../lib/contactConfig.js";
@@ -147,7 +148,7 @@ export function Step4({
   // sulla tariffa flat QUOTE_PRICES invariata (distributionZonesForPricing
   // resta null per loro, calculateQuotePricing ricade sul vecchio calcolo).
   const distributionZonesForPricing = svcType === "d2d"
-    ? isMultiZoneQuote ? buildMultiZoneDistributionZones(multiZoneSummary) : resolveConfiguratorDistributionZones(singlePointOfSaleDistributionInput || data, flyerQty).zones
+    ? isMultiZoneQuote ? buildMultiZoneDistributionZones(multiZoneSummary) : resolveConfiguratorDistributionZones(withAllocationForQuantity(singlePointOfSaleDistributionInput || data, flyerQty), flyerQty).zones
     : null;
   const zones = data.zones || [];
   const selZ = [...S2_ZONES.filter(z => zones.includes(z.id)), ...(data.selectedCaps || []).map(cap => data.capDataMap?.[cap]).filter(Boolean)].filter(z => !z.unavailable);

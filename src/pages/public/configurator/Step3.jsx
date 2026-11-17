@@ -11,6 +11,7 @@ import { QUOTE_PRICES, MONTHS_FULL } from "../../../lib/appConstants.js";
 import { calculateQuotePricing, formatQuoteCurrency } from "../../../lib/quotePricing.js";
 import { formatCampaignStep3Headline, selectCampaignStep3Summary } from "../../../lib/step3/campaignStep3Summary.js";
 import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
+import { withAllocationForQuantity } from "../../../lib/pricing/rescaleZonesAllocation.js";
 import { calculateBusinessMaterials, calculateBusinessOperationalPlan } from "../../../lib/business/business-config.js";
 import { formatIntegerIT } from "../../../lib/utils/format.js";
 import { isStep2DebugEnabled } from "../../../lib/step2/debugStep2.js";
@@ -367,7 +368,7 @@ export function Step3({
   const activeQty = activeZone ? Number(activeZone.assigned_flyers || 0) : Number(data.qty || 0);
   const step3PricePerThousand = QUOTE_PRICES[currentServiceType] || 18.5;
   const step3DistributionZones = currentServiceType === "d2d"
-    ? resolveConfiguratorDistributionZones(data, activeQty).zones
+    ? resolveConfiguratorDistributionZones(withAllocationForQuantity(data, activeQty), activeQty).zones
     : null;
   // Hand to Hand: tariffa oraria (handToHandPricing.js) e niente Smart Pairing.
   const isH2HStep3 = currentServiceType === "h2h";
