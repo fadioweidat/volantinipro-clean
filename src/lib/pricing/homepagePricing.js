@@ -7,6 +7,7 @@ import { QUOTE_PRICES } from '../appConstants.js';
 import { calculateQuotePricing } from '../quotePricing.js';
 import { GRID_QUANTITIES, TERRITORY_MINIMUMS, TERRITORY_TIERS, calculateDistributionZonePrice, roundMoney } from './distributionPricing.js';
 import { resolveConfiguratorDistributionZones } from './resolveConfiguratorDistributionZones.js';
+import { withIstatDensity } from '../step2/municipalityPricingTier.js';
 
 const REFERENCE_QUANTITY = 1000;
 
@@ -48,7 +49,7 @@ export function getDoorToDoorCampaignMinimum() {
  * @returns {{service:string, comune:string, provincia:string, quantity:number, total:number|null}}
  */
 export function calculateHomepagePriceExample({ comune = 'Cormano', provincia = 'MI', quantity = 5000 } = {}) {
-  const zones = resolveConfiguratorDistributionZones({ selectedComuni: [{ name: comune }] }, quantity).zones;
+  const zones = resolveConfiguratorDistributionZones({ selectedComuni: [withIstatDensity({ name: comune })] }, quantity).zones;
   const pricing = calculateQuotePricing({ quantity, pricePerThousand: QUOTE_PRICES.d2d, distributionZones: zones });
   return { service: 'd2d', comune, provincia, quantity, total: pricing.total };
 }

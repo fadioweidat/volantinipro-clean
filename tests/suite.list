@@ -235,3 +235,4 @@ tests/multi_pv_union_pricing_pdf.test.mjs
 tests/seo_homepage_contact.test.mjs
 tests/seo_city_meta_v2.test.mjs
 tests/pricing_hinterland_anchors_20261117.test.mjs
+tests/quick_quote_istat_density_20261117.test.mjs
