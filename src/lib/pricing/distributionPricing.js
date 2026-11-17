@@ -168,6 +168,13 @@ const EXPLICIT_TERRITORY_ANCHORS = {
   cormano: TERRITORY_TIERS.HINTERLAND_DENSE,
   sesto: TERRITORY_TIERS.HINTERLAND_DENSE,
   "sesto san giovanni": TERRITORY_TIERS.HINTERLAND_DENSE,
+  // Decisione Fadi 2026-11-17 (opzione b): i comuni dell'hinterland con
+  // densita' ISTAT >= 6000 ab/km² restano Hinterland, non fascia Milano.
+  // Sono gli unici in Lombardia oltre a Milano e Sesto (gia' qui sopra).
+  // Cosi' Step 4, Preventivo Rapido e pagine citta' usano lo stesso prezzo.
+  bresso: TERRITORY_TIERS.HINTERLAND_DENSE,
+  corsico: TERRITORY_TIERS.HINTERLAND_DENSE,
+  "cusano milanino": TERRITORY_TIERS.HINTERLAND_DENSE,
   como: TERRITORY_TIERS.COMO_LECCO,
   lecco: TERRITORY_TIERS.COMO_LECCO,
   sondrio: TERRITORY_TIERS.LOW_DENSITY_MOUNTAIN,

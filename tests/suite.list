@@ -245,3 +245,4 @@ tests/auth_redirect_preview_qa.test.mjs
 tests/dual_role_admin_customer.test.mjs
 tests/seo_homepage_contact.test.mjs
 tests/seo_city_meta_v2.test.mjs
+tests/configurator_switch_qty_tier_20261117.test.mjs

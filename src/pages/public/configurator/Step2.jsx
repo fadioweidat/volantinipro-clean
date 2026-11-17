@@ -777,9 +777,11 @@ export function Step2({
   // precedente nella nuova (riprodotto: "+ Aggiungi" -> Zona 2 eredita Monza).
   const [localZoneId, setLocalZoneId] = useState(data.activeZoneId || null);
 
-  // Mount Prefill / Initialization effect
-  useEffect(() => {
-    if (!data.campaignZones || data.campaignZones.length === 0) {
+  // Crea la/le zone iniziali della campagna. Usata al mount e quando
+  // l'elenco zone torna vuoto mentre lo Step 2 e' aperto (cambio servizio
+  // dai pulsanti Door to Door / Hand to Hand / Business, 2026-11-17): senza
+  // una zona il gate dello Step 2 resta bloccato per sempre.
+  const initializeCampaignZones = () => {
       const defaultZoneId = "zone_" + Date.now();
       const flyerQuantityFromStep1 = data.qty || 10000;
       const initialZoneCount = data.zoneCountIntent === "few" ? 2 : data.zoneCountIntent === "multi" ? 3 : 1;
@@ -837,6 +839,12 @@ export function Step2({
       }));
       prevActiveZoneIdRef.current = defaultZoneId;
       setLocalZoneId(defaultZoneId);
+  };
+
+  // Mount Prefill / Initialization effect
+  useEffect(() => {
+    if (!data.campaignZones || data.campaignZones.length === 0) {
+      initializeCampaignZones();
     } else if (!data.activeZoneId && data.campaignZones.length > 0) {
       const activeZone = data.campaignZones[0];
       setData(prev => ({
@@ -857,6 +865,20 @@ export function Step2({
       setLocalZoneId(data.activeZoneId);
     }
   }, []);
+
+  // Cambio servizio nello Step 2: applyConfiguratorServiceChange azzera
+  // campaignZones (territorio e pianificazione del servizio precedente).
+  // Lo Step 2 resta montato, quindi la zona va ricreata qui per il nuovo
+  // servizio; il primo render e' gestito dall'effect di mount.
+  const zoneInitMountedRef = useRef(false);
+  const campaignZonesEmpty = !Array.isArray(data.campaignZones) || data.campaignZones.length === 0;
+  useEffect(() => {
+    if (!zoneInitMountedRef.current) {
+      zoneInitMountedRef.current = true;
+      return;
+    }
+    if (campaignZonesEmpty) initializeCampaignZones();
+  }, [campaignZonesEmpty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load active zone to local states when activeZoneId changes
   useEffect(() => {

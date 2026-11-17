@@ -103,7 +103,9 @@ test("A. single zone: summary is NOT multi-zone, Step4 stays on the production c
   assert.match(step4, /const singlePointOfSale = !isQuick && svcType === "d2d" && multiZoneSummary\.zoneCount === 1 && multiZoneSummary\.allZonesReady && multiZoneSummary\.zones\[0\]\.quantity > 0 \? multiZoneSummary\.zones\[0\] : null;/);
   assert.match(step4, /const rawFlyerQty = singlePointOfSale \? singlePointOfSale\.quantity : resolveQuoteQuantity\(data\);/);
   assert.match(step4, /const flyerQty = isMultiZoneQuote \? multiZoneSummary\.totalQuantity : \(quoteCoverageSource\.coverageDecision === "increase" \|\| quoteCoverageSource\.coverageDecision === "useRecommended"\) && quoteCoverageSource\.fullCoverageFlyers != null && rawFlyerQty != null \? Math\.max\(rawFlyerQty, Number\(quoteCoverageSource\.fullCoverageFlyers\)\) : rawFlyerQty;/);
-  assert.match(step4, /isMultiZoneQuote \? buildMultiZoneDistributionZones\(multiZoneSummary\) : resolveConfiguratorDistributionZones\(singlePointOfSaleDistributionInput \|\| data, flyerQty\)\.zones/);
+  // 2026-11-17: la ripartizione per comune viene allineata alla quantita' del
+  // preventivo ("Aumenta quantita'" nello Step 4), stesso resolver.
+  assert.match(step4, /isMultiZoneQuote \? buildMultiZoneDistributionZones\(multiZoneSummary\) : resolveConfiguratorDistributionZones\(withAllocationForQuantity\(singlePointOfSaleDistributionInput \|\| data, flyerQty\), flyerQty\)\.zones/);
   assert.match(step4, /const zoneAllocs = isMultiZoneQuote \? flattenMultiZoneAllocation\(multiZoneSummary\) : singlePointOfSale \? singlePointOfSale\.allocation : data\.zonesAllocation \|\| \[\];/);
   assert.match(step4, /const campaignZonesPayload = isMultiZoneQuote \? buildMultiZoneCampaignZonesPayload\(multiZoneSummary\) : zoneAllocs\.length > 0/);
 });
