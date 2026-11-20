@@ -10,6 +10,8 @@ import {
   calculateGpsCoverage,
 } from '../../lib/services/gps-api.js';
 import { adminGpsHistory } from '../../lib/services/admin-gps-history.js';
+import { enrichSessionsWithOperatorNames, fetchZoneSessionCoverage } from '../../lib/services/gps-operator-names.js';
+import { supabase } from '../../supabaseClient.js';
 import { sessionZoneStatus, zoneStatusLabel } from '../../lib/services/admin-gps-history-core.js';
 import { dedupeSessionsByOperator, filterOperationalRows, resolveDateRange } from '../../lib/services/report-utils.js';
 import { EXCLUSION_LABELS, filterValidGpsPoints, calculateFilteredDistanceKm, summarizeGpsQuality } from '../../lib/gps/pointQuality.js';
@@ -59,7 +61,9 @@ export function AdminLiveDashboard({ onNav }) {
       inFlight = true;
       try {
         const range = resolveDateRange(filters.period, filters.fromDate, filters.toDate);
-        const drivers = await adminGpsHistory.summaries({ ...range, status: filters.status, signal: controller.signal });
+        const summaries = await adminGpsHistory.summaries({ ...range, status: filters.status, signal: controller.signal });
+        // Nomi reali dalle assegnazioni (caposquadra, "OP n"), invece di "Operatore <id>".
+        const drivers = await enrichSessionsWithOperatorNames(supabase, summaries);
         if (!cancelled) setState({ loading: false, error: null, drivers });
         traccarAdminControl('list')
           .then((result) => { if (!cancelled) setTraccarIds(openTraccarSessionIds(result.sessions)); })
@@ -134,6 +138,17 @@ export function AdminLiveDashboard({ onNav }) {
   // CampaignTracking.jsx e la Driver App — nessuna logica geografica nuova.
   const { zoneRows, resolvedBoundaries, radiusZones } = useZoneBoundaries(selectedCampaignId);
   const zoneProgress = useZoneProgress({ campaignId: selectedCampaignId, includeHistory: true });
+  // Copertura minima per zona dalle sessioni GPS: campaign_zone_progress non ha
+  // valori automatici (mai sincronizzati), quindi il pannello mostrava
+  // "Dato non disponibile" anche con sessioni gia' calcolate.
+  const [zoneSessionCoverage, setZoneSessionCoverage] = useState(() => new Map());
+  useEffect(() => {
+    let cancelled = false;
+    setZoneSessionCoverage(new Map());
+    if (!selectedCampaignId || selectedCampaignId === 'all') return undefined;
+    fetchZoneSessionCoverage(supabase, selectedCampaignId).then((map) => { if (!cancelled) setZoneSessionCoverage(map); });
+    return () => { cancelled = true; };
+  }, [selectedCampaignId, retry]);
   const liveZones = useMemo(
     // Confini reali (poligoni) + zone a raggio senza confine: stesso motore
     // geofence, che gestisce gia' kind 'circle' per dentro/fuori e distanza.
@@ -318,6 +333,7 @@ export function AdminLiveDashboard({ onNav }) {
           <div style={{ marginTop: 16 }}>
             <ZoneProgressPanel
               zones={zoneProgress.zones}
+              sessionCoverageByZone={zoneSessionCoverage}
               history={zoneProgress.history}
               loading={zoneProgress.loading}
               refreshing={zoneProgress.refreshing}

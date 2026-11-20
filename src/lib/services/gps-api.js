@@ -1129,6 +1129,9 @@ export function displayDriverName(session) {
   const metadata = safeJson(session.metadata || session.session_metadata);
   const explicit = session.driver_name || session.driverName || metadata.driver_name || metadata.driverName;
   if (explicit) return String(explicit);
+  // 2026-11-20: nome risolto dall'assegnazione (enrichSessionsWithOperatorNames):
+  // partecipante "OP n", caposquadra "<referente> · Caposquadra", profilo operatore.
+  if (session.operator_display_name) return String(session.operator_display_name);
   const id = session.driver_id || session.driverId;
   if (!id) return 'Operatore';
   return `Operatore ${String(id).slice(0, 6)}`;

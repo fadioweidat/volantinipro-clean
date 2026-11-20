@@ -21,6 +21,9 @@ export function ZoneProgressPanel({
   onSetManual,
   onClearManual,
   theme = 'light',
+  // Map campaign_zone_id -> { percent, sessions }: copertura minima dalle
+  // sessioni GPS, usata solo quando la zona non ha ancora effective_percent.
+  sessionCoverageByZone = null,
 }) {
   const [drafts, setDrafts] = useState({});
   const t = buildTokens(theme === 'dark');
@@ -83,6 +86,12 @@ export function ZoneProgressPanel({
         <div style={t.zoneGridStyle}>
           {zones.map((zone) => {
             const draft = drafts[zone.campaign_zone_id] || { percent: '', reason: '' };
+            const hasEffective = zone.effective_percent != null && Number.isFinite(Number(zone.effective_percent));
+            const sessionFallback = !hasEffective && sessionCoverageByZone?.get?.(zone.campaign_zone_id) || null;
+            const displayPercent = hasEffective
+              ? formatPercent(zone.effective_percent)
+              : sessionFallback ? `≥ ${formatPercent(sessionFallback.percent)}` : formatPercent(null);
+            const barPercent = hasEffective ? zone.effective_percent : sessionFallback?.percent ?? null;
             const busy = mutatingZoneId === zone.campaign_zone_id;
             const mutationBusy = Boolean(mutatingZoneId);
             const isSelected = selectedZoneId === zone.campaign_zone_id;
@@ -116,7 +125,7 @@ export function ZoneProgressPanel({
                     </div>
                     {zone.address_label ? <p style={t.addressStyle}>{zone.address_label}</p> : null}
                   </div>
-                  <span style={t.percentBadgeStyle}>{formatPercent(zone.effective_percent)}</span>
+                  <span style={t.percentBadgeStyle}>{displayPercent}</span>
                 </div>
 
                 <div
@@ -124,13 +133,16 @@ export function ZoneProgressPanel({
                   aria-label={`Avanzamento ${zone.zone_name || 'zona'}`}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-valuenow={clampPercent(zone.effective_percent)}
+                  aria-valuenow={clampPercent(barPercent)}
                   style={t.trackStyle}
                 >
-                  <span style={{ ...t.fillStyle, width: `${clampPercent(zone.effective_percent)}%` }} />
+                  <span style={{ ...t.fillStyle, width: `${clampPercent(barPercent)}%` }} />
                 </div>
 
                 <div style={t.metadataStyle}>
+                  {sessionFallback ? (
+                    <span>Dalle sessioni GPS ({sessionFallback.sessions}): almeno {formatPercent(sessionFallback.percent)}</span>
+                  ) : null}
                   {isAdmin && zone.automatic_percent != null ? (
                     <span>Automatico: {formatPercent(zone.automatic_percent)}</span>
                   ) : null}
