@@ -33,7 +33,13 @@ function StatusPill({ state, legacy }) {
   );
 }
 
-export function DriverZoneProgram({ zones = [], stateOf, actionLoading = null, onStart, onComplete, onOpenMap, currentDeviceZoneId = null, deviceTrackingActive = false }) {
+// canJoinInProgress (2026-11-20, prova GPS 2 telefoni): una zona "In corso"
+// e' uno stato della squadra, non del singolo telefono. Un altro telefono del
+// gruppo senza sessione GPS propria puo' avviare il SUO GPS sulla stessa zona
+// (gps_start_session_v3 lo permette: nessun blocco su zone gia' In corso, solo
+// la zona autorizzata all'assegnazione). Senza questa opzione il secondo
+// telefono vedeva solo "In corso su un altro dispositivo" e non poteva partire.
+export function DriverZoneProgram({ zones = [], stateOf, actionLoading = null, onStart, onComplete, onOpenMap, currentDeviceZoneId = null, deviceTrackingActive = false, canJoinInProgress = false }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [expandedFuture, setExpandedFuture] = useState(false);
@@ -104,6 +110,10 @@ export function DriverZoneProgram({ zones = [], stateOf, actionLoading = null, o
                   {ownedByThisDevice ? (
                     <button type="button" style={{ ...endBtn, flex: '1 1 180px' }} disabled={busy} onClick={() => onComplete?.(z)}>
                       {actionLoading === `COMPLETE_ZONE:${z.id}` ? 'Chiusura in corso...' : `Termina ${z.zone_name}`}
+                    </button>
+                  ) : canJoinInProgress ? (
+                    <button type="button" aria-label={`Inizia anche tu ${z.zone_name}`} title={`Inizia anche tu ${z.zone_name}`} style={{ ...startBtn, flex: '1 1 180px' }} disabled={busy} onClick={() => onStart?.(z)}>
+                      {actionLoading === `START_ZONE:${z.id}` ? 'Avvio...' : 'Inizia anche tu'}
                     </button>
                   ) : (
                     <span style={{ flex: '1 1 180px', alignSelf: 'center', fontSize: 12, fontWeight: 800, color: '#475569' }}>

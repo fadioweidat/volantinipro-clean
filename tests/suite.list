@@ -249,3 +249,4 @@ tests/configurator_switch_qty_tier_20261117.test.mjs
 tests/pricing_hinterland_anchors_20261117.test.mjs
 tests/quick_quote_istat_density_20261117.test.mjs
 tests/price_coherence_all_comuni.test.mjs
+tests/driver_join_zone_in_progress.test.mjs
