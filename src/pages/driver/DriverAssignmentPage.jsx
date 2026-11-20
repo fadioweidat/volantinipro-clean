@@ -300,6 +300,13 @@ function DriverTracker({
   // all'Admin. NON tocca il controllo anti-doppio-dispositivo lato server:
   // e' solo la UI che smette di offrire un'azione che non puo' riuscire.
   const activeSessionElsewhere = tracking.resumeNotice?.level === 'blocked';
+  // 2026-11-20: DriverZoneProgram riceve ora currentDeviceZoneId e
+  // deviceTrackingActive (prima mancavano: anche il telefono che traccia
+  // vedeva la propria zona "In corso su un altro dispositivo", senza Termina).
+  // Un telefono senza sessione propria puo' unirsi a una zona gia' In corso
+  // (stesso gruppo, zona autorizzata lato server da gps_start_session_v3).
+  // Mai se la stessa assegnazione e' attiva su un altro dispositivo o revocata.
+  const canJoinZoneInProgress = !tracking.isActive && !tracking.isPaused && !activeSessionElsewhere && !isRevoked;
   const primaryAction = actionLoading
     ? `${actionLoading}...`
     : tracking.isActive ? 'Pausa'
@@ -578,6 +585,9 @@ function DriverTracker({
           onComplete={completeZone}
           onOpenZone={openZoneMap}
           onOpenMap={openZoneMap}
+          currentDeviceZoneId={tracking.session?.campaign_zone_id || null}
+          deviceTrackingActive={Boolean(tracking.isActive || tracking.isPaused)}
+          canJoinInProgress={canJoinZoneInProgress}
         />
         )}
       </section>
