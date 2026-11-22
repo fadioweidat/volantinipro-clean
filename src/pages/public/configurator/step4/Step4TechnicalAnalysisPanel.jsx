@@ -60,7 +60,7 @@ export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setSh
               {/* KPI principali — visibili subito per mantenere la sezione pulita */}
               {!showTechPanel && <div style={{
               display: "grid",
-              gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+              gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
               gap: 10
             }}>
                   {[{
@@ -81,12 +81,6 @@ export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setSh
                 sub: "Aree nella campagna",
                 c: C.white,
                 tip: "Numero di aree geografiche incluse nella distribuzione. Ogni zona è verificata su mappa."
-              }, {
-                label: "Affidabilità dati",
-                val: "99.4%",
-                sub: "Dati territoriali verificati",
-                c: C.purple,
-                tip: "Indica la precisione dei dati mostrati, basata su fonti ufficiali aggiornate."
               }].map((item, idx) => <div key={idx} style={{
                 padding: "12px 14px",
                 borderRadius: 12,
