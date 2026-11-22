@@ -248,3 +248,4 @@ tests/quick_quote_istat_density_20261117.test.mjs
 tests/price_coherence_all_comuni.test.mjs
 tests/step4_no_fixed_kpis_20261122.test.mjs
 tests/step2_header_campaign_quantity_20261122.test.mjs
+tests/step2_add_or_replace_comune_20261122.test.mjs

@@ -10,6 +10,35 @@ import { S2_RADII } from "../../../../lib/step2/s2Constants.js";
 import { STORE_NAME_MAX_LENGTH } from "../../../../lib/step2/campaignZonesModel.js";
 
 export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAreaTab, activeZoneId, addressFullCoverageConfirmed, addressIntentInMilano, addressSearchError, apiLoading, appendMunicipalityToActiveZone, campaignZones, capSearchLoading, capSuggestions, city, clearGeocodeSuggestions, col, data, dropOpen, duplicateComuneNotice, geocodeSuggestions, getCampaignZoneLabel, handleAddZone, renamePointOfSale, deletePointOfSale, handleCapSelect, hasSearchPoint, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isMobile, isMovementStep2, isNilAnalysis, isRadiusMode, municipalityBoundary, nilManualMode, onBack, pendingAddMunicipality, pill, radiusAdvisoryData, radiusKm, recommendedRadiusForSlider, removeMunicipalityFromActiveZone, resetActiveZone, resolveMilanoCity, search, searchedLocation, searchMode, searchNominatimOnSubmit, selectAddressPointInMilano, selectCampaignZone, selectMilanoAsNil, selectMunicipalityAsRadiusCenter, selectOperationalPoint, selectPrimaryMunicipality, selectedCaps, selectedComuni, selectedSearchPoint, setAddressFullCoverageConfirmed, setAddressSearchError, setCapDataMap, setCity, setCoverageDecision, setCoverageStrategy, setData, setDismissedAdvisoryRadius, setDropOpen, setHiddenBoundaries, setPartialCoverageConfirmed, setPendingAddMunicipality, setSearch, setSelected, setSelectedCaps, setSelectedComuni, setSelectedSearchPoint, sharedCoveragePctText, startManualPinSelection, svcType, switchToCapMode, switchToComuneMode, switchToRadiusMode, updateActiveRadius, zonesInRadius }) {
+  // Opzione A (decisione Fadi 2026-11-22): con un comune gia' selezionato,
+  // scegliere un altro comune dalla barra in alto non lo sostituisce piu' in
+  // silenzio: si chiede "Aggiungi" (scelta proposta) o "Sostituisci".
+  const [municipalityChoice, setMunicipalityChoice] = React.useState(null);
+  const municipalityKey = m => {
+    const name = normalizeMunicipalityName(m?.comune || m?.name || m?.label).toLowerCase();
+    const prov = String(m?.provincia || m?.prov || "").trim().toUpperCase();
+    return { name, prov };
+  };
+  const isSameMunicipality = (a, b) => {
+    const ka = municipalityKey(a), kb = municipalityKey(b);
+    return Boolean(ka.name) && ka.name === kb.name && (!ka.prov || !kb.prov || ka.prov === kb.prov);
+  };
+  // All'apertura dallo Step 1 / da URL la lista puo' essere vuota con il solo
+  // comune principale in `city`: conta anche quello.
+  const currentMunicipalities = Array.isArray(selectedComuni) && selectedComuni.filter(Boolean).length > 0 ? selectedComuni.filter(Boolean) : (city ? [city] : []);
+  const chooseMunicipalityFromSearch = c => {
+    const current = currentMunicipalities;
+    if (searchMode === "municipality" && current.length > 0 && !current.some(m => isSameMunicipality(m, c))) {
+      setMunicipalityChoice(c);
+      setDropOpen(false);
+      return;
+    }
+    setMunicipalityChoice(null);
+    selectPrimaryMunicipality(c);
+    setSelectedSearchPoint(null);
+  };
+  const municipalityChoiceName = municipalityChoice ? (municipalityChoice.comune || municipalityChoice.name || municipalityChoice.label) : "";
+  const currentMunicipalitiesLabel = currentMunicipalities.map(m => m?.comune || m?.name || m?.label).filter(Boolean).join(", ");
   return (
     <>
       {/* Section */}
@@ -280,6 +309,40 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                 }}>
                     {duplicateComuneNotice}
                   </div>}
+                {municipalityChoice && <div data-testid="municipality-choice" role="group" aria-label="Aggiungi o sostituisci comune" style={{
+                  marginTop: 6,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "rgba(56,189,248,.08)",
+                  border: "1px solid rgba(56,189,248,.35)",
+                  fontFamily: F.sans,
+                  fontSize: 12,
+                  color: C.white
+                }}>
+                    <div style={{ marginBottom: 8, lineHeight: 1.45 }}>
+                      Hai già selezionato <b>{currentMunicipalitiesLabel}</b>. Cosa vuoi fare con <b>{municipalityChoiceName}</b>?
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button type="button" data-testid="municipality-choice-add" autoFocus onClick={() => {
+                        const c = municipalityChoice;
+                        setMunicipalityChoice(null);
+                        appendMunicipalityToActiveZone(c);
+                      }} style={{ minHeight: 36, padding: "0 12px", borderRadius: 8, border: "none", background: col, color: "#0B1220", fontFamily: F.sans, fontSize: 12, fontWeight: 900, cursor: "pointer" }}>
+                        Aggiungi {municipalityChoiceName}
+                      </button>
+                      <button type="button" data-testid="municipality-choice-replace" onClick={() => {
+                        const c = municipalityChoice;
+                        setMunicipalityChoice(null);
+                        selectPrimaryMunicipality(c);
+                        setSelectedSearchPoint(null);
+                      }} style={{ minHeight: 36, padding: "0 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,.3)", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                        Sostituisci {currentMunicipalitiesLabel}
+                      </button>
+                      <button type="button" data-testid="municipality-choice-cancel" onClick={() => setMunicipalityChoice(null)} style={{ minHeight: 36, padding: "0 10px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(255,255,255,.6)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        Annulla
+                      </button>
+                    </div>
+                  </div>}
                 {dropOpen && search.length > 0 && <div style={{
                   position: "static",
                   marginTop: 4,
@@ -478,8 +541,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                               } else if (searchMode === "address") {
                                 selectMunicipalityAsRadiusCenter(c);
                               } else {
-                                selectPrimaryMunicipality(c);
-                                setSelectedSearchPoint(null);
+                                chooseMunicipalityFromSearch(c);
                               }
                             }} style={{
                               padding: "4px 9px",
@@ -571,8 +633,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                           } else {
                             setAddressSearchError("");
                             logAddressVsMunicipalityDebug(search, city, c, null, false, "explicit_municipality_selection", displayTitle, c.placeType || "municipality", c.comune || c.label || c.name);
-                            selectPrimaryMunicipality(c);
-                            setSelectedSearchPoint(null);
+                            chooseMunicipalityFromSearch(c);
                             if (import.meta.env.DEV) {
                               console.log("[STEP2_SEARCH_SELECTION_DEBUG]", {
                                 inputValue: search,

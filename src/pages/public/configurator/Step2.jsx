@@ -593,7 +593,10 @@ export function Step2({
     };
     const newKey = getMunicipalityDedupKey(normalizedComune);
     if (!newKey) return;
-    setSelectedComuni(prev => {
+    setSelectedComuni(prevRaw => {
+      // Aperto da Step 1 / URL la lista puo' essere vuota con il solo comune
+      // principale in `city`: senza questo l'aggiunta lo perdeva.
+      const prev = Array.isArray(prevRaw) && prevRaw.length > 0 ? prevRaw : (city ? [city] : []);
       const existingKeys = new Set((prev || []).map(c => getMunicipalityDedupKey(c)).filter(Boolean));
       if (existingKeys.has(newKey)) {
         if (isStep2DebugEnabled()) {
