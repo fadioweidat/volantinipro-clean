@@ -6,6 +6,10 @@ import { NIL_HOUSEHOLDS_LABEL, NIL_HOUSEHOLDS_SOURCE } from "../../../../lib/ist
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 
 export function Step2ComunePanel({ simplifiedMilano = false, activeCampaignZone, activeComuneZeroData, addressPreviewNilZones, addressSearchError, allocationMode, analysisError, analysisLoading, areaMode, availableFlyers, businessMetrics, city, col, comuniPriorityOrder, containingNil, coverageAddress, coverageDecision, coverageMode, coverageStrategy, debugStep2Log, flyerQuantityFromStep1, getComuneColor, getCoverageStatus, handleNext, hasAtLeastOne, hasSearchPoint, hasSurplus, hasUnconfirmedAddressPoint, isBusinessStep2, isComuneMode, isCoverageDecisionValid, isInvalid, isMilanoComuneCollapsible, isMobile, isMovementStep2, isNilAnalysis, isPartial, isRadiusMode, isResidentialStep2, manualAssignments, manualFlyers, marginalResidentialZones, marginalZoneCoverage, marginalZoneFamilies, milanoComuneNilInsufficient, missingFlyers, movePriorityZone, municipalityTotalFamilies, municipalityTotalFamiliesLabel, municipalityTotalFamiliesRowLabel, nilManualMode, nilUnavailable, primaryCoveredZones, radius, radiusKm, remainingFlyers, requiredFlyers, resolveMilanoCity, searchMode, selected, selZones, selectCoverageQuantityDecision, selectedAreaFamiliesLabel, selectedCaps, selectedNils, selectedSearchPoint, serviceKpis, setAddressFullCoverageConfirmed, setAddressSearchError, setAllocationMode, setCity, setCoverageDecision, setCoverageStrategy, setData, setDropOpen, setNilManualMode, setPartialCoverageConfirmed, setRequestedAnalysisLevel, setSearch, setSelected, setSelectedComuni, setSelectedSearchPoint, setShowMarginalZones, setShowMilanoNilList, setZoneListSort, sharedCoveragePctText, shouldGroupMarginalZones, showMarginalZones, showMilanoNilList, showTerritoryData, startManualPinSelection, step2CoverageFullLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, summaryComuniStats, surplusFlyers, switchToComuneMode, switchToNilMode, switchToRadiusMode, territorialDataUnavailable, territorySingularLabel, toggleZone, nilResidual, totalAssigned, updateActiveRadius, updateManual, updateManualFlyersQuantity, zCap, zoneCoveragePctForBox, zoneListSort, zoneListSourceCount, zoneRowsForList, zonesAllocation, zonesInRadius }) {
+  // Quantita' reale della campagna (dopo "Aumenta a" / modifica manuale):
+  // intestazione e frasi descrittive devono usare questa, non la quantita'
+  // inserita all'inizio, che resta solo nel pannello di scelta Mantieni/Aumenta.
+  const campaignFlyerQuantity = Number(step2TruthModel?.quantity?.current) > 0 ? Number(step2TruthModel.quantity.current) : flyerQuantityFromStep1;
   return (
     <>
       {/* TICKET — COVERAGE MODE: switcher PERMANENTE dopo la prima ricerca.
@@ -51,7 +55,7 @@ export function Step2ComunePanel({ simplifiedMilano = false, activeCampaignZone,
                       }}>
                           Quantità inserita: <b style={{
                           color: col
-                        }}>{flyerQuantityFromStep1.toLocaleString("it-IT", {
+                        }}>{campaignFlyerQuantity.toLocaleString("it-IT", {
                             useGrouping: true
                           })}</b> volantini
                         </div>
@@ -139,7 +143,7 @@ export function Step2ComunePanel({ simplifiedMilano = false, activeCampaignZone,
                       lineHeight: 1.4,
                       maxWidth: 400
                     }}>
-                        {allocationMode === "auto" ? `Con ${formatIntegerIT(flyerQuantityFromStep1)} volantini il sistema copre prima le zone con priorità più alta. Le zone non coperte verranno incluse aumentando la quantità o modificando la distribuzione manuale.` : allocationMode === "priority" ? "Scegli l'ordine dei comuni con le frecce: il sistema distribuisce i volantini seguendo quell'ordine." : `Modalità manuale: scegli tu quanti volantini assegnare a ogni ${territorySingularLabel.toLowerCase()}.`}
+                        {allocationMode === "auto" ? `Con ${formatIntegerIT(campaignFlyerQuantity)} volantini il sistema copre prima le zone con priorità più alta. Le zone non coperte verranno incluse aumentando la quantità o modificando la distribuzione manuale.` : allocationMode === "priority" ? "Scegli l'ordine dei comuni con le frecce: il sistema distribuisce i volantini seguendo quell'ordine." : `Modalità manuale: scegli tu quanti volantini assegnare a ogni ${territorySingularLabel.toLowerCase()}.`}
                       </div>
                       {showTerritoryData && <div style={{
                       display: "flex",
@@ -579,14 +583,14 @@ export function Step2ComunePanel({ simplifiedMilano = false, activeCampaignZone,
                             {isComuneMode ? <>
                                 <b style={{
                             color: C.white
-                          }}>{city.label || city.name || "Il comune selezionato"}:</b> con {formatIntegerIT(flyerQuantityFromStep1)} volantini coprirai principalmente {primaryCoveredZones.length > 0 ? <b style={{
+                          }}>{city.label || city.name || "Il comune selezionato"}:</b> con {formatIntegerIT(campaignFlyerQuantity)} volantini coprirai principalmente {primaryCoveredZones.length > 0 ? <b style={{
                             color: col
                           }}>{primaryCoveredZones.join(", ")}</b> : "alcune zone del comune"}. Per copertura completa del comune servono circa {formatIntegerIT(requiredFlyers)} volantini.
                               </> : <>
                                 <><b style={{
                               color: C.white
                             }}>Con un raggio di {radiusKm || radius} km la campagna copre circa il {sharedCoveragePctText} dell’area selezionata.</b> Per una campagna più mirata puoi ridurre il raggio.</>
-                                {primaryCoveredZones.length > 0 && <> Con {formatIntegerIT(flyerQuantityFromStep1)} volantini coprirai principalmente: <b style={{
+                                {primaryCoveredZones.length > 0 && <> Con {formatIntegerIT(campaignFlyerQuantity)} volantini coprirai principalmente: <b style={{
                               color: col
                             }}>{primaryCoveredZones.join(", ")}</b>.</>}
                               </>}

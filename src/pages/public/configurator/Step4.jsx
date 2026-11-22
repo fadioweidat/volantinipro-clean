@@ -50,6 +50,9 @@ import { UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL } from "../../../lib/step2/uni
 import { buildOnProjectPayload, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
 import { Step4BusinessRequest } from "./step4/Step4BusinessRequest.jsx";
 import { ISTAT_HOUSEHOLDS_SHORT } from "../../../lib/istatCitation.js";
+// Regola 2026-11-22: quando le famiglie sono ricavate dal fabbisogno non si
+// presentano come dato ISTAT.
+const FAMILIES_ESTIMATE_SOURCE_LABEL = "Stima dal fabbisogno operativo (dato ISTAT non coerente con l'area)";
 
 export function Step4({
   data,
@@ -164,8 +167,9 @@ export function Step4({
   const avgOcc = selZ.length > 0 ? Math.round(selZ.reduce((a, z) => a + z.occup, 0) / selZ.length * 10) / 10 : 0;
   const avgImp = selZ.reduce((a, z) => a + z.imprese, 0);
   const avgIV = selZ.length > 0 ? Math.round(selZ.reduce((a, z) => a + z.indVec, 0) / selZ.length) : 0;
-  const avgGM = selZ.length > 0 ? Math.round(selZ.reduce((a, z) => a + (z.genderM || 49), 0) / selZ.length) : 49;
-  const avgGF = 100 - avgGM;
+  const genderValues = selZ.map(z => z.genderM).filter(n => n != null);
+  const avgGM = genderValues.length ? Math.round(genderValues.reduce((a, n) => a + n, 0) / genderValues.length) : null;
+  const avgGF = avgGM == null ? null : 100 - avgGM;
   const maxOpDays = {
     d2d: selZ.reduce((a, z) => Math.max(a, z.operDays), 0),
     h2h: selZ.reduce((a, z) => Math.max(a, z.operDaysH2H), 0),
@@ -248,7 +252,7 @@ export function Step4({
     if (!ext) return null;
     const accent = svcCommercial[ext.id]?.col || C.orange;
     const demoLabel = {
-      tracking_gps: "Tracking in tempo reale",
+      tracking_gps: "Esempio illustrativo · Tracking GPS",
       photo_proof: "Foto geolocalizzata",
       graphic_design: "Anteprima grafica",
       dedicated_supervision: "Anteprima supervisione"
@@ -407,7 +411,20 @@ export function Step4({
         </div>;
     }
     if (ext.id === "photo_proof") {
-      return <div style={{
+      return <div>
+        <div data-testid="extra-demo-example-label" style={{
+          display: "inline-block",
+          marginBottom: 10,
+          padding: "5px 10px",
+          borderRadius: 999,
+          background: "rgba(251,191,36,.12)",
+          border: "1px solid rgba(251,191,36,.35)",
+          color: "#FBBF24",
+          fontFamily: F.sans,
+          fontSize: 11,
+          fontWeight: 900
+        }}>Esempio illustrativo · non sono foto reali</div>
+        <div style={{
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)",
         gap: 12
@@ -438,8 +455,9 @@ export function Step4({
             color: C.white
           }}><b>{zone}</b><br /><span style={{
               color: "rgba(255,255,255,.58)"
-            }}>Demo - {time}</span></div>
+            }}>Esempio - {time}</span></div>
             </div>)}
+        </div>
         </div>;
     }
     return <div style={{
@@ -627,6 +645,7 @@ export function Step4({
   const eur4 = n => formatQuoteCurrency(n, 4);
   const pctToFraction = (pct, unitWord = "famiglia", pluralWord = "famiglie") => formatCoverageProportion(pct, unitWord, pluralWord);
   const cleanSource = s => truthfulSourceLabel(s || "");
+  const familiesSourceLabel = (isMultiZoneQuote ? data.serviceKpis?.familiesEstimated : (data.serviceKpis?.familiesEstimated ?? data.campaignZones?.[0]?.serviceKpis?.familiesEstimated)) ? FAMILIES_ESTIMATE_SOURCE_LABEL : ISTAT_HOUSEHOLDS_SHORT;
   const nonEmpty = arr => arr.filter(x => x && x.v !== undefined && x.v !== null && x.v !== "" && x.v !== "-");
   const kpis = isMultiZoneQuote ? {
     ...(data.serviceKpis || {}),
@@ -757,31 +776,11 @@ export function Step4({
     icon: e.icon,
     status: e.status
   }));
-  const d2dScores = [{
-    l: "Qualità area",
-    v: kpis.familyIndex ?? avgFIdx,
-    c: "#22C55E",
-    d: "Qualità residenziale dell'area su 100. Più alto = zona più adatta alla distribuzione porta a porta.",
-    src: "Analisi interna"
-  }, {
-    l: "Potenziale copertura",
-    v: kpis.reachScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.reachD2D, 0) / selZ.length) : 0),
-    c: C.blue,
-    d: "Stima di quante famiglie puoi raggiungere efficacemente.",
-    src: "Analisi interna"
-  }, {
-    l: "Efficienza campagna",
-    v: kpis.roiScore ?? null,
-    c: C.green,
-    d: "Rapporto qualità/costo nell'area. Disponibile solo quando il dato è stato calcolato.",
-    src: "Analisi interna"
-  }, {
-    l: "Affidabilità stima",
-    v: kpis.confidenceScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.confD2D, 0) / selZ.length) : 0),
-    c: C.purple,
-    d: "Quanto sono precisi i dati mostrati. Più alto = stime più accurate.",
-    src: "Analisi interna"
-  }];
+  // Regola Fadi 2026-11-22: nessun numero inventato presentato come dato.
+  // "Qualita' area", "Potenziale copertura", "Efficienza campagna" e
+  // "Affidabilita' stima" erano punteggi /100 da formule con costanti nostre
+  // (o default 70/75/85): non si mostrano piu', ne' qui ne' nel PDF.
+  const d2dScores = [];
   const kpisPopulation = kpis.population ?? kpis.pop ?? (totP || null);
   const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
   // Nel raggio il numero di comuni coinvolti non e' quello dei comuni scelti
@@ -801,12 +800,12 @@ export function Step4({
       fields: [{
         l: "Famiglie operative stimate",
         v: formatNumber(estimatedFamiliesForSummary, "—"),
-        src: ISTAT_HOUSEHOLDS_SHORT,
+        src: familiesSourceLabel,
         c: "#22C55E"
       }, {
         l: "Popolazione stimata",
         v: formatNumber(kpisPopulation) || "—",
-        src: ISTAT_HOUSEHOLDS_SHORT,
+        src: familiesSourceLabel,
         c: "#22C55E"
       }, {
         l: "Copertura dell'area",
@@ -815,7 +814,8 @@ export function Step4({
         c: C.green
       }, {
         l: "Quantità consigliata",
-        v: formatNumber(requiredQty || flyerQty),
+        // Senza fabbisogno calcolato non si mostra la quantita' del cliente come "consigliata".
+        v: Number(requiredQty) > 0 ? formatNumber(requiredQty) : null,
         src: "Analisi interna",
         c: C.green
       }, {
@@ -903,7 +903,7 @@ export function Step4({
       }, {
         l: "POI rilevanti",
         v: formatNumber(kpis.poi),
-        src: "Google Places",
+        src: "OpenStreetMap",
         c: C.blue
       }, {
         l: "Fermate / stazioni",
@@ -931,31 +931,13 @@ export function Step4({
         src: "Analisi interna",
         c: C.white
       }],
-      scores: [{
-        l: "Potenziale copertura",
-        v: kpis.reachScore,
-        c: C.blue,
-        d: "Stima di quante persone puoi raggiungere efficacemente."
-      }, {
-        l: "Efficienza campagna",
-        v: kpis.roiScore,
-        c: C.green,
-        d: "Rapporto qualità/costo nell'area selezionata."
-      }, {
-        l: "Affidabilità stima",
-        v: kpis.confidenceScore,
-        c: "#6366F1",
-        d: "Precisione dei dati. Più alto = stime più accurate."
-      }],
+      scores: [],
       admin: [{
         l: "Hotspot principale",
         v: kpis.strongestHotspot
       }, {
         l: "Attività vicine",
         v: kpis.nearbyBiz ? formatNumber(kpis.nearbyBiz) : null
-      }, {
-        l: "Forza hotspot",
-        v: kpis.hotspotStrength != null ? `${kpis.hotspotStrength}/100` : null
       }],
       sources: data.sources?.length ? data.sources : []
     },
@@ -1007,22 +989,7 @@ export function Step4({
         src: "Configurazione Business",
         c: C.white
       }],
-      scores: [{
-        l: "Potenziale copertura",
-        v: kpis.reachScore,
-        c: C.blue,
-        d: "Stima di quante attività puoi raggiungere."
-      }, {
-        l: "Efficienza campagna",
-        v: kpis.roiScore,
-        c: C.green,
-        d: "Rapporto qualità/costo nell'area commerciale."
-      }, {
-        l: "Affidabilità stima",
-        v: kpis.confidenceScore,
-        c: "#6366F1",
-        d: "Precisione dei dati. Più alto = stime più accurate."
-      }],
+      scores: [],
       admin: [{
         l: "Obiettivo",
         v: businessOptionLabel(BUSINESS_OBJECTIVES, data.businessCampaignObjective)
@@ -1043,11 +1010,11 @@ export function Step4({
     serviceSummaryConfig.admin = [{
       l: "Famiglie stimate",
       v: formatNumber(estimatedFamiliesForSummary, "—"),
-      src: ISTAT_HOUSEHOLDS_SHORT
+      src: familiesSourceLabel
     }, {
       l: "Popolazione stimata",
       v: formatNumber(kpisPopulation) || "dato non disponibile",
-      src: ISTAT_HOUSEHOLDS_SHORT
+      src: familiesSourceLabel
     }, {
       l: "Superficie analizzata",
       v: d2dAreaKm2 ? formatAreaKm2(d2dAreaKm2) : null,
@@ -1121,17 +1088,17 @@ export function Step4({
         }));
       }
       // Fallback solo per campagne salvate prima che zonesAllocation fosse
-      // valorizzato in modalità Comuni: nessun dato reale disponibile, si
-      // dichiara una stima equamente distribuita invece di ometterla.
+      // valorizzato in modalità Comuni. Regola 2026-11-22: senza dati reali non
+      // si inventano copertura 100% ne' ripartizione in parti uguali.
       const muns = data.selectedComuni?.length ? data.selectedComuni : data.selectedMunicipalities?.length ? data.selectedMunicipalities : selectedZoneNames.length ? selectedZoneNames : [data.cityName || mainAreaLabel].filter(Boolean);
       const munRec = kpis.recommendedFlyers || requiredQty || null;
-      const munCov = kpis.coverage ?? (svcType === "d2d" ? 100 : null);
+      const munCov = muns.length === 1 ? kpis.coverage ?? null : null;
       return muns.map((name, i) => ({
         name: step4AreaLabel(name),
-        status: "Selezionato – copertura completa",
-        estimatedFlyers: munRec != null ? Math.round(munRec / muns.length) : null,
+        status: "Selezionato",
+        estimatedFlyers: muns.length === 1 && munRec != null ? Math.round(munRec) : null,
         coveragePct: munCov,
-        contributionPct: Math.round(100 / muns.length)
+        contributionPct: muns.length === 1 ? 100 : null
       }));
     }
     return breakdownRows.map(row => ({
@@ -2475,13 +2442,13 @@ export function Step4({
                   {svcType === "d2d" && [{
                 icon: "home",
                 l: "Famiglie stimate nell'area",
-                sub: ISTAT_HOUSEHOLDS_SHORT,
+                sub: familiesSourceLabel,
                 v: formatNumber(estimatedFamiliesForSummary, "—"),
                 c: C.green
               }, {
                 icon: "family",
                 l: "Persone stimate",
-                sub: kpisPopulation != null ? ISTAT_HOUSEHOLDS_SHORT : "Stima su famiglie (coefficiente medio)",
+                sub: kpisPopulation != null ? familiesSourceLabel : "Stima su famiglie (coefficiente medio)",
                 v: formatNumber(kpisPopulation ?? Math.round((kpis.families ?? totF) * 2.4), "—"),
                 c: C.white
               }, {
@@ -2859,7 +2826,7 @@ export function Step4({
               const ratingCol = quantityIsSufficient && cov >= 70 ? C.green : quantityIsSufficient || cov >= 40 ? "#F59E0B" : col;
               const tips = [quantityIsSufficient == null ? "Copertura non disponibile: completa l'analisi territoriale nello Step 2." : quantityIsSufficient ? `Configurazione coerente: la quantità copre l'intera area selezionata.` : `Copertura parziale: ${missingQty.toLocaleString("it-IT", {
                 useGrouping: true
-              })} volantini aggiuntivi porterebbero alla copertura completa.`, `Budget adeguato per ${summaryMunicipalityCount > 1 ? `${summaryMunicipalityCount} comuni selezionati` : mainAreaLabel}.`, isHandToHandQuote ? "Hand to Hand: tariffa oraria per operatore, lo Smart Pairing non si applica." : disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
+              })} volantini aggiuntivi porterebbero alla copertura completa.`, isHandToHandQuote ? "Hand to Hand: tariffa oraria per operatore, lo Smart Pairing non si applica." : disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
                 useGrouping: true
               })} volantini aggiuntivi.` : cov >= 40 ? "Copertura iniziale buona per misurare l'efficacia della campagna nel territorio." : "Copertura base: ideale per un primo test dell'area prima di scalare."];
               return <motion.div initial={{
@@ -2987,6 +2954,7 @@ export function Step4({
             setShowTechPanel={setShowTechPanel}
             isMobile={isMobile}
             estimatedFamiliesForSummary={estimatedFamiliesForSummary}
+            familiesSourceLabel={familiesSourceLabel}
             familiesDisplay={familiesDisplay}
             coverageForSummary={coverageForSummary}
             selectedZoneNames={selectedZoneNames}

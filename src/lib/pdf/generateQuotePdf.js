@@ -607,16 +607,15 @@ function renderPdf(model) {
     for (const warning of model.pointOfSaleBreakdown.capacityWarnings || []) paragraph(w, `ATTENZIONE: ${warning}`);
   }
 
-  section(w, "4. Indicatori servizio", "KPI operativi della stima");
-  kvGrid(w, model.scores.map(s => ({ label: s.label, value: `${s.value}/100 - ${s.description || ""}` })));
-
-  section(w, "5. AdminInfo / ISTAT summary", `Sintesi demografica ed economica · dati ISTAT al ${ISTAT_REFERENCE_DATE}`);
+  // Regola Fadi 2026-11-22: i punteggi /100 (formule con costanti nostre) non
+  // si stampano piu'. La sezione "Indicatori servizio" e' stata tolta.
+  section(w, "4. AdminInfo / ISTAT summary", `Sintesi demografica ed economica · dati ISTAT al ${ISTAT_REFERENCE_DATE}`);
   kvGrid(w, model.adminInfo.map(i => ({ label: i.label, value: i.value })));
 
   renderAiAnalysis(w, model);
 
   w.ensure(136);
-  section(w, "6. Pianificazione campagna", "Date e vantaggi disponibili");
+  section(w, "5. Pianificazione campagna", "Date e vantaggi disponibili");
   kvGrid(w, [
     { label: "Date selezionate", value: (model.planning.selectedDates || []).join(" - ") },
     { label: "Disponibilit\u00e0", value: model.planning.availabilityLabel },
@@ -627,7 +626,7 @@ function renderPdf(model) {
     paragraph(w, "Smart Pairing non disponibile per questa configurazione.");
   }
 
-  section(w, "7. Preventivo e costo", model.statusKey === "submitted" || model.statusKey === "confirmed" ? "Calcolo economico del preventivo confermato" : "Calcolo economico stimato");
+  section(w, "6. Preventivo e costo", model.statusKey === "submitted" || model.statusKey === "confirmed" ? "Calcolo economico del preventivo confermato" : "Calcolo economico stimato");
   table(w, ["Voce", "Quantit\u00e0", "Prezzo unitario", "Totale"], [...model.pricing.lines.map(l => [
       l.label,
       l.quantityLabel || (l.quantity ? `${formatNumberIT(l.quantity)} volantini` : "-"),
@@ -663,7 +662,7 @@ function renderPdf(model) {
   }
   paragraph(w, "IVA esclusa. Il preventivo \u00e8 soggetto a conferma operativa; nessun pagamento anticipato.");
 
-  section(w, "8. Fonti dati", "Origine dei dati utilizzati");
+  section(w, "7. Fonti dati", "Origine dei dati utilizzati");
   paragraph(w, model.sources.join(" - ") || "Fonti non disponibili");
 
   const disclaimer = model.statusDisclaimer || "Il presente documento \u00e8 una stima operativa generata da VolantiniPro sulla base dei dati inseriti e delle analisi territoriali disponibili. Il preventivo pu\u00f2 essere soggetto a conferma operativa.";

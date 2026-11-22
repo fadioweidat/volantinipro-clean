@@ -5,7 +5,7 @@ import KpiTooltip from "../../../../components/ui/KpiTooltip.jsx";
 import { C, F } from "../../../../lib/constants.js";
 import { ISTAT_HOUSEHOLDS_SHORT } from "../../../../lib/istatCitation.js";
 
-export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setShowTechPanel, isMobile, estimatedFamiliesForSummary, familiesDisplay = null, coverageForSummary, selectedZoneNames, col, nonEmpty, serviceSummaryConfig, fieldCard, step4TerritoryPluralLabel, breakdownRows, isComuneMode, svcType, step4Omi, formatNumber, cleanSource, operationalSummary, techSections, toggleTech, handleDownloadPdf, pdfBusy }) {
+export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setShowTechPanel, isMobile, estimatedFamiliesForSummary, familiesSourceLabel = ISTAT_HOUSEHOLDS_SHORT, familiesDisplay = null, coverageForSummary, selectedZoneNames, col, nonEmpty, serviceSummaryConfig, fieldCard, step4TerritoryPluralLabel, breakdownRows, isComuneMode, svcType, step4Omi, formatNumber, cleanSource, operationalSummary, techSections, toggleTech, handleDownloadPdf, pdfBusy }) {
   if (isQuick) return null;
 
   return (
@@ -60,13 +60,13 @@ export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setSh
               {/* KPI principali — visibili subito per mantenere la sezione pulita */}
               {!showTechPanel && <div style={{
               display: "grid",
-              gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+              gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
               gap: 10
             }}>
                   {[{
                 label: "Famiglie operative stimate",
                 val: formatNumber(estimatedFamiliesForSummary, "—"),
-                sub: ISTAT_HOUSEHOLDS_SHORT,
+                sub: familiesSourceLabel,
                 c: C.green,
                 tip: "Stima del fabbisogno e delle famiglie raggiungibili nell'area selezionata su base geografica."
               }, {
@@ -81,12 +81,6 @@ export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setSh
                 sub: "Aree nella campagna",
                 c: C.white,
                 tip: "Numero di aree geografiche incluse nella distribuzione. Ogni zona è verificata su mappa."
-              }, {
-                label: "Affidabilità dati",
-                val: "99.4%",
-                sub: "Dati territoriali verificati",
-                c: C.purple,
-                tip: "Indica la precisione dei dati mostrati, basata su fonti ufficiali aggiornate."
               }].map((item, idx) => <div key={idx} style={{
                 padding: "12px 14px",
                 borderRadius: 12,
@@ -231,7 +225,8 @@ export function Step4TechnicalAnalysisPanel({ box, isQuick, showTechPanel, setSh
                 fontSize: 12,
                 color: "rgba(255,255,255,.35)"
               }}>{isComuneMode ? "Nessun comune disponibile." : "Nessun comune nel raggio disponibile."}</div>
-            }, {
+            }, nonEmpty(serviceSummaryConfig.scores || []).length > 0 && {
+              // Regola 2026-11-22: senza indicatori reali la sezione non compare.
               key: "indicatori",
               label: "Indicatori",
               icon: "target",

@@ -373,7 +373,7 @@ export function Step2SummaryPanel({ hasTerritoryContext = true, activeCampaignZo
                   color: "rgba(255,255,255,.62)",
                   lineHeight: 1.45
                 }}>
-                    Approfondisci demografia, NIL, mobilità, attività, mercato immobiliare, score e fonti realmente disponibili per la zona selezionata.
+                    Approfondisci demografia, NIL, mobilità, attività, mercato immobiliare, raccomandazioni e fonti realmente disponibili per la zona selezionata.
                   </div>
                   {displayOutputs.map((item, idx) => <div key={idx} style={{
                   display: "flex",

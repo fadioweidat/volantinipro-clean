@@ -129,10 +129,6 @@ export function Step2TerritorialReportSection({ aiAgg, areaMode, b2bKpiZone, bus
           value: step2CoverageFullLabel,
           color: "#38BDF8",
           unavailable: step2CoverageFullLabel == null
-        }, {
-          label: "Score D2D",
-          value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`,
-          color: "#4ADE80"
         }];
       } else if (isMovementStep2) {
         overviewKpis = [{
@@ -162,10 +158,6 @@ export function Step2TerritorialReportSection({ aiAgg, areaMode, b2bKpiZone, bus
           unit: "pz.",
           color: "#4ADE80",
           unavailable: !(operationalRecommended > 0)
-        }, {
-          label: "Score H2H",
-          value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`,
-          color: "#38BDF8"
         }];
       } else {
         overviewKpis = [{
@@ -388,11 +380,7 @@ export function Step2TerritorialReportSection({ aiAgg, areaMode, b2bKpiZone, bus
               omiRows,
               omiMeta
             },
-            score: {
-              pct: Math.round(Number(zoneVerdict?.score || 0)),
-              serviceTitle: activeServiceTitle,
-              note: scoreDescription
-            },
+            score: null,
             recommendation,
             sources: sourceRegistry.map(s => ({
               ...s,
