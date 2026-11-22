@@ -12,6 +12,13 @@
 
 Questa regola si applica a tutte le sessioni e a tutti gli agenti che operano nel repository. Le altre istruzioni di `AGENTS.md` e le regole di sicurezza restano valide.
 
+## Collaudi e carico sul database (regola 6, aggiornata 2026-11-22)
+
+- `preview-qa` usa un **database Supabase di prova separato** (`volantinipro-qa`, ref `lmcdmsnmatbgouybxonm`), tramite le variabili Vercel `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` limitate al branch `preview-qa`. Su `preview-qa` i **collaudi pesanti sono permessi** (Step 2 ripetuti, Milano intera, più punti vendita, cambi servizio, suite nel browser).
+- Su **www (produzione, ref `mqkelrsvksrzrpmbstvd`) solo controlli leggeri**: uno scenario alla volta, distanziati, niente Milano intera ripetuta, niente cicli di carico. Avvisare Fadi prima di qualunque controllo che richieda molte analisi.
+- Prima di un collaudo pesante verificare che il codice di `preview-qa` punti al progetto di prova e non a quello di produzione. Se le due variabili del branch vengono tolte (rollback), anche su `preview-qa` valgono di nuovo solo controlli leggeri.
+- Lo sviluppo locale (`.env.local`) punta ancora alla produzione: i collaudi pesanti in locale contano come carico sulla produzione.
+
 ## Allineamento di `integration/rc2-full-site` alla produzione
 
 - Preparare sempre la riconciliazione su un **branch dedicato creato da `integration/rc2-full-site`** e integrare `release/prod-stable-20261105` in quel branch.
