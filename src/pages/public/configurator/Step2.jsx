@@ -2561,8 +2561,8 @@ export function Step2({
                   eta34: null,
                   eta64: null,
                   eta65: null,
-                  genderM: 49,
-                  genderF: 51,
+                  genderM: null,
+                  genderF: null,
                   stranieri: null,
                   indVec: null,
                   densita: 0,
@@ -4167,13 +4167,17 @@ export function Step2({
     return {
       families: finalFam,
       pop: finalPop,
-      recFlyers: rawRec
+      recFlyers: rawRec,
+      // Famiglie ricavate dal fabbisogno (dato ISTAT non coerente con l'area):
+      // a valle si etichettano come stima, non come ISTAT.
+      familiesEstimated: Boolean(isOutOfScale)
     };
   }, [isResidentialStep2, dedupedSelZonesForCalc, radiusKm, searchMode, flyerQuantityFromStep1]);
   const serviceKpis = selZones.length > 0 ? {
     area: selZones.reduce((a, z) => a + (Number(z.area) || 0), 0).toFixed(1),
     hotspotStrength: isMovementStep2 ? h2hMetrics.zones : Math.round(selZones.reduce((a, z) => a + (h2hHotspotStrength(z) || 0), 0) / selZones.length),
     families: isResidentialStep2 ? step2FamiliesCalc.families : 0,
+    familiesEstimated: isResidentialStep2 ? Boolean(step2FamiliesCalc.familiesEstimated) : false,
     pop: isResidentialStep2 ? step2FamiliesCalc.pop : 0,
     population: isResidentialStep2 ? step2FamiliesCalc.pop : 0,
     coverage: isResidentialStep2 ? requiredFlyers > 0 ? Math.min(100, Math.round(allocationFlyers / requiredFlyers * 100)) : familiesWeightedCoverage(selZones) : null,
@@ -4605,8 +4609,14 @@ export function Step2({
       const v = selZones.map(z => z.eta65).filter(n => n != null);
       return v.length ? Math.round(v.reduce((a, n) => a + n, 0) / v.length * 10) / 10 : null;
     })(),
-    genderM: Math.round(selZones.reduce((a, z) => a + (z.genderM || 49), 0) / selZones.length),
-    genderF: Math.round(selZones.reduce((a, z) => a + (z.genderF || 51), 0) / selZones.length),
+    genderM: (() => {
+      const v = selZones.map(z => z.genderM).filter(n => n != null);
+      return v.length ? Math.round(v.reduce((a, n) => a + n, 0) / v.length) : null;
+    })(),
+    genderF: (() => {
+      const v = selZones.map(z => z.genderF).filter(n => n != null);
+      return v.length ? Math.round(v.reduce((a, n) => a + n, 0) / v.length) : null;
+    })(),
     hotspots: selZones.map(z => z.hotspots).filter(Boolean).join(" – ") || null,
     timeSlots: selZones[0]?.timeSlots || "-",
     strongPts: selZones.reduce((a, z) => a + (z.strongPts || 0), 0),

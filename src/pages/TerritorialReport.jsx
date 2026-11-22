@@ -75,7 +75,7 @@ const NAV_SECTIONS = [
   { id: "mobilita", label: "Mobilità e POI", services: ["h2h"], availability: "mobility" },
   { id: "imprese", label: "Attività, categorie e aree produttive", services: ["b2b"], availability: "business" },
   { id: "operativo", label: "Percorso e capacità operativa", services: ["b2b"], availability: "business" },
-  { id: "score", label: "Score e raccomandazioni", businessLabel: "Score Business e raccomandazioni", services: ["d2d", "h2h", "b2b"] },
+  { id: "score", label: "Raccomandazioni", businessLabel: "Raccomandazioni", services: ["d2d", "h2h", "b2b"] },
   { id: "fonti", label: "Fonti e metodologia", services: ["d2d", "h2h", "b2b"] },
 ];
 
@@ -755,17 +755,7 @@ function SectionMobilita({ p, isMobile }) {
           ]} isMobile={isMobile} />
         )}
       </div>
-      <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 18 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.white, marginBottom: 10 }}>Poli con maggiore potenziale di attrazione</div>
-        {m.hotspotRows.length === 0 ? <NA>Nessun polo classificato per questo raggio.</NA> : (
-          <ZoneTable rows={m.hotspotRows.slice(0, 8)} columns={[
-            { key: "name", label: "Zona" },
-            { key: "strength", label: "Indice", align: "right", render: (r) => `${r.strength}/100` },
-            { key: "transit", label: "Fermate/stazioni", align: "right" },
-            { key: "poi", label: "POI", align: "right" },
-          ]} isMobile={isMobile} />
-        )}
-      </div>
+      {/* Tabella "Poli con maggiore potenziale" tolta (2026-11-22): indice /100 e fermate calcolati su valori inventati. */}
       <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.4)" }}>Gli indicatori qui mostrati descrivono potenziale di attrazione territoriale (densità di POI e trasporto), non un conteggio certo di passanti.</div>
     </div>
   );
@@ -792,17 +782,7 @@ function SectionImprese({ p, isMobile }) {
           </div>
         )}
       </div>
-      <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 18 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.white, marginBottom: 10 }}>Zone con maggiore concentrazione B2B</div>
-        {b.rankedRows.length === 0 ? <NA>Nessuna zona classificata per questa configurazione.</NA> : (
-          <ZoneTable rows={b.rankedRows.slice(0, 8)} columns={[
-            { key: "zoneName", label: "Zona" },
-            { key: "score", label: "Score", align: "right", render: (r) => `${r.score}/100` },
-            { key: "activities", label: "Attività", align: "right" },
-            { key: "competitors", label: "Competitor", align: "right" },
-          ]} isMobile={isMobile} />
-        )}
-      </div>
+      {/* Tabella "Zone con maggiore concentrazione B2B" tolta (2026-11-22): score /100 su valori inventati. */}
       <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.4)" }}>Le categorie mostrate derivano esclusivamente dai tag POI restituiti da OpenStreetMap/Overpass, non da Google Places né da un censimento ATECO ufficiale.</div>
     </div>
   );
@@ -834,37 +814,8 @@ function SectionScore({ p }) {
   const s = p.score;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <SectionHeader title={p.service.key === "b2b" ? "Score Business e raccomandazioni" : "Score e raccomandazioni"} eyebrow={`Score ${p.service.title}`} tone={s.color} />
-      <div style={{ background: "rgba(255,255,255,.03)", border: `1px solid ${s.color}55`, borderRadius: 14, padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: s.color, marginBottom: 4 }}>Indice di efficienza e compatibilità zona</div>
-            <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.6)" }}>{s.description || "Indicatore interno calcolato dalle componenti effettivamente disponibili per questa configurazione. Non e un dato ufficiale ISTAT."}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 26, fontWeight: 900, color: s.color }}>{s.pct} / 100</div>
-            <div style={{ fontSize: 10.5, fontWeight: 800, color: s.color, textTransform: "uppercase" }}>{s.label}</div>
-          </div>
-        </div>
-        <div style={{ width: "100%", height: 9, background: "rgba(255,255,255,.06)", borderRadius: 5, overflow: "hidden", marginBottom: 14 }}>
-          <div style={{ width: `${s.pct}%`, height: "100%", background: s.color, borderRadius: 5 }} />
-        </div>
-        <Accordion title="Come viene calcolato" tone={s.color}>
-          {s.components.length === 0 ? <NA>Componenti non disponibili per questa configurazione.</NA> : (
-            <div style={{ display: "grid", gap: 9 }}>
-              {s.components.map((c) => (
-                <div key={c.name} style={{ display: "grid", gridTemplateColumns: "minmax(140px, 1fr) auto", gap: 10, paddingBottom: 9, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: C.white }}>{c.name}</div>
-                    <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.5)" }}>{c.description}</div>
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 900, color: s.color }} className="vp-data-number">{c.contribution}/{c.max}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Accordion>
-      </div>
+      <SectionHeader title="Raccomandazioni" eyebrow={p.service.title} tone={s.color} />
+      {/* Punteggio /100 ALTA/MEDIA/BASSA tolto (2026-11-22): pesi scelti da noi, non un dato. Restano le raccomandazioni. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
         <RecoCard tone="#60A5FA" title="Strategia principale" text={p.recommendation.strategy} />
         <RecoCard tone="#4ADE80" title="Zone prioritarie" text={p.recommendation.priorityZones} />
