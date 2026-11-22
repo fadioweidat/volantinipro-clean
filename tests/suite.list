@@ -240,7 +240,6 @@ tests/quick_quote_multicomune_price.test.mjs
 tests/milano_nil_istat_normalization.test.mjs
 tests/multi_pv_union_pricing_pdf.test.mjs
 tests/step4_render_runtime.test.mjs
-tests/gps_admin_real_names_contract.test.mjs
 tests/auth_redirect_preview_qa.test.mjs
 tests/dual_role_admin_customer.test.mjs
 tests/seo_homepage_contact.test.mjs
