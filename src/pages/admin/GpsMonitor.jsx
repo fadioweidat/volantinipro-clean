@@ -330,12 +330,9 @@ export function GpsMonitor({ campaignId, onNav }) {
         operatorId: o.operatorId || null,
         assignmentId: o.assignmentId || null,
         colorKey: String(key),
-        // Il ruolo non deve mai sostituire il nome anagrafico dell'operatore.
-        // Se il backend non lo restituisce, dichiarare l'assenza senza inventarlo.
-        displayName: o.name && !/^OP\s*\d+$/i.test(o.name.trim())
-          ? o.name.trim()
-          : `Nome non disponibile · ${shortOperatorId(key)}`,
-        roleLabel: isPrimaryAssignment ? 'Caposquadra' : null,
+        displayName: isPrimaryAssignment
+          ? 'Caposquadra'
+          : (o.name || slot || `Operatore ${shortOperatorId(key)}`),
         color: getOperatorColor(key),
         assigned: true,
         hasGps: gpsIdentityKeys.has(o.operatorId || o.assignmentId),
@@ -357,8 +354,7 @@ export function GpsMonitor({ campaignId, onNav }) {
         operatorId: id,
         assignmentId: null,
         colorKey: String(id),
-        displayName: `Nome non disponibile · ${shortOperatorId(id)}`,
-        roleLabel: null,
+        displayName: `Operatore ${shortOperatorId(id)}`,
         color: getOperatorColor(id),
         assigned: false,
         hasGps: true,
@@ -384,7 +380,7 @@ export function GpsMonitor({ campaignId, onNav }) {
       if (!id || byId.has(id)) return;
       byId.set(id, {
         id,
-        name: match?.name || null,
+        name: match?.participantLabel || match?.name || null,
         color: getOperatorColor(id),
       });
     });
@@ -751,7 +747,9 @@ export function GpsMonitor({ campaignId, onNav }) {
               {canonicalOperators.map((op, idx) => {
                 const opKey = op.operatorId || op.assignmentId || op.colorKey;
                 const isSelected = selectedOperatorFilter === opKey;
-                const label = `${op.displayName}${op.roleLabel ? ` · ${op.roleLabel}` : ''}`;
+                const label = op.isPrimaryAssignment
+                  ? 'Caposquadra'
+                  : (op.participantLabel || op.displayName || op.slot);
                 return (
                   <button
                     key={op.colorKey}
@@ -958,9 +956,9 @@ function GpsMap({ points, sessionTracks = [], canonicalOperators = [], trackVisi
         sessionId: key,
         driverId,
         assignmentId: canonical?.assignmentId || assignmentId,
-        operatorLabel: canonical
-          ? `${canonical.displayName}${canonical.roleLabel ? ` · ${canonical.roleLabel}` : ''}`
-          : `Nome non disponibile · OP ${index + 1}`,
+        operatorLabel: canonical?.isPrimaryAssignment
+          ? 'Caposquadra'
+          : (canonical?.participantLabel || canonical?.displayName || canonical?.slot || `OP ${index + 1}`),
         color,
         visible: false,
         lastPoint: null,
