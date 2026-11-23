@@ -366,6 +366,13 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                     }
                     const searchIntent = detectSearchIntent(search);
                     const addressIntentInMilano = searchIntent.intent === "address" && searchIntent.parentComune === "Milano";
+                    // A8 (c056572): con un numero civico richiesto la ricerca resta
+                    // sull'indirizzo, non su Municipio/NIL/comune intero.
+                    const civicRequest = Boolean(requestedCivicNumber(search));
+                    // Nasconde solo Municipi/NIL/comuni; gli indirizzi non
+                    // corrispondenti restano visibili con l'avviso.
+                    const isHiddenForCivic = c => civicRequest && !matchesRequestedCivic(search, c)
+                      && (isNilLikePlaceType(c?.placeType) || (!looksLikeAddressResult(c) && !ADDRESS_INTENT_RE.test(c?.name || c?.label || "")));
                     // Ordine (§ticket): indirizzi/punti → Milano → altri comuni
                     // (solo come alternativa esplicita, mai scelta principale).
                     const rankSuggestion = s => {
@@ -402,7 +409,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                           gap: 8,
                           flexWrap: "wrap"
                         }}>
-                            <button onClick={() => {
+                            {!civicRequest && <button onClick={() => {
                             resolveMilanoCity().then(milano => {
                               if (milano) {
                                 setCity(milano);
@@ -430,7 +437,7 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                             cursor: "pointer"
                           }}>
                               Usa Milano comune completo
-                            </button>
+                            </button>}
                             <button onClick={() => {
                             startManualPinSelection();
                           }} style={{
@@ -460,6 +467,10 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                         const textLooksLikeAddress = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
                         const hasPointCoordinates = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
                         const isOperationalPointResult = searchMode === "address" && isMovementStep2 && hasPointCoordinates && c?.placeType !== "place";
+                        // A8: un civico richiesto non viene sostituito da un
+                        // Municipio/NIL/comune solo perche' il geocoder lo propone.
+                        // Gli indirizzi non corrispondenti restano visibili con l'avviso.
+                        if (isHiddenForCivic(c)) return null;
                         if (isOperationalPointResult) {
                           return <div key={c.id} onClick={() => selectOperationalPoint(c.label || c.name, c)} style={{
                             padding: "9px 14px",
@@ -678,6 +689,12 @@ export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAr
                            </span>}
                         </div>;
                       })}
+                      {civicRequest && !addressIntentInMilano && orderedSuggestions.length > 0 && orderedSuggestions.every(isHiddenForCivic) && <div style={{
+                        padding: "9px 14px",
+                        fontFamily: F.sans,
+                        fontSize: 12,
+                        color: "#FBBF24"
+                      }}>Civico non trovato. Controlla il numero o scegli il punto sulla mappa.</div>}
                       </>;
                   })() : capSearchLoading ? <div style={{
                     padding: "9px 14px",

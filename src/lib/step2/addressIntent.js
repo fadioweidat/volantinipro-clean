@@ -80,16 +80,42 @@ export function requestedCivicNumber(query) {
   return match ? match[1].replace(/\s/g, '').toUpperCase() : null;
 }
 
+// A3 (2026-11-23): "12/A" = "12A" (lettera), ma "24/6" resta "24/6": la barra
+// numerica non si fonde col numero, altrimenti 24/6 e 246 sarebbero lo stesso
+// civico. Zeri iniziali ignorati ("010" = "10").
+export function normalizeItalianStreetNumber(value) {
+  return String(value ?? '')
+    .toUpperCase()
+    .replace(/[\s.\-]/g, '')
+    .replace(/\/(?=[A-Z])/g, '')
+    .replace(/^0+(?=\d)/, '');
+}
+
+function normalizeStreetName(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// A3: "Via Oroboni" = "Via Antonio Oroboni": stesso tipo di via e tutte le
+// parole cercate presenti nel nome restituito. "Via Certosa" resta diversa da
+// "Viale Certosa"; il solo tipo di via non basta.
+export function streetNamesMatch(requestedStreet, returnedStreet) {
+  const wanted = normalizeStreetName(requestedStreet);
+  const actual = normalizeStreetName(returnedStreet);
+  if (!wanted || !actual) return false;
+  if (wanted === actual) return true;
+  const w = wanted.split(' ');
+  const a = actual.split(' ');
+  return a[0] === w[0] && w.length >= 2 && w.slice(1).every(token => a.slice(1).includes(token));
+}
+
 export function matchesRequestedCivic(query, result) {
   const required = requestedCivicNumber(query);
   if (!required) return true; // street-level searches remain possible, but are not civico-confirmed
   if (!result || isNilLikePlaceType(result.placeType)) return false;
-  const returned = String(result.houseNumber || result.address?.house_number || '').replace(/\s/g, '').toUpperCase();
-  if (!returned || returned !== required) return false;
+  const returned = String(result.houseNumber || result.address?.house_number || '');
+  if (!returned || normalizeItalianStreetNumber(returned) !== normalizeItalianStreetNumber(required)) return false;
   const requestedStreet = requestedStreetAndNumberSegment(query).replace(/\s\d+(?:\s*[\/-]\s*[a-z0-9]+|[a-z])?\s*$/i, '');
-  const returnedStreet = result.street || '';
-  const normalize = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-  return Boolean(returnedStreet) && normalize(requestedStreet) === normalize(returnedStreet);
+  return streetNamesMatch(requestedStreet, result.street || '');
 }
 
 export function isGeocoderResultInMilanoComune(result) {
