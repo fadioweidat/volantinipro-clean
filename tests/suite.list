@@ -251,3 +251,4 @@ tests/step2_header_campaign_quantity_20261122.test.mjs
 tests/step2_add_or_replace_comune_20261122.test.mjs
 tests/no_invented_numbers_20261122.test.mjs
 tests/service_switch_keeps_analysis_20261122.test.mjs
+tests/step2_pv_ownership_writes_20261123.test.mjs
