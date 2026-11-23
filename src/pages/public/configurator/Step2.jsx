@@ -2205,7 +2205,11 @@ export function Step2({
       if (mapboxToken) {
         try {
           const mapboxTypes = searchIntent.intent === "address" || pointSearchIntent ? "address,poi,place,locality,neighborhood" : "place,locality,neighborhood";
-          const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(search)}.json?access_token=${mapboxToken}&country=IT&types=${mapboxTypes}&language=it&limit=8`);
+          // G (16014bc): contesto "Italia" aggiunto solo alla richiesta Mapbox
+          // per gli indirizzi, non al campo del visitatore.
+          const mapboxQuery = searchIntent.intent === "address" && !/\bitalia\b/i.test(search)
+            ? `${search.trim().replace(/,\s*$/, "")}, Italia` : search;
+          const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(mapboxQuery)}.json?access_token=${mapboxToken}&country=IT&types=${mapboxTypes}&language=it&limit=8`);
           const d = await r.json();
           if (cancelled) return;
           if (d.features?.length) {
