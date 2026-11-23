@@ -3339,6 +3339,12 @@ export function Step2({
     setManualPinMode(true);
     setAddressSearchError("");
     setDropOpen(false);
+    // B3 (bd6fad4): su telefono chiude la tastiera e porta subito la mappa in
+    // vista. Il punto resta non selezionato finche' non si tocca la mappa.
+    if (typeof document !== "undefined") {
+      document.activeElement?.blur?.();
+      requestAnimationFrame(() => document.getElementById("step2-map-target")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
   }
   async function handleManualMapClick(coords) {
     if (!coords || !Number.isFinite(Number(coords?.lat)) || !Number.isFinite(Number(coords?.lng))) return;
