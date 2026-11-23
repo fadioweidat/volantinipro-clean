@@ -67,3 +67,14 @@ test("PDF Quick Quote: niente 0 e niente 'Parziale' senza dato", () => {
   assert.match(p, /kv\("Famiglie stimate", Number\(outputs\.estimatedFamilies\) > 0 \?/);
   assert.match(p, /outputs\.coverageStatus === "partial" \? "Parziale" : null/);
 });
+
+test("quote in tabella: positive sotto l'1% scritte '<1%', mai '0%'", async () => {
+  const { formatShareIT } = await import("../src/lib/pdf/generateQuotePdf.js");
+  assert.equal(formatShareIT(0.05), "<1%");
+  assert.equal(formatShareIT(0.39), "<1%");
+  assert.equal(formatShareIT(0), "0%");
+  assert.equal(formatShareIT(26.3), "26%");
+  assert.equal(formatShareIT(null), null);
+  const s4 = read("src/pages/public/configurator/Step4.jsx");
+  assert.match(s4, /contributionPct: pv\.quantity > 0 \? c\.quantity \/ pv\.quantity \* 100 : null,/);
+});

@@ -57,6 +57,15 @@ function formatPercentIT(value) {
   return `${formatNumberIT(value)}%`;
 }
 
+// Quota in tabella: una quota positiva sotto lo 0,5% non diventa "0%".
+export function formatShareIT(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n > 0 && n < 0.5) return "<1%";
+  return formatPercentIT(Math.round(n));
+}
+
 function formatAreaKm2(value) {
   if (value === undefined || value === null || value === "") return null;
   return `${formatNumberIT(value, 1)} km\u00b2`;
@@ -591,8 +600,8 @@ function renderPdf(model) {
         ...(hasTypes ? [m.type || "-"] : []),
         m.status,
         !notSelected && m.estimatedFlyers != null ? formatNumberIT(m.estimatedFlyers) : "-",
-        !notSelected && m.coveragePct != null ? formatPercentIT(m.coveragePct) : "-",
-        !notSelected && m.contributionPct != null ? formatPercentIT(m.contributionPct) : "-",
+        !notSelected && m.coveragePct != null ? formatShareIT(m.coveragePct) : "-",
+        !notSelected && m.contributionPct != null ? formatShareIT(m.contributionPct) : "-",
       ];
     }), hasTypes ? [138, 54, 132, 58, 66, 63] : [150, 150, 80, 70, 61]);
   } else {
