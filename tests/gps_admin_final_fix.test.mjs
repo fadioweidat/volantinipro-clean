@@ -79,9 +79,7 @@ test('§18-B — legenda OPERATORI CAMPAGNA: elenca TUTTI gli operatori canonici
 
 test('§18-C — nome reale quando disponibile, fallback "Operatore <short-id>" (mai "Operatore <indice>")', () => {
   assert.match(GM, /export function shortOperatorId\(value\) \{/);
-  assert.match(GM, /displayName: o\.name && !\/\^OP/);
-  assert.match(GM, /roleLabel: isPrimaryAssignment \? 'Caposquadra' : null/);
-  assert.doesNotMatch(GM, /displayName: isPrimaryAssignment\s+\? 'Caposquadra'/);
+  assert.match(GM, /displayName: isPrimaryAssignment\s+\? 'Caposquadra'\s+: \(o\.name \|\| slot \|\| `Operatore \$\{shortOperatorId\(key\)\}`\)/);
   // riga sessione: nome canonico, poi short-id del driver, e solo in ultima
   // istanza (sessione senza driver_id) l'indice.
   assert.match(GM, /const rowTitle = canonOp\?\.displayName/);

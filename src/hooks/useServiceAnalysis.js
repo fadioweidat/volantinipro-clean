@@ -210,7 +210,12 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     setCancelled(false);
     const { url, canonicalCodes } = built;
 
-    if (appliedKeyRef.current === fetchKey && data !== null && error === null) {
+    // Duplicato solo se il dato in memoria e' DAVVERO quello di questa
+    // richiesta (dataKey === fetchKey). Fix 2026-11-22: dopo Door to Door ->
+    // Hand to Hand -> Door to Door il dato in memoria era quello H2H ma la
+    // richiesta D2D veniva saltata come "gia' applicata": famiglie, quantita'
+    // e comuni restavano "Dato non disponibile".
+    if (appliedKeyRef.current === fetchKey && dataKey === fetchKey && data !== null && error === null) {
       debugStep2("[ZONE_ANALYSIS_SKIPPED_DUPLICATE]", { fetchKey });
       // Stessa classe di bug del ramo hasValidZone sopra, caso piu' stretto:
       // se i parametri sono cambiati e tornati rapidamente allo stesso
@@ -248,6 +253,8 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         if (service !== 'd2d') {
           const analysis = await fetchPoiAnalysis({ lat: centerLat, lng: centerLng, radiusKm, service, targetSelection });
           if (requestId !== requestIdRef.current) return;
+          // Anche per H2H/B2B la chiave applicata segue il dato in memoria.
+          appliedKeyRef.current = analysis.error ? "" : fetchKey;
           setData(analysis);
           setDataKey(fetchKey);
           setError(analysis.error || null);
@@ -410,7 +417,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   const pending = Boolean(
     zoneValid &&
     lastSettledKeyRef.current !== fetchKey &&
-    !(appliedKeyRef.current === fetchKey && data !== null && error === null)
+    !(appliedKeyRef.current === fetchKey && dataKey === fetchKey && data !== null && error === null)
   );
   const status = resolveAnalysisStatus({
     active: Boolean(fetchKey), cancelled, retrying: isRetrying, inFlight: loading || pending, slow, error, hasData: data !== null,

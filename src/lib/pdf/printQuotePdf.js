@@ -354,12 +354,12 @@ export function printQuotePdf(unsafeData) {
       ${kv("Superficie coperta", area.coveredAreaKm2 ? `${fmt(area.coveredAreaKm2, 1)} km²` : null)}
       ${kv("Comuni selezionati", (area.selectedMunicipalities || []).join(", ") || null)}
       ${kv("Modalità selezione", area.selectionMode)}
-      ${kv("Famiglie stimate", fmt(outputs.estimatedFamilies))}
-      ${kv("Popolazione stimata", fmt(outputs.estimatedPopulation))}
+      ${kv("Famiglie stimate", Number(outputs.estimatedFamilies) > 0 ? fmt(outputs.estimatedFamilies) : null)}
+      ${kv("Popolazione stimata", Number(outputs.estimatedPopulation) > 0 ? fmt(outputs.estimatedPopulation) : null)}
       ${kv("Copertura potenziale", pct(outputs.estimatedCoverage))}
       ${kv("Copertura con quantità", pct(covPct))}
-      ${kv("Volantini consigliati", fmt(outputs.recommendedFlyers))}
-      ${kv("Stato copertura", outputs.coverageStatus === "sufficient" ? "Sufficiente" : "Parziale")}
+      ${kv("Volantini consigliati", Number(outputs.recommendedFlyers) > 0 ? fmt(outputs.recommendedFlyers) : null)}
+      ${kv("Stato copertura", outputs.coverageStatus === "sufficient" ? "Sufficiente" : outputs.coverageStatus === "partial" ? "Parziale" : null)}
     </div>
     ${outputs.estimatedFamilies != null ? `<div class="callout" style="margin-top:10px">${PDF_HOUSEHOLDS_SOURCE_NOTE}</div>` : ""}
     ${ins && rec ? `<div class="callout" style="margin-top:10px">${

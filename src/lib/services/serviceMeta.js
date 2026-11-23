@@ -80,7 +80,7 @@ export const LAYERS = {
       field: "poi",
       fmt: n => n.toLocaleString("it-IT"),
       unit: "POI",
-      src: "Google Places",
+      src: "OpenStreetMap",
       lo: "#EFF6FF",
       hi: "#1E3A8A"
     }, {
@@ -116,7 +116,7 @@ export const LAYERS = {
       field: "nearbyBiz",
       fmt: n => n.toLocaleString("it-IT"),
       unit: "att.",
-      src: "Google Places",
+      src: "OpenStreetMap",
       lo: "#ECFDF5",
       hi: "#065F3C"
     }],
@@ -126,7 +126,7 @@ export const LAYERS = {
       field: "bizTotal",
       fmt: n => n.toLocaleString("it-IT"),
       unit: "att.",
-      src: "Google Places",
+      src: "OpenStreetMap",
       lo: "#FDF2F8",
       hi: "#701A75"
     }, {
@@ -135,7 +135,7 @@ export const LAYERS = {
       field: "competitors",
       fmt: n => n.toLocaleString("it-IT"),
       unit: "comp.",
-      src: "Google Places",
+      src: "OpenStreetMap",
       lo: "#FFF5F0",
       hi: "#C2410C"
     }, {
@@ -162,7 +162,7 @@ export const LAYERS = {
       field: "targetBiz",
       fmt: n => n.toLocaleString("it-IT") + " att.",
       unit: "att.",
-      src: "Google Places",
+      src: "OpenStreetMap",
       lo: "#ECFDF5",
       hi: "#065F3C"
     }, {
@@ -295,10 +295,6 @@ export const SERVICE_META = {
         v: n => n.eta65 + "%"
       }, {
         group: "Demographic profile",
-        l: "Genere",
-        v: n => "M " + n.genderM + "%  F " + n.genderF + "%"
-      }, {
-        group: "Demographic profile",
         l: "Indice vecchiaia",
         v: n => n.indVec + "/100"
       }, {
@@ -342,7 +338,7 @@ export const SERVICE_META = {
       icon: "",
       color: C.blue,
       mode: "movement",
-      src: ["Google Places", "Google Places", "OpenStreetMap", "Overpass", "Trasporto pubblico / GTFS", "Mapbox", "Analisi interna", "Dati geografici"],
+      src: ["OpenStreetMap", "Overpass", "Trasporto pubblico / GTFS", "Mapbox", "Analisi interna", "Dati geografici"],
       allocationSort: (n, i) => (i.flowScore || 0) * 2.4 + (i.strongPts || 0) * 13 + (i.transitStops || 0) * 1.9 + (i.poi || 0) * .18 + (i.commDens || 0) * 1.2 - (i.dist || 0) * 4 - ((n.flowScore || 0) * 2.4 + (n.strongPts || 0) * 13 + (n.transitStops || 0) * 1.9 + (n.poi || 0) * .18 + (n.commDens || 0) * 1.2 - (n.dist || 0) * 4),
       mainKpis: n => {
         const i = n.flowScore,
@@ -352,23 +348,9 @@ export const SERVICE_META = {
           l: "POI rilevanti",
           v: n.poi.toLocaleString("it-IT"),
           u: "POI",
-          src: "Google Places",
+          src: "OpenStreetMap",
           c: C.blue,
           icon: ""
-        }, {
-          l: "Competitor rilevati",
-          v: Math.round(n.nearbyBiz * .28),
-          u: "comp.",
-          src: "Google Places",
-          c: C.red,
-          icon: ""
-        }, {
-          l: "Densit passaggio",
-          v: n.commDens + "/100",
-          u: "",
-          src: "Analisi interna",
-          c: C.orange,
-          icon: " "
         }, {
           l: "Flusso potenziale",
           v: r + "  " + i + "/100",
@@ -479,20 +461,20 @@ export const SERVICE_META = {
       icon: "",
       color: C.purple,
       mode: "business",
-      src: ["Google Places", "Google Places", "OpenStreetMap", "Mapbox", "Analisi interna", "Dati geografici", "Dati territoriali"],
+      src: ["OpenStreetMap", "Mapbox", "Analisi interna", "Dati geografici", "Dati territoriali"],
       allocationSort: (n, i) => (i.targetBiz || 0) * 1.9 + (i.commDensB2B || 0) * 2.2 + (i.clusters || 0) * 10 - (i.competitors || 0) * .35 - (i.dist || 0) * 3 - ((n.targetBiz || 0) * 1.9 + (n.commDensB2B || 0) * 2.2 + (n.clusters || 0) * 10 - (n.competitors || 0) * .35 - (n.dist || 0) * 3),
       mainKpis: n => [{
         l: "Attivit rilevate",
         v: n.bizTotal.toLocaleString("it-IT"),
         u: "att.",
-        src: "Google Places",
+        src: "OpenStreetMap",
         c: C.purple,
         icon: ""
       }, {
         l: "Competitor rilevati",
         v: n.competitors,
         u: "comp.",
-        src: "Google Places",
+        src: "OpenStreetMap",
         c: C.red,
         icon: ""
       }, {

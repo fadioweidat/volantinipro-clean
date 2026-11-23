@@ -14,7 +14,6 @@ import { AssignWork } from './AssignWork.jsx';
 import { loadAdminHomeData } from './AdminDashboard.jsx';
 import { GroupsManagerCreateForm } from './groups-manager/GroupsManagerCreateForm.jsx';
 import './admin-dashboard.css';
-import './groups-manager/add-person.css';
 
 function emptyData() {
   return { campaigns: [], groups: [], operators: [], availability: { campaigns: false, groups: false } };
@@ -34,8 +33,6 @@ export function GroupsManager({ onNav }) {
   const [busyGroupId, setBusyGroupId] = useState(null);
   const [confirmDeactivateGroup, setConfirmDeactivateGroup] = useState(null);
   const [confirmRemoveMember, setConfirmRemoveMember] = useState(null);
-  const [addingToGroup, setAddingToGroup] = useState(null);
-  const [selectedPersonId, setSelectedPersonId] = useState('');
 
   async function load() {
     setState(current => ({ ...current, loading: true, error: null }));
@@ -69,19 +66,6 @@ export function GroupsManager({ onNav }) {
     setWizardOperatorId(operatorId);
     setWizardOpen(true);
     window.requestAnimationFrame(() => document.getElementById('nuovo-programma')?.scrollIntoView({ behavior: 'smooth' }));
-  }
-
-  function openAddPerson(group) {
-    setAddingToGroup(group);
-    setSelectedPersonId('');
-  }
-
-  function continueAddPerson() {
-    if (!addingToGroup || !selectedPersonId) return;
-    const group = addingToGroup;
-    setAddingToGroup(null);
-    setNotice('Persona selezionata. Diventerà membro attivo solo dopo aver salvato il programma; nessuna assegnazione è stata ancora creata.');
-    openWizard(group.campaign_id, group.id, selectedPersonId);
   }
 
   function openGroupWhatsApp(group) {
@@ -214,7 +198,7 @@ export function GroupsManager({ onNav }) {
                 <ProgramRecipientSummary assignment={group.activeAssignments[0]} compensation={savedSupplierCompensation(group.activeAssignments[0], group.campaign)} />
                 <div className="admin-home__card-actions">
                   {editingGroupId === group.id ? <><button type="button" onClick={() => saveGroupName(group)}>Salva nome</button><button type="button" onClick={() => setEditingGroupId(null)}>Annulla</button></> : <button type="button" onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}>Rinomina</button>}
-                  <button type="button" onClick={() => openAddPerson(group)}>Aggiungi persona</button>
+                  <button type="button" onClick={() => openWizard(group.campaign_id, group.id)}>Aggiungi persona</button>
                   <button type="button" onClick={() => openWizard(group.campaign_id, group.id)}>Assegna lavoro</button>
                   <button type="button" disabled={!resolveProgramRecipient({ assignment: group.activeAssignments[0] }).valid} onClick={() => openGroupWhatsApp(group)}>WhatsApp</button>
                   <a href={`/admin/campaigns/${group.campaign_id}/groups`}>Copia link gruppo</a>
@@ -225,27 +209,6 @@ export function GroupsManager({ onNav }) {
           </div>
         ))}
       </section>
-
-      {addingToGroup && (
-        <div className="admin-home__dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAddingToGroup(null); }}>
-          <section className="admin-home__dialog" role="dialog" aria-modal="true" aria-labelledby="add-person-title">
-            <h3 id="add-person-title">Aggiungi persona a {addingToGroup.name}</h3>
-            <p>Seleziona un operatore registrato. In questo sistema i membri del gruppo sono associati a un programma: la selezione non crea ancora un'assegnazione.</p>
-            <label htmlFor="group-person-select">Operatore</label>
-            <select id="group-person-select" value={selectedPersonId} onChange={(event) => setSelectedPersonId(event.target.value)}>
-              <option value="">Scegli una persona...</option>
-              {operators.filter((operator) => !addingToGroup.members.some((member) => member.id === operator.id)).map((operator) => (
-                <option key={operator.id} value={operator.id}>{operator.display_name || operator.name || 'Operatore senza nome'}</option>
-              ))}
-            </select>
-            {operators.length === 0 && <p role="status">Nessun operatore registrato disponibile. Per usare un telefono senza account, occorre il link di accesso gruppo previsto dal flusso Driver.</p>}
-            <div className="admin-home__dialog-actions">
-              <button type="button" onClick={() => setAddingToGroup(null)}>Annulla</button>
-              <button type="button" disabled={!selectedPersonId} onClick={continueAddPerson}>Continua al programma</button>
-            </div>
-          </section>
-        </div>
-      )}
 
       <section id="nuovo-programma" className="admin-home__section" aria-labelledby="program-title">
         <SectionHeading id="program-title" eyebrow="Assegnazione" title="Nuovo programma" meta="Usa il flusso Driver esistente" action={wizardOpen ? 'Chiudi' : 'Apri'} onAction={() => setWizardOpen((value) => !value)} />

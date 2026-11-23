@@ -5,7 +5,7 @@ import { businessOptionLabel, BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS } f
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { Step2Map } from "../../../../components/Step2Map.jsx";
 import { Step2MapErrorBoundary } from "../../../../components/Step2MapErrorBoundary.jsx";
-import { formatRadiusLabel } from "../../../../lib/utils/format.js";
+import { formatIntegerIT, formatRadiusLabel } from "../../../../lib/utils/format.js";
 import { getCoverageStatus } from "../../../../lib/step2/buildStep2ViewModel.js";
 import { normalizeMunicipalityName } from "../../../../lib/step2/addressIntent.js";
 import { truthfulSourceLabel } from "../../../../lib/step2/truthfulSourceLabel.js";
@@ -339,7 +339,7 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
                 textTransform: "uppercase",
                 marginBottom: 6
               }}>{isNilAnalysis ? "NIL Milano" : "Residential territory"}</div>
-                {residentialRadiusRows.slice(0, 4).map(r => <div key={r.id} style={{
+                {[...residentialRadiusRows].sort((a, b) => (b.families || 0) - (a.families || 0)).slice(0, 4).map(r => <div key={r.id} style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
@@ -363,7 +363,7 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
                   fontSize: 9,
                   fontWeight: 800,
                   color: C.white
-                }}>{r.strength}/100</span>
+                }}>{r.families > 0 ? `${formatIntegerIT(r.families)} fam.` : ""}</span>
                   </div>)}
               </div>}
             {isBusinessStep2 && city && <div style={{

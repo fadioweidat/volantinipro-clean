@@ -57,6 +57,15 @@ function formatPercentIT(value) {
   return `${formatNumberIT(value)}%`;
 }
 
+// Quota in tabella: una quota positiva sotto lo 0,5% non diventa "0%".
+export function formatShareIT(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n > 0 && n < 0.5) return "<1%";
+  return formatPercentIT(Math.round(n));
+}
+
 function formatAreaKm2(value) {
   if (value === undefined || value === null || value === "") return null;
   return `${formatNumberIT(value, 1)} km\u00b2`;
@@ -370,8 +379,16 @@ function fitLines(text, width, size, font, maxLines) {
   return kept;
 }
 
+// Segnaposto che non sono dati: la riga non si stampa (regola 2026-11-22,
+// nessun valore vuoto o inventato presentato come dato).
+const PLACEHOLDER_VALUE_RE = /^\s*(-|—|–|n\/d|n\.d\.|dato non disponibile|non disponibile)\s*$/i;
+export function isPrintableKvValue(value) {
+  const text = safe(value);
+  return Boolean(text) && !PLACEHOLDER_VALUE_RE.test(String(value));
+}
+
 function kvGrid(w, items, columns = 2) {
-  const clean = items.filter(i => safe(i?.value));
+  const clean = items.filter(i => isPrintableKvValue(i?.value));
   if (!clean.length) return;
   const colW = (PAGE.w - PAGE.margin * 2 - 12 * (columns - 1)) / columns;
   const innerW = colW - 18;
@@ -583,8 +600,8 @@ function renderPdf(model) {
         ...(hasTypes ? [m.type || "-"] : []),
         m.status,
         !notSelected && m.estimatedFlyers != null ? formatNumberIT(m.estimatedFlyers) : "-",
-        !notSelected && m.coveragePct != null ? formatPercentIT(m.coveragePct) : "-",
-        !notSelected && m.contributionPct != null ? formatPercentIT(m.contributionPct) : "-",
+        !notSelected && m.coveragePct != null ? formatShareIT(m.coveragePct) : "-",
+        !notSelected && m.contributionPct != null ? formatShareIT(m.contributionPct) : "-",
       ];
     }), hasTypes ? [138, 54, 132, 58, 66, 63] : [150, 150, 80, 70, 61]);
   } else {
@@ -607,16 +624,15 @@ function renderPdf(model) {
     for (const warning of model.pointOfSaleBreakdown.capacityWarnings || []) paragraph(w, `ATTENZIONE: ${warning}`);
   }
 
-  section(w, "4. Indicatori servizio", "KPI operativi della stima");
-  kvGrid(w, model.scores.map(s => ({ label: s.label, value: `${s.value}/100 - ${s.description || ""}` })));
-
-  section(w, "5. AdminInfo / ISTAT summary", `Sintesi demografica ed economica · dati ISTAT al ${ISTAT_REFERENCE_DATE}`);
+  // Regola Fadi 2026-11-22: i punteggi /100 (formule con costanti nostre) non
+  // si stampano piu'. La sezione "Indicatori servizio" e' stata tolta.
+  section(w, "4. AdminInfo / ISTAT summary", `Sintesi demografica ed economica · dati ISTAT al ${ISTAT_REFERENCE_DATE}`);
   kvGrid(w, model.adminInfo.map(i => ({ label: i.label, value: i.value })));
 
   renderAiAnalysis(w, model);
 
   w.ensure(136);
-  section(w, "6. Pianificazione campagna", "Date e vantaggi disponibili");
+  section(w, "5. Pianificazione campagna", "Date e vantaggi disponibili");
   kvGrid(w, [
     { label: "Date selezionate", value: (model.planning.selectedDates || []).join(" - ") },
     { label: "Disponibilit\u00e0", value: model.planning.availabilityLabel },
@@ -627,7 +643,7 @@ function renderPdf(model) {
     paragraph(w, "Smart Pairing non disponibile per questa configurazione.");
   }
 
-  section(w, "7. Preventivo e costo", model.statusKey === "submitted" || model.statusKey === "confirmed" ? "Calcolo economico del preventivo confermato" : "Calcolo economico stimato");
+  section(w, "6. Preventivo e costo", model.statusKey === "submitted" || model.statusKey === "confirmed" ? "Calcolo economico del preventivo confermato" : "Calcolo economico stimato");
   table(w, ["Voce", "Quantit\u00e0", "Prezzo unitario", "Totale"], [...model.pricing.lines.map(l => [
       l.label,
       l.quantityLabel || (l.quantity ? `${formatNumberIT(l.quantity)} volantini` : "-"),
@@ -663,7 +679,7 @@ function renderPdf(model) {
   }
   paragraph(w, "IVA esclusa. Il preventivo \u00e8 soggetto a conferma operativa; nessun pagamento anticipato.");
 
-  section(w, "8. Fonti dati", "Origine dei dati utilizzati");
+  section(w, "7. Fonti dati", "Origine dei dati utilizzati");
   paragraph(w, model.sources.join(" - ") || "Fonti non disponibili");
 
   const disclaimer = model.statusDisclaimer || "Il presente documento \u00e8 una stima operativa generata da VolantiniPro sulla base dei dati inseriti e delle analisi territoriali disponibili. Il preventivo pu\u00f2 essere soggetto a conferma operativa.";

@@ -116,7 +116,7 @@ async function main() {
   assert(/famiglie residenti e fabbisogno operativo differiscono/i.test(demoText), 'Spiegazione famiglie residenti vs fabbisogno operativo assente');
   assert(await page.getByRole('button', { name: /Edifici e territorio/i }).count() === 0, 'Sezione edifici priva di dati non nascosta');
   assert(await page.getByRole('button', { name: /Economia e immobili/i }).count() === 0, 'Sezione OMI priva di dati non nascosta');
-  await page.getByRole('button', { name: /Score e raccomandazioni/i }).click();
+  await page.getByRole('button', { name: /Raccomandazioni/i }).click();
   const scoreText = await page.locator('body').innerText();
   assert(!/famiglie\/POI raggiungibili/i.test(scoreText), 'Score D2D cita ancora POI non disponibili');
   await page.getByRole('button', { name: /Fonti e metodologia/i }).click();
