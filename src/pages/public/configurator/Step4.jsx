@@ -782,6 +782,10 @@ export function Step4({
   // (o default 70/75/85): non si mostrano piu', ne' qui ne' nel PDF.
   const d2dScores = [];
   const kpisPopulation = kpis.population ?? kpis.pop ?? (totP || null);
+  // PDF (2026-11-23): popolazione solo se e' un dato reale > 0. Con piu' PV la
+  // popolazione unica non e' calcolabile (kpis.population = null) e
+  // formatNumber(null) restituiva "0": la riga "Popolazione stimata 0" va tolta.
+  const populationForPdf = Number(kpisPopulation) > 0 ? Number(kpisPopulation) : null;
   const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
   // Nel raggio il numero di comuni coinvolti non e' quello dei comuni scelti
   // come centro (spesso 1: Milano). Step 2 salva la conta delle intersezioni
@@ -1007,13 +1011,15 @@ export function Step4({
     }
   }[svcType] || {};
   if (svcType === "d2d") {
+    // Righe senza dato reale (null) non vengono stampate: niente "0", "—" o
+    // "dato non disponibile" presentati come valori.
     serviceSummaryConfig.admin = [{
       l: "Famiglie stimate",
-      v: formatNumber(estimatedFamiliesForSummary, "—"),
+      v: uniqueFamiliesUndetermined ? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : Number(estimatedFamiliesForSummary) > 0 ? formatNumber(estimatedFamiliesForSummary) : null,
       src: familiesSourceLabel
     }, {
       l: "Popolazione stimata",
-      v: formatNumber(kpisPopulation) || "dato non disponibile",
+      v: populationForPdf != null ? formatNumber(populationForPdf) : null,
       src: familiesSourceLabel
     }, {
       l: "Superficie analizzata",
@@ -1202,9 +1208,9 @@ export function Step4({
       // PDF: stato esplicito al posto del numero quando le famiglie uniche dei PV non sono determinabili.
       estimatedFamiliesNote: uniqueFamiliesUndetermined ? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : null,
       uniqueFamiliesStatus: isMultiZoneQuote ? multiZoneSummary.uniqueFamiliesStatus : null,
-      estimatedPopulation: svcType === "d2d" ? kpisPopulation : null,
+      estimatedPopulation: svcType === "d2d" ? populationForPdf : null,
       estimatedCoverage: svcType === "d2d" ? coverageForSummary : null,
-      recommendedFlyers: svcType === "d2d" ? requiredQty ?? null : null,
+      recommendedFlyers: svcType === "d2d" && Number(requiredQty) > 0 ? requiredQty : null,
       fullCoverageFlyers: svcType === "d2d" ? requiredQty ?? null : null,
       insertedFlyers: flyerQty,
       remainingFlyers: quantityIsSufficient == null ? null : quantityIsSufficient ? remainingQty : 0,
