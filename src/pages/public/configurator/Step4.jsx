@@ -45,6 +45,7 @@ import { familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js
 import { averageUnitPrice, resolveQuoteStatus } from "../../../lib/quoteStatus.js";
 import { countTerritories, territoryTypeLabel } from "../../../lib/step2/territoryCounts.js";
 import { UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL } from "../../../lib/step2/uniqueHouseholds.js";
+import { estimateCampaignPersons } from "../../../lib/step4/personsEstimate.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 import { buildOnProjectPayload, businessMissingAnswers } from "../../../lib/business/businessOnProject.js";
@@ -259,13 +260,11 @@ export function Step4({
     }[ext.id] || "Anteprima";
     const realCoverage = coverageForSummary ?? kpis.coverage ?? avgCov ?? null;
     const realFamilies = isMultiZoneQuote ? kpis.families ?? null : kpis.families ?? totF ?? null;
-    const realPopulation = kpisPopulation ?? (realFamilies ? Math.round(realFamilies * 2.4) : null);
     const realComuniCount = kpisComuniCount ?? selectedZoneNames.length ?? null;
     const realAreaScore = kpis.familyIndex ?? avgFIdx ?? 0;
     const realReachScore = kpis.reachScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + (z.reachD2D || 0), 0) / selZ.length) : realCoverage || 0);
     const realRoiScore = kpis.roiScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + (z.roiD2D || 0), 0) / selZ.length) : realCoverage || 0);
     const realConfidenceScore = kpis.confidenceScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + (z.confD2D || 0), 0) / selZ.length) : 82);
-    const realDensity = d2dAvgDensity ?? (d2dAreaKm2 && realPopulation ? Math.round(realPopulation / d2dAreaKm2) : null);
     const aiQualityScore = Math.round(([realAreaScore, realReachScore, realRoiScore, realConfidenceScore].filter(v => Number.isFinite(Number(v)) && Number(v) > 0).reduce((a, v) => a + Number(v), 0) || 0) / Math.max(1, [realAreaScore, realReachScore, realRoiScore, realConfidenceScore].filter(v => Number.isFinite(Number(v)) && Number(v) > 0).length));
     const aiLevel = aiQualityScore >= 86 ? "ottimo" : aiQualityScore >= 74 ? "avanzato" : aiQualityScore >= 58 ? "buono" : "base";
     const coveragePartial = realCoverage != null && realCoverage < 100;
@@ -785,7 +784,16 @@ export function Step4({
   // PDF (2026-11-23): popolazione solo se e' un dato reale > 0. Con piu' PV la
   // popolazione unica non e' calcolabile (kpis.population = null) e
   // formatNumber(null) restituiva "0": la riga "Popolazione stimata 0" va tolta.
-  const populationForPdf = Number(kpisPopulation) > 0 ? Number(kpisPopulation) : null;
+  // Persone (2026-11-23): un PV = popolazione ISTAT dell'area; piu' PV =
+  // rapporto popolazione/famiglie ISTAT di ogni PV x sue famiglie uniche.
+  // Nessun coefficiente fisso: se non calcolabile -> null (card e riga tolte).
+  const personsEstimate = estimateCampaignPersons({
+    singlePopulation: isMultiZoneQuote ? null : kpisPopulation,
+    plan: isMultiZoneQuote ? multiPvPlan : null,
+    zones: isMultiZoneQuote ? multiZoneSummary.zones : []
+  });
+  const populationForPdf = personsEstimate ? personsEstimate.value : null;
+  const personsSourceLabel = personsEstimate?.method === "istat_ratio_per_pv" ? "Stima da ISTAT: persone per famiglia di ogni PV × famiglie uniche" : familiesSourceLabel;
   const summaryMunicipalityNames = isMultiZoneQuote ? getCampaignMunicipalityNames(data.campaignZones) : selectedZoneNames;
   // Nel raggio il numero di comuni coinvolti non e' quello dei comuni scelti
   // come centro (spesso 1: Milano). Step 2 salva la conta delle intersezioni
@@ -2462,13 +2470,13 @@ export function Step4({
                 sub: familiesSourceLabel,
                 v: formatNumber(estimatedFamiliesForSummary, "—"),
                 c: C.green
-              }, {
+              }, ...(populationForPdf != null ? [{
                 icon: "family",
                 l: "Persone stimate",
-                sub: kpisPopulation != null ? familiesSourceLabel : "Stima su famiglie (coefficiente medio)",
-                v: formatNumber(kpisPopulation ?? Math.round((kpis.families ?? totF) * 2.4), "—"),
+                sub: personsSourceLabel,
+                v: formatNumber(populationForPdf),
                 c: C.white
-              }, {
+              }] : []), {
                 icon: "pin",
                 l: "Comuni coinvolti",
                 sub: summaryMunicipalityNames.slice(0, 2).join(", ") + (summaryMunicipalityNames.length > 2 ? ` +${summaryMunicipalityNames.length - 2}` : ""),
