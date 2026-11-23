@@ -767,6 +767,7 @@ function Step2MapImpl({
   boundaryKpis,         // { families, coveragePercent, insertedFlyers, recommendedFlyers } — tooltip confine comune attivo
   unconfirmedAddressMode, // true = indirizzo dentro Milano ma non confermato: preview NIL attive, confine leggero
   onMapClick,
+  fallbackView = null, // {lat,lng,zoom}|null — vista da usare SOLO quando city manca (es. punto manuale su PV nuovo). Default invariato.
   focusPoiId,   // id del POI su cui centrare/evidenziare la mappa (click dalla lista H2H/Business)
   focusPoiNonce, // incrementato ad ogni click, anche se si riclicca lo stesso POI
   focusNil = null, // { id, geometry, nonce } — dalla ricerca NIL: inquadra ed evidenzia il poligono, NON cambia la selezione
@@ -2087,6 +2088,18 @@ function Step2MapImpl({
     }
 
   }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, geographicLayerReady, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode, simplifiedMilano, containingNil, centerLabel, viewportShiftX]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Oss. 1 (collaudo 2026-11-23): senza comune la mappa restava sull Italia
+  // intera (centro iniziale 41.9,12.5 zoom 6). Con fallbackView (passata solo
+  // in modalita punto manuale) la mappa inquadra subito la zona indicata.
+  const fallbackViewKey = fallbackView ? `${fallbackView.lat}|${fallbackView.lng}|${fallbackView.zoom}` : "";
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !leafletLoaded || city || !fallbackView) return;
+    const lat = Number(fallbackView.lat), lng = Number(fallbackView.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    try { map.setView([lat, lng], Number(fallbackView.zoom) || 12, { animate: false }); } catch { /* mappa non pronta */ }
+  }, [leafletLoaded, city, fallbackViewKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click da lista H2H/Business: centra la mappa sul POI ed evidenzia il
   // marker, senza toccare assegnazione/selezione (nessuna chiamata a

@@ -22,8 +22,9 @@ test("B3: ancora stabile della mappa e scroll al punto manuale", () => {
 test("B4: barra del punto manuale compatta con Annulla", () => {
   const banner = mapPanel.slice(mapPanel.indexOf("{manualPinMode && <div style={{"), mapPanel.indexOf("Annulla"));
   assert.ok(banner.length > 0);
-  assert.match(banner, /left: 12,\n\s*right: 12,/);
-  assert.match(banner, /maxWidth: "calc\(100% - 24px\)"/);
+  // Oss. 4: la barra parte a destra dei pulsanti dello zoom.
+  assert.match(banner, /left: 52,\n\s*right: 12,/);
+  assert.match(banner, /maxWidth: "calc\(100% - 64px\)"/);
   assert.match(banner, /Tocca la mappa per scegliere il punto/);
   assert.match(banner, /<button type="button" onClick=\{\(\) => setManualPinMode\(false\)\}/);
   assert.doesNotMatch(banner, /transform: "translateX\(-50%\)"/);
