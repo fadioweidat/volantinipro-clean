@@ -109,7 +109,7 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     <Suspense fallback={<RouteLoadingFallback />}>
       <div className={`configurator-assistant-layout${isConfiguratorStep && assistantOpen ? " configurator-assistant-layout--open" : ""}`}>{content}</div>
       {showFooter && <Footer onNav={goTo} onHowItWorks={() => { goTo("home"); setTimeout(() => document.getElementById("come-funziona")?.scrollIntoView({ behavior: "smooth" }), 150); }} />}
-      {isConfiguratorStep && !assistantAllowed && <PublicContactBox />}
+      {isConfiguratorStep && !assistantAllowed && <PublicContactBox compactOnMobile={page === "step2"} />}
       {isConfiguratorStep && assistantAllowed && <InlineHelpCta expanded={assistantOpen} onAsk={() => setAssistantOpen(true)} />}
       {isConfiguratorStep && assistantAllowed && <QuoteAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} page={page} context={assistantContext} quickQuestions={quickQuestionsForPage(page, assistantContext)} />}
     </Suspense>

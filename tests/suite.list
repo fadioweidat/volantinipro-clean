@@ -251,3 +251,4 @@ tests/step2_pv_ownership_writes_20261123.test.mjs
 tests/step2_manual_pin_new_pv_20261123.test.mjs
 tests/step2_nil_manual_20261123.test.mjs
 tests/step2_civic_match_20261123.test.mjs
+tests/step2_mobile_pin_contacts_20261123.test.mjs
