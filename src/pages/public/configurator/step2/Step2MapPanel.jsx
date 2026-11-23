@@ -10,6 +10,8 @@ import { getCoverageStatus } from "../../../../lib/step2/buildStep2ViewModel.js"
 import { normalizeMunicipalityName } from "../../../../lib/step2/addressIntent.js";
 import { truthfulSourceLabel } from "../../../../lib/step2/truthfulSourceLabel.js";
 
+// Oss. 1 (2026-11-23): PV nuovo senza comune -> il punto manuale parte da Milano.
+const MANUAL_PIN_FALLBACK_VIEW = { lat: 45.4642, lng: 9.19, zoom: 12 };
 export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = false, containingNil, activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, focusedNil, gisLoading, gisSlowConnection, gisRetrying = false, gisTimedOut, onRetryGis, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiStaleAge = null, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
   return (
     <>
@@ -30,8 +32,10 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
           }}>
             {manualPinMode && <div style={{
               position: "absolute",
-              top: 16,
-              left: 12,
+              top: 12,
+              // Oss. 4 (2026-11-23): parte a destra dei pulsanti + e - dello zoom
+              // (in alto a sinistra, ~30 px + margine 10), che restano usabili.
+              left: 52,
               right: 12,
               zIndex: 1000,
               padding: "9px 12px",
@@ -47,7 +51,7 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
               alignItems: "center",
               justifyContent: "space-between",
               gap: 8,
-              maxWidth: "calc(100% - 24px)",
+              maxWidth: "calc(100% - 64px)",
               boxSizing: "border-box"
             }}>
                 <span style={{
@@ -119,7 +123,7 @@ export function Step2MapPanel({ coverageCalculating = false, simplifiedMilano = 
             // mapConfiniOn does NOT gate the Comune polygon; it only gates the boundary in Raggio/address mode.
             // hiddenBoundaries (per-comune toggle from the UI) still applies.
             // Indirizzo non confermato: il confine comune viene passato come contesto leggero tratteggiato.
-            (simplifiedMilano || isComuneMode || mapConfiniOn && searchMode === "address") && municipalityBoundary ? Array.isArray(municipalityBoundary) ? municipalityBoundary.filter(b => !hiddenBoundaries.includes(normalizeMunicipalityName(b?.name || ""))) : hiddenBoundaries.includes(normalizeMunicipalityName(municipalityBoundary?.name || city?.label || city?.name || "")) ? null : municipalityBoundary : null} isMunicipalityMode={isComuneMode && (simplifiedMilano || !hasUnconfirmedAddressPoint)} unconfirmedAddressMode={hasUnconfirmedAddressPoint} nilMode={isNilManualMode} coveragePolygons={mapCoverageZones} zoneAllocationById={zoneAllocationById} boundaryKpis={boundaryKpisForMap} themeMode={viewMode !== "distribuzione"} activeLayerId={activeLay?.id || null} zoneCoverageById={zoneCoverageById} basemap={mapBasemap} mapConfiniOn={mapConfiniOn} onToggleConfini={() => setMapConfiniOn(v => !v)} dusafLanduse={dusafLanduse} omiInfo={omiInfo} onBasemapToggle={() => setMapBasemap(b => b === "standard" ? "satellite" : "standard")} onMapClick={manualPinMode ? handleManualMapClick : null} />
+            (simplifiedMilano || isComuneMode || mapConfiniOn && searchMode === "address") && municipalityBoundary ? Array.isArray(municipalityBoundary) ? municipalityBoundary.filter(b => !hiddenBoundaries.includes(normalizeMunicipalityName(b?.name || ""))) : hiddenBoundaries.includes(normalizeMunicipalityName(municipalityBoundary?.name || city?.label || city?.name || "")) ? null : municipalityBoundary : null} isMunicipalityMode={isComuneMode && (simplifiedMilano || !hasUnconfirmedAddressPoint)} unconfirmedAddressMode={hasUnconfirmedAddressPoint} nilMode={isNilManualMode} coveragePolygons={mapCoverageZones} zoneAllocationById={zoneAllocationById} boundaryKpis={boundaryKpisForMap} themeMode={viewMode !== "distribuzione"} activeLayerId={activeLay?.id || null} zoneCoverageById={zoneCoverageById} basemap={mapBasemap} mapConfiniOn={mapConfiniOn} onToggleConfini={() => setMapConfiniOn(v => !v)} dusafLanduse={dusafLanduse} omiInfo={omiInfo} onBasemapToggle={() => setMapBasemap(b => b === "standard" ? "satellite" : "standard")} onMapClick={manualPinMode ? handleManualMapClick : null} fallbackView={manualPinMode && !mapCityForStep2 ? MANUAL_PIN_FALLBACK_VIEW : null} />
             </Step2MapErrorBoundary>
             {showTerritoryData && (gisLoading || gisTimedOut) && <div style={{
               position: "absolute",
