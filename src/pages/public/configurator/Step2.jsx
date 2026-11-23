@@ -690,13 +690,16 @@ export function Step2({
         nearestNilId: patch.nearestNilId ?? existing?.nearestNilId ?? null,
         nearestNilName: patch.nearestNilName ?? existing?.nearestNilName ?? null,
       });
+      // A late effect originating from a previous PV must not write into the
+      // currently selected point of sale.
+      if (prev.activeZoneId !== data.activeZoneId) return prev;
       const nextTop = merge(prev.coverage?.address);
       const zones = (prev.campaignZones || []).map(z => z.id === prev.activeZoneId
         ? { ...z, coverage: { ...(z.coverage || {}), address: merge(z.coverage?.address) } }
         : z);
       return { ...prev, coverage: { ...(prev.coverage || {}), address: nextTop }, campaignZones: zones };
     });
-  }, [setData]);
+  }, [setData, data.activeZoneId]);
   const activeAreaTab = searchMode === "municipality" ? "comune" : searchMode === "address" ? "raggio" : "cap";
   const selectionMode = activeAreaTab;
   const territoryMode = searchMode === "municipality" ? "full_municipality" : searchMode === "address" ? "radius" : "cap";
@@ -943,10 +946,10 @@ export function Step2({
 
       // Stato top-level di lavoro = SOLO il PV attivo (stesso percorso di
       // switch / elimina / aggiungi: activatePointOfSale).
-      setData(prev => ({
+      setData(prev => prev.activeZoneId === activeZone.id ? ({
         ...activatePointOfSale(prev, activeZone.id, { resolveCity: () => resolvedCity }),
         radiusSelectionConfirmed: inferredRadiusConfirmed
-      }));
+      }) : prev);
     }
   }, [data.activeZoneId, data.campaignZones]);
 
@@ -954,9 +957,12 @@ export function Step2({
   useEffect(() => {
     if (!data.activeZoneId || !data.campaignZones || data.campaignZones.length === 0) return;
     if (localZoneId !== data.activeZoneId) return;
+    const zoneOwnerId = data.activeZoneId;
     setData(prev => {
-      if (!prev.campaignZones || !prev.activeZoneId) return prev;
-      const zoneIndex = prev.campaignZones.findIndex(z => z.id === prev.activeZoneId);
+      // Stale queued writes must never transplant PV1's local city/NIL/radius
+      // into PV2 if the active point of sale changed after this effect ran.
+      if (!prev.campaignZones || prev.activeZoneId !== zoneOwnerId) return prev;
+      const zoneIndex = prev.campaignZones.findIndex(z => z.id === zoneOwnerId);
       if (zoneIndex === -1) return prev;
       const currentZone = prev.campaignZones[zoneIndex];
       const confirmedCityName = searchMode === "municipality" && selectedMunicipalityDisplayLabel ? selectedMunicipalityDisplayLabel : city?.label || city?.name || currentZone.cityName || "";
@@ -3763,9 +3769,13 @@ export function Step2({
     if (!analysisOwnedByActiveZone) return;
     // Stessa guardia: nessuna allocazione derivata dai dati della zona precedente.
     if (!city && searchMode !== "cap" && data.campaignZones.length > 1) return;
+    // Valori calcolati per QUESTO PV: se nel frattempo e' stato attivato un
+    // altro PV (cambi rapidi), l'aggiornamento non va applicato a quello.
+    const ownerZoneId = data.activeZoneId;
     setData(prev => {
+      if (prev.activeZoneId !== ownerZoneId) return prev;
       const zones = Array.isArray(prev.campaignZones) ? prev.campaignZones : [];
-      const zoneIndex = zones.findIndex(z => z.id === prev.activeZoneId);
+      const zoneIndex = zones.findIndex(z => z.id === ownerZoneId);
       if (zoneIndex === -1) return prev;
       const currentZone = zones[zoneIndex];
       const nextCalculationStatus = !hasUsableAllocationData && (selZones.length > 0 || Boolean(city)) ? "unavailable" : allocationStatus === "success" ? "success" : "pending";
@@ -5392,9 +5402,12 @@ export function Step2({
     if (!data.activeZoneId || localZoneId !== data.activeZoneId) return;
     // ISOLAMENTO PV: readiness/KPI mai calcolati su un'analisi di un altro PV.
     if (!analysisOwnedByActiveZone) return;
+    // KPI e readiness appartengono al PV per cui sono stati calcolati.
+    const ownerZoneId = data.activeZoneId;
     setData(prev => {
+      if (prev.activeZoneId !== ownerZoneId) return prev;
       const zones = Array.isArray(prev.campaignZones) ? prev.campaignZones : [];
-      const zoneIndex = zones.findIndex(z => z.id === prev.activeZoneId);
+      const zoneIndex = zones.findIndex(z => z.id === ownerZoneId);
       if (zoneIndex === -1) return prev;
       const currentZone = zones[zoneIndex];
       if (currentZone.readyForQuote === activeZoneReadyForQuote && JSON.stringify(currentZone.kpiSnapshot || null) === JSON.stringify(activeZoneSnapshotForSave)) return prev;
