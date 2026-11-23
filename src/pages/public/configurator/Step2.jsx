@@ -8,6 +8,7 @@ import { buildTerritorialAiSnapshot } from "../../../lib/step2/buildTerritorialA
 import { familiesShare, familiesShareOfTotal, familiesWeightedCoverage } from "../../../lib/step2/familiesCoverage.js";
 import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
+import { reverseGeocodeComune } from "../../../lib/step2/reverseComune.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, matchesRequestedCivic, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, canonicalZoneId, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
 import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
@@ -1357,10 +1358,15 @@ export function Step2({
         searchMode: "municipality",
         nilManualMode: false,
         selectedSearchPoint: null,
-        addressFullCoverageConfirmed: false
+        addressFullCoverageConfirmed: false,
+        // Oss. 3 (collaudo 2026-11-23): azzera anche l indirizzo di copertura,
+        // altrimenti il pannello Copertura mostrava ancora NIL e "Raggio da"
+        // della zona precedente. null esplicito = PV senza indirizzo.
+        coverage: { ...(zone.coverage || {}), address: null }
       } : zone);
       return {
         ...prev,
+        coverage: { ...(prev.coverage || {}), address: null },
         searchedLocation: "",
         comune: "",
         cityName: "",
@@ -3347,12 +3353,26 @@ export function Step2({
     if (!coords || !Number.isFinite(Number(coords?.lat)) || !Number.isFinite(Number(coords?.lng))) return;
     const ownerZoneId = activeZoneIdRef.current;
     setManualPinMode(false);
+    const lat = Number(coords.lat);
+    const lng = Number(coords.lng);
+    const isMilanoName = name => normalizeMunicipalityName(name || "") === "milano";
+    const currentCityName = city?.label || city?.name || null;
+    // Oss. 2 (collaudo 2026-11-23): il comune viene dalle coordinate toccate,
+    // non piu' sempre "Milano". Se la geocodifica inversa non risponde resta
+    // il comportamento precedente (comune attivo, altrimenti Milano).
+    const reverse = await reverseGeocodeComune({ lat, lng, mapboxToken: import.meta.env.VITE_MAPBOX_TOKEN });
+    // Il PV puo' essere cambiato durante l'attesa: mai applicare il punto a un altro PV.
+    if (activeZoneIdRef.current !== ownerZoneId) return;
+    const reverseName = reverse?.name || null;
+    const parentComune = reverseName
+      ? (isMilanoName(reverseName) ? "Milano" : reverseName)
+      : (isMilanoName(currentCityName) ? "Milano" : currentCityName || "Milano");
     const point = {
       type: "manual_point",
       label: "Punto selezionato sulla mappa",
-      lat: Number(coords.lat),
-      lng: Number(coords.lng),
-      parentComune: normalizeMunicipalityName(city?.label || city?.name) === "milano" ? "Milano" : city?.label || city?.name || "Milano"
+      lat,
+      lng,
+      parentComune
     };
     setSelectedSearchPoint(point);
     setAddressSearchError("");
@@ -3363,13 +3383,32 @@ export function Step2({
     // l'analisi arrivata. Il centro e' il punto appena scelto.
     setRadiusSelectionConfirmed(Number(radius || 3) > 0);
     persistCoverageAddress({ label: point.label, lat: point.lat, lng: point.lng, municipality: point.parentComune });
-    if (!city && point.parentComune === "Milano") {
+    const cityMatchesPoint = Boolean(currentCityName) && normalizeMunicipalityName(currentCityName) === normalizeMunicipalityName(parentComune);
+    if (cityMatchesPoint) return;
+    // Comune attivo ma reverse fallito: si tiene il comune attivo.
+    if (city && !reverseName) return;
+    // Nessun comune attivo, oppure il punto e' in un altro comune (come la
+    // ricerca di un indirizzo in un altro comune): il comune del PV diventa
+    // quello del punto.
+    if (parentComune === "Milano") {
       const milano = await resolveMilanoCity();
-      // Il PV puo' essere cambiato durante l'attesa: mai applicare Milano a un altro PV.
+      // Anche qui: mai applicare Milano a un PV diverso da quello del tocco.
       if (activeZoneIdRef.current !== ownerZoneId || !milano) return;
       setCity(milano);
-      setSelectedComuni(prev => prev && prev.length > 0 ? prev : [milano]);
+      setSelectedComuni(prev => !city && prev && prev.length > 0 ? prev : [milano]);
+      return;
     }
+    const normalizedParent = normalizeTerritoryName(normalizeMunicipalityName(parentComune));
+    const knownCity = GEO_DATA.find(g => normalizeTerritoryName(normalizeMunicipalityName(g.name || g.label || "")) === normalizedParent) || null;
+    const pointCity = knownCity || {
+      id: `manual_${normalizeMunicipalityName(parentComune).replace(/\s+/g, "_")}`,
+      name: parentComune,
+      label: parentComune,
+      lat,
+      lng
+    };
+    setCity(pointCity);
+    setSelectedComuni([pointCity]);
   }
   async function selectAddressPointInMilano(pointLabel, point) {
     try {
