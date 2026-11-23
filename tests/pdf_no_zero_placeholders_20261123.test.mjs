@@ -78,3 +78,14 @@ test("quote in tabella: positive sotto l'1% scritte '<1%', mai '0%'", async () =
   const s4 = read("src/pages/public/configurator/Step4.jsx");
   assert.match(s4, /contributionPct: pv\.quantity > 0 \? c\.quantity \/ pv\.quantity \* 100 : null,/);
 });
+
+test("Zone NIL contate dalla tabella, NIL a 0 volantini 'Non coperto'", () => {
+  const s4 = read("src/pages/public/configurator/Step4.jsx");
+  assert.match(s4, /const territoryCountForPdf = step4AnalysisLevel === "nil" && Number\(territoryCounts\?\.nilCount\) > 0 \? \{\n\s*l: "Zone NIL nel raggio",\n\s*v: formatNumber\(territoryCounts\.nilCount\),/);
+  assert.match(s4, /l: "Comuni nel raggio",\n\s*v: Number\(kpisComuniCount\) > 0 \? formatNumber\(kpisComuniCount\) : null,/);
+  assert.match(s4, /\}, territoryCountForPdf\];/);
+  assert.match(s4, /status: row\.selectedRow && Number\(row\.estimatedFlyers\) > 0 \?/);
+  const fields = s4.slice(s4.indexOf('title: "Output Door to Door"'), s4.indexOf("l: \"Copertura dell'area\""));
+  assert.match(fields, /v: populationForPdf != null \? formatNumber\(populationForPdf\) : null,/);
+  assert.doesNotMatch(fields, /"—"/);
+});
