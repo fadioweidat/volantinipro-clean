@@ -53,7 +53,7 @@ test("PDF con popolazione reale: la riga c'e' con il valore vero", () => {
 
 test("Step 4: popolazione, famiglie e consigliati vanno al PDF solo se reali", () => {
   const s4 = read("src/pages/public/configurator/Step4.jsx");
-  assert.match(s4, /const populationForPdf = Number\(kpisPopulation\) > 0 \? Number\(kpisPopulation\) : null;/);
+  assert.match(s4, /const populationForPdf = personsEstimate \? personsEstimate\.value : null;/);
   const admin = s4.slice(s4.indexOf("serviceSummaryConfig.admin = [{"), s4.indexOf("serviceSummaryConfig.sources = d2dSummarySources;"));
   assert.match(admin, /v: populationForPdf != null \? formatNumber\(populationForPdf\) : null,/);
   assert.doesNotMatch(admin, /dato non disponibile|"—"/);
