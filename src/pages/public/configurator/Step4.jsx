@@ -1230,8 +1230,10 @@ export function Step4({
         name: `${pv.name} / ${c.name}`,
         status: 'Territorio assegnato',
         estimatedFlyers: c.quantity,
-        coveragePct: c.families > 0 ? Math.min(100, Math.round(c.quantity / c.families * 100)) : null,
-        contributionPct: pv.quantity > 0 ? Math.round(c.quantity / pv.quantity * 100) : null,
+        // Non arrotondate qui: il PDF scrive "<1%" per quote > 0 ma sotto l 1%,
+        // invece di uno "0%" che sembra un dato nullo.
+        coveragePct: c.families > 0 ? Math.min(100, c.quantity / c.families * 100) : null,
+        contributionPct: pv.quantity > 0 ? c.quantity / pv.quantity * 100 : null,
       })))
       : isMultiZoneQuote ? [] : pdfMunicipalities,
     pointOfSaleBreakdown: isMultiZoneQuote && multiPvPlan?.ready ? {
