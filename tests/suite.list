@@ -255,3 +255,4 @@ tests/no_invented_numbers_20261122.test.mjs
 tests/service_switch_keeps_analysis_20261122.test.mjs
 tests/step2_pv_ownership_writes_20261123.test.mjs
 tests/step2_manual_pin_new_pv_20261123.test.mjs
+tests/step2_nil_manual_20261123.test.mjs
