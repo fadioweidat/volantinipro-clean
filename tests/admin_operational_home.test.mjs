@@ -93,6 +93,15 @@ test('empty group state creates and selects a campaign-specific group inside the
   assert.match(assignWork, /setSelectedGroupId\(group\.id\)/);
 });
 
+test('adding a person opens an operator picker, not the work assignment directly', () => {
+  assert.match(groupsManager, /onClick=\{\(\) => openAddPerson\(group\)\}>Aggiungi persona/);
+  assert.match(groupsManager, /onClick=\{\(\) => openWizard\(group\.campaign_id, group\.id\)\}>Assegna lavoro/);
+  assert.match(groupsManager, /role="dialog" aria-modal="true"/);
+  assert.match(groupsManager, /selectedPersonId/);
+  assert.match(groupsManager, /openWizard\(group\.campaign_id, group\.id, selectedPersonId\)/);
+  assert.match(groupsManager, /Diventerà membro attivo solo dopo aver salvato il programma/);
+});
+
 test('wizard explains why next is disabled and passes selected group and operator', () => {
   assert.match(assignWork, /canGoNext/);
   assert.match(assignWork, /groupId: selectedGroupId/);
