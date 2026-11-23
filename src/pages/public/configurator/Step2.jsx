@@ -1172,6 +1172,41 @@ export function Step2({
     if (!nilManualMode) setSelected([]);
     setNilManualMode(true);
   };
+  // D2 (2026-11-23): "Scegli NIL" dal comune resta in modalita' Comune ma con
+  // NIL a scelta manuale, e salva il PV attivo come zona personalizzata NIL
+  // (prima passava da switchToComuneMode e il PV restava "Comune intero").
+  const chooseNilManualMode = () => {
+    userModeRef.current = "municipality";
+    setSearchMode("municipality");
+    setDropOpen(false);
+    setComuniPriorityOrder([]);
+    setAddressFullCoverageConfirmed(false);
+    setRadiusSelectionConfirmed(false);
+    setSelected([]);
+    setCoverageDecision(null);
+    setCoverageStrategy(null);
+    setPartialCoverageConfirmed(false);
+    setPendingNilPreselectName(null);
+    setNilManualMode(true);
+    setActiveMapLayers(prev => ({ ...prev, nil: true }));
+    setData(prev => ({
+      ...prev,
+      searchMode: "municipality",
+      campaignZones: (prev.campaignZones || []).map(z => z.id === prev.activeZoneId ? {
+        ...z,
+        searchMode: "municipality",
+        nilManualMode: true,
+        addressFullCoverageConfirmed: false,
+        selected: [],
+        areaMode: "custom_zone",
+        territoryMode: "custom_zone",
+        coverageMode: "nil",
+        comuniPriorityOrder: [],
+        coverageDecision: null,
+        coverageStrategy: null
+      } : z)
+    }));
+  };
   const switchToNilMode = () => {
     userModeRef.current = "address";
     setDropOpen(false);
@@ -2886,7 +2921,10 @@ export function Step2({
     // attivo appartengono a un altro territorio -> non toccare la selezione
     // (NIL -> Raggio restringeva le 7 NIL di Via Torino alla sola DUOMO).
     if (!analysisOwnedByActiveZone) return;
-    if (nilManualMode && isComuneMode && isResidentialStep2 && requestedAnalysisLevel === "nil") return;
+    // D1 (2026-11-23): le NIL scelte a mano non vengono mai sovrascritte dalla
+    // selezione automatica, in qualunque modalita' (anche da indirizzo/raggio),
+    // al cambio PV o all'aggiornamento dell'analisi.
+    if (nilManualMode && isResidentialStep2) return;
     // FASE 1 MULTI-ZONE: una zona appena aggiunta non ha ancora territorio ma
     // apiData/zonesInRadius sono ancora quelli della zona precedente: non
     // auto-selezionare quelle NIL/comuni nella nuova zona.
@@ -6056,7 +6094,7 @@ export function Step2({
             centerLabel={radiusCenterDisplayLabel}
             centerIsPreciseAddress={radiusCenterIsPreciseAddress}
             containingNil={containingNil || (coverageAddress?.nearestNilName ? { name: coverageAddress.nearestNilName } : null)}
-            onChooseNil={() => { switchToComuneMode(); setPendingNilPreselectName(null); enterNilManualMode(); setActiveMapLayers(prev => ({ ...prev, nil: true })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
+            onChooseNil={chooseNilManualMode} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
             radiusKm={radiusKm} onRadiusChange={updateActiveRadius} radiusDisabled={apiLoading}
             recommendedRadius={recommendedRadiusForSlider}
           ><MilanoNilSearch
