@@ -803,12 +803,12 @@ export function Step4({
       title: "Output Door to Door",
       fields: [{
         l: "Famiglie operative stimate",
-        v: formatNumber(estimatedFamiliesForSummary, "—"),
+        v: uniqueFamiliesUndetermined ? UNIQUE_HOUSEHOLDS_NOT_DETERMINABLE_LABEL : Number(estimatedFamiliesForSummary) > 0 ? formatNumber(estimatedFamiliesForSummary) : null,
         src: familiesSourceLabel,
         c: "#22C55E"
       }, {
         l: "Popolazione stimata",
-        v: formatNumber(kpisPopulation) || "—",
+        v: populationForPdf != null ? formatNumber(populationForPdf) : null,
         src: familiesSourceLabel,
         c: "#22C55E"
       }, {
@@ -1010,6 +1010,18 @@ export function Step4({
       sources: data.sources?.length ? data.sources : []
     }
   }[svcType] || {};
+  // PDF (2026-11-23): "Zone NIL nel raggio" stampava il numero di COMUNI
+  // (1 con un PV su Milano, 6 con Milano+Segrate). Le NIL si contano dalla
+  // tabella territori; altrimenti la riga parla di comuni.
+  const territoryCountForPdf = step4AnalysisLevel === "nil" && Number(territoryCounts?.nilCount) > 0 ? {
+    l: "Zone NIL nel raggio",
+    v: formatNumber(territoryCounts.nilCount),
+    src: "Dati geografici / PostGIS"
+  } : {
+    l: "Comuni nel raggio",
+    v: Number(kpisComuniCount) > 0 ? formatNumber(kpisComuniCount) : null,
+    src: "Dati geografici / PostGIS"
+  };
   if (svcType === "d2d") {
     // Righe senza dato reale (null) non vengono stampate: niente "0", "—" o
     // "dato non disponibile" presentati come valori.
@@ -1029,11 +1041,7 @@ export function Step4({
       l: "Densità media",
       v: d2dAvgDensity ? `${formatNumber(d2dAvgDensity)} ab./km²` : null,
       src: ISTAT_HOUSEHOLDS_SHORT
-    }, {
-      l: `${step4TerritoryPluralLabel} nel raggio`,
-      v: kpisComuniCount != null ? formatNumber(kpisComuniCount) : null,
-      src: "Dati geografici / PostGIS"
-    }];
+    }, territoryCountForPdf];
     serviceSummaryConfig.sources = d2dSummarySources;
   }
   const fieldCard = ({
@@ -1110,7 +1118,8 @@ export function Step4({
     return breakdownRows.map(row => ({
       name: row.name,
       type: territoryTypeLabel(row.alloc || row),
-      status: row.selectedRow ? row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Selezionato – copertura completa" : "Selezionato – copertura parziale" : "Non coperto dal budget attuale",
+      // 0 volantini assegnati = territorio non raggiunto, non "copertura parziale".
+      status: row.selectedRow && Number(row.estimatedFlyers) > 0 ? row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Selezionato – copertura completa" : "Selezionato – copertura parziale" : "Non coperto dal budget attuale",
       estimatedFlyers: row.estimatedFlyers,
       coveragePct: row.coveragePercent,
       contributionPct: row.contribution
