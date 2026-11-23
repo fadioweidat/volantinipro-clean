@@ -370,8 +370,16 @@ function fitLines(text, width, size, font, maxLines) {
   return kept;
 }
 
+// Segnaposto che non sono dati: la riga non si stampa (regola 2026-11-22,
+// nessun valore vuoto o inventato presentato come dato).
+const PLACEHOLDER_VALUE_RE = /^\s*(-|—|–|n\/d|n\.d\.|dato non disponibile|non disponibile)\s*$/i;
+export function isPrintableKvValue(value) {
+  const text = safe(value);
+  return Boolean(text) && !PLACEHOLDER_VALUE_RE.test(String(value));
+}
+
 function kvGrid(w, items, columns = 2) {
-  const clean = items.filter(i => safe(i?.value));
+  const clean = items.filter(i => isPrintableKvValue(i?.value));
   if (!clean.length) return;
   const colW = (PAGE.w - PAGE.margin * 2 - 12 * (columns - 1)) / columns;
   const innerW = colW - 18;

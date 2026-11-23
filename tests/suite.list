@@ -257,3 +257,4 @@ tests/step2_nil_manual_20261123.test.mjs
 tests/step2_civic_match_20261123.test.mjs
 tests/step2_mobile_pin_contacts_20261123.test.mjs
 tests/step2_collaudo_osservazioni_20261123.test.mjs
+tests/pdf_no_zero_placeholders_20261123.test.mjs
